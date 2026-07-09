@@ -103,7 +103,7 @@ interface LockedGoal {
 
 type IdentityShape =
   | { kind: 'sentence'; text: string }
-  | { kind: 'stacked'; finishLine: string; declaration: string };
+  | { kind: 'stacked'; finishLine: string };
 
 function applyBecomeTransform(text: string): string | null {
   const lower = text.trim().toLowerCase();
@@ -125,9 +125,9 @@ function deriveIdentityLine(lock: LockedGoal): IdentityShape {
       if (refined) {
         const t = applyBecomeTransform(refined);
         if (t) return { kind: 'sentence', text: t };
-        return { kind: 'stacked', finishLine: refined, declaration: 'I make this real — every day.' };
+        return { kind: 'stacked', finishLine: refined };
       }
-      return { kind: 'stacked', finishLine: lock.goalLabel, declaration: 'I make this real — every day.' };
+      return { kind: 'stacked', finishLine: lock.goalLabel };
     }
     case 'starting': {
       if (lock.isStandard) {
@@ -137,9 +137,9 @@ function deriveIdentityLine(lock: LockedGoal): IdentityShape {
       if (refined) {
         const t = applyBecomeTransform(refined);
         if (t) return { kind: 'sentence', text: t };
-        return { kind: 'stacked', finishLine: refined, declaration: 'I make this real — every day.' };
+        return { kind: 'stacked', finishLine: refined };
       }
-      return { kind: 'stacked', finishLine: lock.goalLabel, declaration: 'I make this real — every day.' };
+      return { kind: 'stacked', finishLine: lock.goalLabel };
     }
   }
 }
@@ -203,7 +203,7 @@ function buildIdentityStatement(
     const override = identityOverrides[g.id];
     if (override !== undefined) return override.trim();
     const shape = deriveIdentityLine(lock);
-    return shape.kind === 'sentence' ? shape.text : `"${shape.finishLine}" — ${shape.declaration}`;
+    return shape.kind === 'sentence' ? shape.text : shape.finishLine;
   }).filter(Boolean) as string[];
   return lines.join('\n');
 }

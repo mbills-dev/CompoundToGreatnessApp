@@ -2028,7 +2028,7 @@ function SummaryScreen({
 
 type IdentityShape =
   | { kind: 'sentence'; text: string }
-  | { kind: 'stacked'; finishLine: string; declaration: string };
+  | { kind: 'stacked'; finishLine: string };
 
 // Returns the best display label for a locked goal.
 // Numbers-path goals: goalLabel already carries the derived "earning $X/month consistently".
@@ -2061,9 +2061,9 @@ function deriveIdentityLine(lock: LockedGoal): IdentityShape {
       if (refined) {
         const transformed = applyBecomeTransform(refined);
         if (transformed) return { kind: 'sentence', text: transformed };
-        return { kind: 'stacked', finishLine: refined, declaration: 'I make this real — every day.' };
+        return { kind: 'stacked', finishLine: refined };
       }
-      return { kind: 'stacked', finishLine: lock.goalLabel, declaration: 'I make this real — every day.' };
+      return { kind: 'stacked', finishLine: lock.goalLabel };
     }
     case 'starting': {
       if (lock.isStandard) {
@@ -2073,16 +2073,16 @@ function deriveIdentityLine(lock: LockedGoal): IdentityShape {
       if (refined) {
         const transformed = applyBecomeTransform(refined);
         if (transformed) return { kind: 'sentence', text: transformed };
-        return { kind: 'stacked', finishLine: refined, declaration: 'I make this real — every day.' };
+        return { kind: 'stacked', finishLine: refined };
       }
-      return { kind: 'stacked', finishLine: lock.goalLabel, declaration: 'I make this real — every day.' };
+      return { kind: 'stacked', finishLine: lock.goalLabel };
     }
   }
 }
 
 function identityShapeToString(shape: IdentityShape): string {
   if (shape.kind === 'sentence') return shape.text;
-  return `"${shape.finishLine}" — ${shape.declaration}`;
+  return shape.finishLine;
 }
 
 export function IdentityScreen({
@@ -2130,7 +2130,7 @@ export function IdentityScreen({
     if (override !== undefined) return override;
     const base = deriveIdentityLine(lock);
     if (base.kind === 'stacked') {
-      return `"${base.finishLine}"\n${base.declaration}`;
+      return base.finishLine;
     }
     return base.text;
   };
@@ -2208,14 +2208,9 @@ export function IdentityScreen({
                         {shape.text}
                       </Text>
                     ) : (
-                      <View style={{ flex: 1, gap: 4 }}>
-                        <Text style={[styles.identityLine, { color: colors.primary, fontStyle: 'italic' }]}>
-                          "{shape.finishLine}"
-                        </Text>
-                        <Text style={[styles.identityLine, { color: colors.text, fontWeight: '700' }]}>
-                          {shape.declaration}
-                        </Text>
-                      </View>
+                      <Text style={[styles.identityLine, { color: colors.primary, fontStyle: 'italic', flex: 1 }]}>
+                        "{shape.finishLine}"
+                      </Text>
                     )}
                     <Pencil size={14} color={colors.primary} strokeWidth={2} style={{ marginTop: 2, opacity: 0.6, flexShrink: 0 }} />
                   </TouchableOpacity>
@@ -2358,10 +2353,7 @@ export function FinaleScreen({
                 {shape.kind === 'sentence' ? (
                   <Text style={[styles.identityLine, { color: colors.text }]}>{shape.text}</Text>
                 ) : (
-                  <View style={{ gap: 4 }}>
-                    <Text style={[styles.identityLine, { color: colors.primary, fontStyle: 'italic' }]}>"{shape.finishLine}"</Text>
-                    <Text style={[styles.identityLine, { color: colors.text, fontWeight: '700' }]}>{shape.declaration}</Text>
-                  </View>
+                  <Text style={[styles.identityLine, { color: colors.primary, fontStyle: 'italic' }]}>"{shape.finishLine}"</Text>
                 )}
               </View>
             </FinaleBeatCard>

@@ -8,10 +8,12 @@ import PaywallGate from '@/components/PaywallGate';
 import LockedDashboardPreview from '@/components/LockedDashboardPreview';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTabBarVisibility } from '@/contexts/TabBarVisibilityContext';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
   const { user, isSubscribed } = useAuth();
+  const { setVisible } = useTabBarVisibility();
   const [loading, setLoading] = useState(true);
   const [goal, setGoal] = useState<Goal | null>(null);
   const [pendingGoal, setPendingGoal] = useState<Goal | null>(null);
@@ -23,6 +25,10 @@ export default function HomeScreen() {
       loadGoal();
     }
   }, [user]);
+
+  useEffect(() => {
+    setVisible(!!goal);
+  }, [goal]);
 
   const loadGoal = async () => {
     try {

@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import { Users } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RacingBorderProvider, useRacingBorder } from '@/contexts/RacingBorderContext';
+import { TabBarVisibilityProvider, useTabBarVisibility } from '@/contexts/TabBarVisibilityContext';
 import { RacingBorder } from '@/components/RacingBorder';
 import Svg, { Path } from 'react-native-svg';
 
@@ -34,6 +35,7 @@ function SettingsIcon({ size, color }: { size: number; color: string }) {
 function TabLayoutInner() {
   const { colors, isDark } = useTheme();
   const { showRacingBorder, resetRacingBorder } = useRacingBorder();
+  const { visible } = useTabBarVisibility();
 
   return (
     <View style={{ flex: 1 }}>
@@ -46,6 +48,7 @@ function TabLayoutInner() {
             height: 90,
             paddingBottom: 30,
             paddingTop: 10,
+            display: visible ? 'flex' : 'none',
           },
           tabBarActiveTintColor: '#CCFF00',
           tabBarInactiveTintColor: isDark ? colors.textTertiary : 'rgba(0,0,0,0.3)',
@@ -104,8 +107,10 @@ function TabLayoutInner() {
 
 export default function TabLayout() {
   return (
-    <RacingBorderProvider>
-      <TabLayoutInner />
-    </RacingBorderProvider>
+    <TabBarVisibilityProvider>
+      <RacingBorderProvider>
+        <TabLayoutInner />
+      </RacingBorderProvider>
+    </TabBarVisibilityProvider>
   );
 }
