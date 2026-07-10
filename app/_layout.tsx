@@ -23,7 +23,7 @@ SplashScreen.preventAutoHideAsync();
 
 function AppContent() {
   const { isDark, colors } = useTheme();
-  const { session, loading, onboardingCompleted, completeOnboarding, isNewSignup, clearNewSignup, isWatcher, watchedUserId, user, signOut } = useAuth();
+  const { session, loading, isNewSignup, clearNewSignup, isWatcher, watchedUserId, user, signOut } = useAuth();
 
   useEffect(() => {
     if (session) {
@@ -70,10 +70,10 @@ function AppContent() {
     );
   }
 
-  if (session && (isNewSignup || !onboardingCompleted) && !onWatchRoute) {
+  if (session && isNewSignup && !onWatchRoute) {
     return (
       <>
-        <SignupSplashScreen onComplete={isNewSignup ? clearNewSignup : completeOnboarding} />
+        <SignupSplashScreen onComplete={clearNewSignup} />
         <StatusBar style={isDark ? 'light' : 'dark'} />
       </>
     );
@@ -86,6 +86,7 @@ function AppContent() {
         <Stack.Screen name="watch/[code]" options={{ headerShown: false }} />
         <Stack.Screen name="archived-challenges" options={{ headerShown: false }} />
         <Stack.Screen name="archived-challenge-detail" options={{ headerShown: false }} />
+        <Stack.Screen name="reset-password" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />

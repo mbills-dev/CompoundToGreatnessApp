@@ -14,8 +14,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
-type AuthMode = 'login' | 'signup';
+type AuthMode = 'login' | 'signup' | 'forgot';
 
 export default function AuthScreen() {
   const { colors, isDark } = useTheme();
@@ -28,6 +29,7 @@ export default function AuthScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetSent, setResetSent] = useState(false);
 
   const handleSubmit = async () => {
     setError(null);
@@ -72,9 +74,36 @@ export default function AuthScreen() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    setError(null);
+    if (!email.trim()) {
+      setError('Enter your email address above first.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const origin = Platform.OS === 'web' && typeof window !== 'undefined'
+        ? window.location.origin
+        : 'https://your-app.bolt.new';
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${origin}/reset-password`,
+      });
+      if (resetError) {
+        setError(resetError.message);
+      } else {
+        setResetSent(true);
+      }
+    } catch {
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const switchMode = () => {
     setMode(mode === 'login' ? 'signup' : 'login');
     setError(null);
+    setResetSent(false);
   };
 
   const canSubmit = () => {
@@ -117,12 +146,14 @@ export default function AuthScreen() {
 
           <View style={styles.form}>
             <Text style={[styles.formTitle, { color: colors.text }]}>
-              {mode === 'login' ? 'Welcome back' : 'Create your account'}
+              {mode === 'login' ? 'Welcome back' : mode === 'signup' ? 'Create your account' : 'Reset password'}
             </Text>
             <Text style={[styles.formSubtitle, { color: colors.textSecondary }]}>
               {mode === 'login'
                 ? 'Sign in to continue your journey'
-                : 'Start your transformation today'}
+                : mode === 'signup'
+                ? 'Start your transformation today'
+                : 'We\'ll send a reset link to your email.'}
             </Text>
 
             {error && (
@@ -131,109 +162,180 @@ export default function AuthScreen() {
               </View>
             )}
 
-            {mode === 'signup' && (
-              <View style={styles.nameRow}>
-                <View style={[styles.inputWrapper, styles.nameInput]}>
+            {mode === 'forgot' && resetSent ? (
+              <View style={styles.resetSentContainer}>
+                <Text style={[styles.resetSentText, { color: colors.text }]}>
+                  Check your email for a reset link.
+                </Text>
+                <TouchableOpacity style={styles.backToLogin} onPress={() => { setMode('login'); setResetSent(false); setError(null); }}>
+                  <Text style={[styles.switchTextBold, { color: colors.primary }]}>Back to Sign In</Text>
+                </TouchableOpacity>
+              </View>
+            ) : mode === 'forgot' ? (
+              <>
+                <View style={styles.inputWrapper}>
                   <View style={[styles.inputIconContainer, { backgroundColor: isDark ? 'rgba(189, 253, 0, 0.08)' : 'rgba(189, 253, 0, 0.12)' }]}>
-                    <User size={18} color={colors.primary} strokeWidth={2} />
+                    <Mail size={18} color={colors.primary} strokeWidth={2} />
                   </View>
                   <TextInput
                     style={[styles.input, { color: colors.text, borderColor: isDark ? colors.border : '#E0E0E0', backgroundColor: isDark ? colors.backgroundSecondary : 'rgba(245, 245, 245, 0.8)' }]}
-                    value={firstName}
-                    onChangeText={setFirstName}
-                    placeholder="First name"
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="Email address"
                     placeholderTextColor={colors.textTertiary}
-                    autoCapitalize="words"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
                   />
                 </View>
-                <View style={[styles.inputWrapper, styles.nameInput]}>
-                  <TextInput
-                    style={[styles.input, styles.inputNoIcon, { color: colors.text, borderColor: isDark ? colors.border : '#E0E0E0', backgroundColor: isDark ? colors.backgroundSecondary : 'rgba(245, 245, 245, 0.8)' }]}
-                    value={lastName}
-                    onChangeText={setLastName}
-                    placeholder="Last name"
-                    placeholderTextColor={colors.textTertiary}
-                    autoCapitalize="words"
-                  />
-                </View>
-              </View>
-            )}
+                <TouchableOpacity
+                  style={[styles.submitButton, !email.trim() && styles.submitButtonDisabled]}
+                  onPress={handleForgotPassword}
+                  disabled={!email.trim() || loading}
+                  activeOpacity={0.9}
+                >
+                  <LinearGradient
+                    colors={email.trim() ? [colors.primary, colors.primaryDark] : [isDark ? colors.backgroundSecondary : '#D0D0D0', isDark ? colors.backgroundTertiary : '#B0B0B0']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.submitGradient}
+                  >
+                    {loading ? (
+                      <ActivityIndicator size="small" color={email.trim() ? '#000000' : colors.textTertiary} />
+                    ) : (
+                      <Text style={[styles.submitText, { color: email.trim() ? '#000000' : colors.textTertiary }]}>
+                        Send reset link
+                      </Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.switchMode} onPress={() => { setMode('login'); setError(null); }}>
+                  <Text style={[styles.switchText, { color: colors.textSecondary }]}>
+                    {'Back to '}
+                    <Text style={[styles.switchTextBold, { color: colors.primary }]}>Sign In</Text>
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
 
-            <View style={styles.inputWrapper}>
-              <View style={[styles.inputIconContainer, { backgroundColor: isDark ? 'rgba(189, 253, 0, 0.08)' : 'rgba(189, 253, 0, 0.12)' }]}>
-                <Mail size={18} color={colors.primary} strokeWidth={2} />
-              </View>
-              <TextInput
-                style={[styles.input, { color: colors.text, borderColor: isDark ? colors.border : '#E0E0E0', backgroundColor: isDark ? colors.backgroundSecondary : 'rgba(245, 245, 245, 0.8)' }]}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="Email address"
-                placeholderTextColor={colors.textTertiary}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-              />
-            </View>
-
-            <View style={styles.inputWrapper}>
-              <View style={[styles.inputIconContainer, { backgroundColor: isDark ? 'rgba(189, 253, 0, 0.08)' : 'rgba(189, 253, 0, 0.12)' }]}>
-                <Lock size={18} color={colors.primary} strokeWidth={2} />
-              </View>
-              <TextInput
-                style={[styles.input, { color: colors.text, borderColor: isDark ? colors.border : '#E0E0E0', backgroundColor: isDark ? colors.backgroundSecondary : 'rgba(245, 245, 245, 0.8)', paddingRight: 52 }]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Password"
-                placeholderTextColor={colors.textTertiary}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                {showPassword ? (
-                  <EyeOff size={18} color={colors.textTertiary} strokeWidth={2} />
-                ) : (
-                  <Eye size={18} color={colors.textTertiary} strokeWidth={2} />
-                )}
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.submitButton, !canSubmit() && styles.submitButtonDisabled]}
-              onPress={handleSubmit}
-              disabled={!canSubmit() || loading}
-              activeOpacity={0.9}
-            >
-              <LinearGradient
-                colors={canSubmit() ? [colors.primary, colors.primaryDark] : [isDark ? colors.backgroundSecondary : '#D0D0D0', isDark ? colors.backgroundTertiary : '#B0B0B0']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.submitGradient}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color={canSubmit() ? '#000000' : colors.textTertiary} />
-                ) : (
-                  <View style={styles.submitContent}>
-                    <Text style={[styles.submitText, { color: canSubmit() ? '#000000' : colors.textTertiary }]}>
-                      {mode === 'login' ? 'Sign In' : 'Create Account'}
-                    </Text>
-                    <ArrowRight size={20} color={canSubmit() ? '#000000' : colors.textTertiary} strokeWidth={2.5} />
+            {(mode === 'login' || mode === 'signup') && (
+              <>
+                {mode === 'signup' && (
+                  <View style={styles.nameRow}>
+                    <View style={[styles.inputWrapper, styles.nameInput]}>
+                      <View style={[styles.inputIconContainer, { backgroundColor: isDark ? 'rgba(189, 253, 0, 0.08)' : 'rgba(189, 253, 0, 0.12)' }]}>
+                        <User size={18} color={colors.primary} strokeWidth={2} />
+                      </View>
+                      <TextInput
+                        style={[styles.input, { color: colors.text, borderColor: isDark ? colors.border : '#E0E0E0', backgroundColor: isDark ? colors.backgroundSecondary : 'rgba(245, 245, 245, 0.8)' }]}
+                        value={firstName}
+                        onChangeText={setFirstName}
+                        placeholder="First name"
+                        placeholderTextColor={colors.textTertiary}
+                        autoCapitalize="words"
+                      />
+                    </View>
+                    <View style={[styles.inputWrapper, styles.nameInput]}>
+                      <TextInput
+                        style={[styles.input, styles.inputNoIcon, { color: colors.text, borderColor: isDark ? colors.border : '#E0E0E0', backgroundColor: isDark ? colors.backgroundSecondary : 'rgba(245, 245, 245, 0.8)' }]}
+                        value={lastName}
+                        onChangeText={setLastName}
+                        placeholder="Last name"
+                        placeholderTextColor={colors.textTertiary}
+                        autoCapitalize="words"
+                      />
+                    </View>
                   </View>
                 )}
-              </LinearGradient>
-            </TouchableOpacity>
 
-            <TouchableOpacity style={styles.switchMode} onPress={switchMode}>
-              <Text style={[styles.switchText, { color: colors.textSecondary }]}>
-                {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
-                <Text style={[styles.switchTextBold, { color: colors.primary }]}>
-                  {mode === 'login' ? 'Sign Up' : 'Sign In'}
-                </Text>
-              </Text>
-            </TouchableOpacity>
+                <View style={styles.inputWrapper}>
+                  <View style={[styles.inputIconContainer, { backgroundColor: isDark ? 'rgba(189, 253, 0, 0.08)' : 'rgba(189, 253, 0, 0.12)' }]}>
+                    <Mail size={18} color={colors.primary} strokeWidth={2} />
+                  </View>
+                  <TextInput
+                    style={[styles.input, { color: colors.text, borderColor: isDark ? colors.border : '#E0E0E0', backgroundColor: isDark ? colors.backgroundSecondary : 'rgba(245, 245, 245, 0.8)' }]}
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="Email address"
+                    placeholderTextColor={colors.textTertiary}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                  />
+                </View>
+
+                <View style={styles.inputWrapper}>
+                  <View style={[styles.inputIconContainer, { backgroundColor: isDark ? 'rgba(189, 253, 0, 0.08)' : 'rgba(189, 253, 0, 0.12)' }]}>
+                    <Lock size={18} color={colors.primary} strokeWidth={2} />
+                  </View>
+                  <TextInput
+                    style={[styles.input, { color: colors.text, borderColor: isDark ? colors.border : '#E0E0E0', backgroundColor: isDark ? colors.backgroundSecondary : 'rgba(245, 245, 245, 0.8)', paddingRight: 52 }]}
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Password"
+                    placeholderTextColor={colors.textTertiary}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowPassword(!showPassword)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    {showPassword ? (
+                      <EyeOff size={18} color={colors.textTertiary} strokeWidth={2} />
+                    ) : (
+                      <Eye size={18} color={colors.textTertiary} strokeWidth={2} />
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {mode === 'login' && (
+                  <TouchableOpacity
+                    style={styles.forgotPassword}
+                    onPress={() => { setMode('forgot'); setError(null); setResetSent(false); }}
+                  >
+                    <Text style={[styles.forgotPasswordText, { color: colors.textSecondary }]}>
+                      Forgot password?
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.submitButton, !canSubmit() && styles.submitButtonDisabled]}
+                  onPress={handleSubmit}
+                  disabled={!canSubmit() || loading}
+                  activeOpacity={0.9}
+                >
+                  <LinearGradient
+                    colors={canSubmit() ? [colors.primary, colors.primaryDark] : [isDark ? colors.backgroundSecondary : '#D0D0D0', isDark ? colors.backgroundTertiary : '#B0B0B0']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.submitGradient}
+                  >
+                    {loading ? (
+                      <ActivityIndicator size="small" color={canSubmit() ? '#000000' : colors.textTertiary} />
+                    ) : (
+                      <View style={styles.submitContent}>
+                        <Text style={[styles.submitText, { color: canSubmit() ? '#000000' : colors.textTertiary }]}>
+                          {mode === 'login' ? 'Sign In' : 'Create Account'}
+                        </Text>
+                        <ArrowRight size={20} color={canSubmit() ? '#000000' : colors.textTertiary} strokeWidth={2.5} />
+                      </View>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.switchMode} onPress={switchMode}>
+                  <Text style={[styles.switchText, { color: colors.textSecondary }]}>
+                    {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+                    <Text style={[styles.switchTextBold, { color: colors.primary }]}>
+                      {mode === 'login' ? 'Sign Up' : 'Sign In'}
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </ScrollView>
       </LinearGradient>
@@ -382,5 +484,28 @@ const styles = StyleSheet.create({
   },
   switchTextBold: {
     fontWeight: '700',
+  },
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginBottom: 8,
+    paddingVertical: 4,
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  resetSentContainer: {
+    gap: 20,
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  resetSentText: {
+    fontSize: 17,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 26,
+  },
+  backToLogin: {
+    paddingVertical: 4,
   },
 });

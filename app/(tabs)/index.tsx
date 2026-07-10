@@ -125,7 +125,7 @@ export default function HomeScreen() {
           is_active: activate,
           user_id: user!.id,
           challenge_start_date: activate ? startDate.toISOString() : null,
-          current_challenge_day: 1,
+          current_challenge_day: 0,
           identity_statement: result.identityStatement,
           identity_dimensions: result.dimensions,
           compass_vision: result.compass.vision,
@@ -192,7 +192,7 @@ export default function HomeScreen() {
         .update({
           is_active: true,
           challenge_start_date: startDate.toISOString(),
-          current_challenge_day: 1,
+          current_challenge_day: 0,
         })
         .eq('id', pendingGoal.id)
         .select()
