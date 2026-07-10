@@ -31,7 +31,7 @@ import EvidenceLogSection from './EvidenceLog';
 import CompassCard from './CompassCard';
 import GracePeriodModal from './GracePeriodModal';
 import ChallengeCompleteScreen from './ChallengeCompleteScreen';
-import { isDateLocked, toLocalDateString, parseLocalDate } from '@/lib/dateHelpers';
+import { isDateLocked, toLocalDateString, parseLocalDate, getDayNumberFromChallengeStart } from '@/lib/dateHelpers';
 import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import CoachCard from './CoachCard';
 import { useRacingBorder } from '@/contexts/RacingBorderContext';
@@ -222,6 +222,9 @@ export default function DailyDashboard({
     : isDateLocked(today, goal.challenge_start_date, goal.last_completion_date);
 
   const currentDay = goal.current_challenge_day || 1;
+  const displayDay = goal.challenge_start_date
+    ? getDayNumberFromChallengeStart(goal.challenge_start_date, today)
+    : 1;
 
   useEffect(() => {
     setLocalActivities([...activities].sort((a, b) => a.order_position - b.order_position));
@@ -767,7 +770,7 @@ export default function DailyDashboard({
             )}
             <View style={styles.dateContainer}>
               <Text style={[styles.date, { color: colors.text }]}>
-                DAY {Math.max(1, goal.current_challenge_day)}
+                DAY {displayDay}
               </Text>
               <Text style={[styles.dateLabel, { color: colors.textTertiary }]}>
                 {isKeepGoing ? goal.title?.toUpperCase() : '77-DAY CHALLENGE'}
@@ -788,7 +791,7 @@ export default function DailyDashboard({
                 </View>
               </View>
             ) : (
-              <CoachCard challengeDay={goal.current_challenge_day || 1} />
+              <CoachCard challengeDay={displayDay} />
             )}
 
             {goal.identity_statement && (
@@ -925,8 +928,8 @@ export default function DailyDashboard({
 
             {confettiCompleted && progress === 100 && (
               <DayBadge
-                day={currentDay}
-                isMilestone={MILESTONE_DAYS.includes(currentDay)}
+                day={displayDay}
+                isMilestone={MILESTONE_DAYS.includes(displayDay)}
               />
             )}
           </View>
