@@ -8,6 +8,7 @@ import {
   Share,
   Platform,
   TouchableOpacity,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -45,6 +46,8 @@ import {
   requestNotificationPermissions,
   scheduleDailyReminders,
 } from '@/lib/notifications';
+import { CHALLENGE_RULES } from '@/constants/challengeRules';
+import { BookOpen } from 'lucide-react-native';
 
 const ONBOARDING_KEY = '@onboarding_completed';
 
@@ -370,6 +373,7 @@ export default function SettingsScreen() {
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const [showSplashPreview, setShowSplashPreview] = useState(false);
   const [showGracePeriodPreview, setShowGracePeriodPreview] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
 
   const handleSignOut = () => {
     if (Platform.OS !== 'web') {
@@ -416,6 +420,29 @@ export default function SettingsScreen() {
       onKeepGoing={() => setShowGracePeriodPreview(false)}
       onStartOver={() => setShowGracePeriodPreview(false)}
     />
+    <Modal visible={showRulesModal} transparent animationType="fade" statusBarTranslucent>
+      <View style={rulesModalStyles.overlay}>
+        <View style={[rulesModalStyles.card, { backgroundColor: isDark ? colors.backgroundSecondary : '#FFFFFF', borderColor: isDark ? colors.border : '#E0E0DB' }]}>
+          <Text style={[rulesModalStyles.eyebrow, { color: colors.primary }]}>THE RULES</Text>
+          <Text style={[rulesModalStyles.title, { color: colors.text }]}>Challenge Rules</Text>
+          <View style={rulesModalStyles.rulesList}>
+            {CHALLENGE_RULES.map((rule, i) => (
+              <View key={i} style={rulesModalStyles.ruleRow}>
+                <Text style={[rulesModalStyles.ruleNum, { color: colors.primary }]}>{i + 1}.</Text>
+                <Text style={[rulesModalStyles.ruleText, { color: colors.textSecondary }]}>{rule}</Text>
+              </View>
+            ))}
+          </View>
+          <TouchableOpacity
+            style={[rulesModalStyles.closeBtn, { backgroundColor: colors.primary }]}
+            onPress={() => setShowRulesModal(false)}
+            activeOpacity={0.85}
+          >
+            <Text style={rulesModalStyles.closeBtnText}>Got it</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
       <LinearGradient
         colors={isDark ? ['#000000', '#111111', '#000000'] : ['#F5F5F0', '#F0F0EB', '#F5F5F0']}
@@ -561,13 +588,21 @@ export default function SettingsScreen() {
           <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>CHALLENGE</Text>
           <GlassPanel isDark={isDark} colors={colors}>
             <ActionRow
+              icon={<BookOpen size={18} color={colors.primary} strokeWidth={2} />}
+              title="Challenge Rules"
+              subtitle="Review the four rules of the challenge"
+              onPress={() => setShowRulesModal(true)}
+              colors={colors}
+              isDark={isDark}
+              isFirst
+            />
+            <ActionRow
               icon={<Archive size={18} color={colors.primary} strokeWidth={2} />}
               title="Archived Challenges"
               subtitle="View your past challenge history"
               onPress={() => router.push('/archived-challenges')}
               colors={colors}
               isDark={isDark}
-              isFirst
             />
             {activeGoal && (
               <>
@@ -749,5 +784,66 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
     marginBottom: 8,
+  },
+});
+
+const rulesModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.82)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 28,
+  },
+  eyebrow: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '900',
+    letterSpacing: -0.4,
+    marginBottom: 20,
+  },
+  rulesList: {
+    gap: 12,
+    marginBottom: 28,
+  },
+  ruleRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  ruleNum: {
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 22,
+    width: 18,
+  },
+  ruleText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    lineHeight: 22,
+  },
+  closeBtn: {
+    borderRadius: 50,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  closeBtnText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#000000',
   },
 });

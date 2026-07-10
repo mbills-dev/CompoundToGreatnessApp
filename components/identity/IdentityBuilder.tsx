@@ -48,6 +48,7 @@ import { CompassStoryScreen, CompassDominoScreen, CompassMechanismScreen } from 
 import { FinaleScreen } from './flow/FinaleScreens';
 import { generateIdentityStatements } from './identityAi';
 import { supabase } from '@/lib/supabase';
+import { CHALLENGE_RULES } from '@/constants/challengeRules';
 
 // ─── Helpers (local — result assembly only) ───────────────────────────────────
 
@@ -266,6 +267,15 @@ function SignatureScreen({
           )}
         </View>
 
+        <View style={[sigStyles.rulesBlock, { borderColor: colors.border }]}>
+          <Text style={[sigStyles.rulesEyebrow, { color: colors.primary }]}>THE RULES</Text>
+          {CHALLENGE_RULES.map((rule, i) => (
+            <Text key={i} style={[sigStyles.rulesLine, { color: colors.textSecondary }]}>
+              {i + 1}.{'  '}{rule}
+            </Text>
+          ))}
+        </View>
+
         <Text style={[sigStyles.sigLabel, { color: colors.textSecondary, marginBottom: 10 }]}>
           Sign your name in the box to continue
         </Text>
@@ -333,6 +343,9 @@ const sigStyles = StyleSheet.create({
   checkRow: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 12 },
   checkCircle: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: 'center' as const, justifyContent: 'center' as const, marginTop: 2 },
   checkText: { flex: 1, fontSize: 14, fontWeight: '600' as const, lineHeight: 20 },
+  rulesBlock: { borderTopWidth: 1, paddingTop: 20, marginBottom: 20, gap: 8 },
+  rulesEyebrow: { fontSize: 10, fontWeight: '800' as const, letterSpacing: 1.4, textTransform: 'uppercase' as const, marginBottom: 4 },
+  rulesLine: { fontSize: 14, fontWeight: '500' as const, lineHeight: 20 },
   sigLabel: { fontSize: 13, fontWeight: '500' as const },
   sigPad: { height: 220, borderRadius: 16, borderWidth: 1, overflow: 'hidden' as const },
   clearBtn: { position: 'absolute' as const, top: 10, right: 14 },
