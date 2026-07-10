@@ -174,7 +174,6 @@ function SignatureScreen({
 
   const [paths, setPaths] = useState<string[]>([]);
   const [currentPath, setCurrentPath] = useState<string>('');
-  const [showConfetti, setShowConfetti] = useState(false);
   const [committed, setCommitted] = useState(false);
   const placeholderAnim = useRef(new RNAnimated.Value(1)).current;
   const hasSig = paths.length > 0 || currentPath.length > 0;
@@ -313,8 +312,7 @@ function SignatureScreen({
             if (Platform.OS !== 'web') {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }
-            setShowConfetti(true);
-            setTimeout(() => { onComplete(); }, 2600);
+            onComplete();
           }}
           activeOpacity={(hasSig && !committed) ? 0.85 : 1}
           disabled={!hasSig || committed}
@@ -324,7 +322,6 @@ function SignatureScreen({
           </Text>
         </TouchableOpacity>
       </Animated.View>
-      {showConfetti && <Confetti count={48} />}
     </ScrollView>
   );
 }
@@ -419,12 +416,25 @@ export default function IdentityBuilder({ onComplete }: Props) {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      const uid = data?.user?.id;
-      if (!uid) return;
+      const user = data?.user;
+      if (!user) return;
+
+      // 1. Check auth user_metadata first (populated at signup).
+      const meta = user.user_metadata;
+      const metaName = [meta?.first_name, meta?.last_name]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+      if (metaName) {
+        setDisplayName(metaName);
+        return;
+      }
+
+      // 2. Fall back to profiles.display_name for existing/social users.
       supabase
         .from('profiles')
         .select('display_name')
-        .eq('id', uid)
+        .eq('id', user.id)
         .maybeSingle()
         .then(({ data: profile }) => {
           const name = profile?.display_name?.trim() ?? '';

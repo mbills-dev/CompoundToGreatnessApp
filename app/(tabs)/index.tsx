@@ -19,6 +19,7 @@ export default function HomeScreen() {
   const [pendingGoal, setPendingGoal] = useState<Goal | null>(null);
   const [activities, setActivities] = useState<DailyActivity[]>([]);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallCelebrate, setPaywallCelebrate] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -175,6 +176,7 @@ export default function HomeScreen() {
       setGoal(created);
     } else {
       setPendingGoal(created);
+      setPaywallCelebrate(true);
       setShowPaywall(true);
     }
   };
@@ -201,6 +203,7 @@ export default function HomeScreen() {
       setGoal(activated);
       setPendingGoal(null);
       setShowPaywall(false);
+      setPaywallCelebrate(false);
     } catch (error) {
       console.error('Error activating goal:', error);
     }
@@ -217,8 +220,9 @@ export default function HomeScreen() {
   if (showPaywall) {
     return (
       <PaywallGate
-        onDismiss={() => setShowPaywall(false)}
+        onDismiss={() => { setShowPaywall(false); setPaywallCelebrate(false); }}
         onSubscribeSuccess={activatePendingGoal}
+        celebrate={paywallCelebrate}
       />
     );
   }

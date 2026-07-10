@@ -9,10 +9,12 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Crown, Check, Zap, Shield, ChartBar as BarChart3, Users } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import Confetti from '@/components/Confetti';
 
 interface PaywallGateProps {
   onDismiss: () => void;
   onSubscribeSuccess?: () => void;
+  celebrate?: boolean;
 }
 
 const FEATURES = [
@@ -38,9 +40,10 @@ const FEATURES = [
   },
 ];
 
-export default function PaywallGate({ onDismiss, onSubscribeSuccess }: PaywallGateProps) {
+export default function PaywallGate({ onDismiss, onSubscribeSuccess, celebrate = false }: PaywallGateProps) {
   const { colors, isDark } = useTheme();
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
+  const [showConfetti, setShowConfetti] = useState(celebrate);
 
   const handleSubscribe = () => {
     // TODO(PRE-LAUNCH BLOCKER): move this call inside the RevenueCat
@@ -51,6 +54,11 @@ export default function PaywallGate({ onDismiss, onSubscribeSuccess }: PaywallGa
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {showConfetti && (
+        <View style={styles.confettiOverlay} pointerEvents="none">
+          <Confetti count={36} onDone={() => setShowConfetti(false)} />
+        </View>
+      )}
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -182,6 +190,11 @@ export default function PaywallGate({ onDismiss, onSubscribeSuccess }: PaywallGa
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  confettiOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
+    pointerEvents: 'none',
   },
   scrollContent: {
     flexGrow: 1,
