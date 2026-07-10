@@ -126,59 +126,70 @@ export default function EvidenceLogSection({ goalId, date, readOnly = false, cha
 
       {showInput ? (
         <View style={styles.inputSection}>
-          <View style={[
-            styles.inputContainer,
-            {
-              backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#FFFFFF',
-              borderColor: isDark ? 'rgba(255,255,255,0.1)' : colors.border,
-            },
-          ]}>
-            <TextInput
-              ref={inputRef}
-              style={[styles.input, { color: colors.text }]}
-              placeholder={'"I noticed something different today..."'}
-              placeholderTextColor={colors.textTertiary}
-              value={content}
-              onChangeText={setContent}
-              multiline
-              textAlignVertical="top"
-              autoFocus={isEditing}
-            />
-          </View>
-          <View style={styles.inputActions}>
-            {hasContent && (
-              <TouchableOpacity
-                style={[styles.cancelButton, { borderColor: colors.border }]}
-                onPress={() => {
-                  setContent(log?.content || '');
-                  setIsEditing(false);
-                  Keyboard.dismiss();
-                }}
-              >
-                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Cancel</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={[
-                styles.saveButton,
-                { backgroundColor: colors.primary },
-                (!content.trim() || saving) && styles.saveButtonDisabled,
-              ]}
-              onPress={saveLog}
-              disabled={!content.trim() || saving}
-            >
-              {saving ? (
-                <ActivityIndicator size="small" color="#000000" />
-              ) : (
-                <>
-                  <Send size={16} color="#000000" strokeWidth={2.5} />
-                  <Text style={styles.saveButtonText}>Save</Text>
-                </>
+          <TouchableOpacity
+            activeOpacity={onLockedInteraction ? 0.85 : 1}
+            onPress={onLockedInteraction ?? undefined}
+            disabled={!onLockedInteraction}
+          >
+            <View style={[
+              styles.inputContainer,
+              {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(255,255,255,0.1)' : colors.border,
+              },
+            ]}>
+              <TextInput
+                ref={inputRef}
+                style={[styles.input, { color: colors.text }]}
+                placeholder={'"I noticed something different today..."'}
+                placeholderTextColor={colors.textTertiary}
+                value={content}
+                onChangeText={setContent}
+                multiline
+                textAlignVertical="top"
+                autoFocus={isEditing}
+                editable={!onLockedInteraction}
+                pointerEvents={onLockedInteraction ? 'none' : 'auto'}
+              />
+            </View>
+          </TouchableOpacity>
+          {!onLockedInteraction && (
+            <View style={styles.inputActions}>
+              {hasContent && (
+                <TouchableOpacity
+                  style={[styles.cancelButton, { borderColor: colors.border }]}
+                  onPress={() => {
+                    setContent(log?.content || '');
+                    setIsEditing(false);
+                    Keyboard.dismiss();
+                  }}
+                >
+                  <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Cancel</Text>
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={[
+                  styles.saveButton,
+                  { backgroundColor: colors.primary },
+                  (!content.trim() || saving) && styles.saveButtonDisabled,
+                ]}
+                onPress={saveLog}
+                disabled={!content.trim() || saving}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color="#000000" />
+                ) : (
+                  <>
+                    <Send size={16} color="#000000" strokeWidth={2.5} />
+                    <Text style={styles.saveButtonText}>Save</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       ) : hasContent ? (
+
         <TouchableOpacity
           style={[
             styles.logCard,

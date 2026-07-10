@@ -20,9 +20,10 @@ import { useTheme } from '@/contexts/ThemeContext';
 interface CompassCardProps {
   declaration: string;
   filterQuestion: string;
+  onLockedInteraction?: () => void;
 }
 
-export default function CompassCard({ declaration, filterQuestion }: CompassCardProps) {
+export default function CompassCard({ declaration, filterQuestion, onLockedInteraction }: CompassCardProps) {
   const { colors, isDark } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
 
@@ -30,12 +31,14 @@ export default function CompassCard({ declaration, filterQuestion }: CompassCard
   const modalScale = useSharedValue(0.9);
 
   const openModal = () => {
+    if (onLockedInteraction) { onLockedInteraction(); return; }
     setModalVisible(true);
     modalOpacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.ease) });
     modalScale.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.back(1.2)) });
   };
 
   const closeModal = () => {
+    if (onLockedInteraction) { onLockedInteraction(); return; }
     modalOpacity.value = withTiming(0, { duration: 200 });
     modalScale.value = withTiming(0.9, { duration: 200 });
     setTimeout(() => setModalVisible(false), 220);

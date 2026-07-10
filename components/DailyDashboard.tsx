@@ -796,6 +796,7 @@ export default function DailyDashboard({
               <CompassCard
                 declaration={goal.compass_declaration ?? ''}
                 filterQuestion={goal.compass_filter_question}
+                onLockedInteraction={onLockedInteraction}
               />
             )}
 
