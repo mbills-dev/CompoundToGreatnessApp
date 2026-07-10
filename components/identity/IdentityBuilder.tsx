@@ -37,123 +37,23 @@ import { IdentityBuilderResult, RawInputEntry, Dimension } from './types';
 import SignupSplashScreen from '@/components/SignupSplashScreen';
 import { scheduleTaskReminder } from './notifications';
 import { WhenPickerValue } from './WhenPickerModal';
-import {
-  WelcomeSeriesScreen,
-  GoalsEntryScreen,
-  IntroScreen,
-  PathSelectorScreen,
-  GoalDoneLooksScreen,
-  GoalFuelRedirectScreen,
-  GoalLockedScreen,
-  AnchorScreen,
-  AddInputScreen,
-  IdentityScreen,
-  CompassStoryScreen as MockupCompassStoryScreen,
-  CompassDominoScreen,
-  CompassMechanismScreen,
-  FinaleScreen,
-  PathNumbers,
-  PathPractice,
-  PathStarting,
-  GoalBadge,
-} from './ReverseEngineerMockup';
+import { DecodePath, FlowGoal, AnchoredInput, LockedGoal } from './flow/types';
+import { WelcomeSeriesScreen } from './flow/WelcomeScreens';
+import { GoalsEntryScreen, IntroScreen, GoalDoneLooksScreen, GoalFuelRedirectScreen } from './flow/GoalsEntry';
+import { PathSelectorScreen, PathNumbers, PathPractice, PathStarting } from './flow/PathScreens';
+import { AnchorScreen, AddInputScreen, GoalLockedScreen, GoalBadge, formatGoalLabel, displayGoalLabel } from './flow/AnchorScreens';
+import { IdentityScreen, deriveIdentityLine } from './flow/IdentityScreens';
+import { CompassStoryScreen, CompassDominoScreen, CompassMechanismScreen } from './flow/CompassScreens';
+import { FinaleScreen } from './flow/FinaleScreens';
 
 // ─── Helpers (local — result assembly only) ───────────────────────────────────
 
-type DecodePath = 'numbers' | 'practice' | 'starting';
-
-interface MockGoal {
-  id: number;
-  label: string;
-  deriveLabel?: (t: string) => string;
-  category: string;
-  deadline: string;
-  practiceSeed?: string;
-  defaultPath: DecodePath;
-  inheritedTarget?: string;
-}
-
-interface AnchoredInput {
-  dailyInput: string;
-  when: string;
-  where: string;
-  schedule: WhenPickerValue | null;
-  isStandard?: boolean;
-}
-
-interface LockedGoal {
-  goalId: number;
-  dailyInput: string;
-  goalLabel: string;
-  doneLooksText?: string;
-  what: string;
-  when: string;
-  where: string;
-  schedule: WhenPickerValue | null;
-  isStandard?: boolean;
-  decodePath: DecodePath;
-  resolvedTargetStr?: string;
-  // Structured payload from PathNumbers (numbers path only)
+type ExtendedLockedGoal = LockedGoal & {
   dailyNumber?: number;
   winNoun?: string;
   actionNoun?: string;
   ratio?: number;
-  additionalInputs: AnchoredInput[];
-}
-
-type IdentityShape =
-  | { kind: 'sentence'; text: string }
-  | { kind: 'stacked'; finishLine: string };
-
-function applyBecomeTransform(text: string): string | null {
-  const lower = text.trim().toLowerCase();
-  if (lower.startsWith('become ')) {
-    const rest = text.trim().slice('become '.length).trim();
-    return `I am ${rest}.`;
-  }
-  return null;
-}
-
-function deriveIdentityLine(lock: LockedGoal): IdentityShape {
-  const refined = lock.doneLooksText?.trim();
-  switch (lock.decodePath) {
-    case 'numbers': {
-      const target = lock.resolvedTargetStr ?? lock.goalLabel;
-      return { kind: 'sentence', text: `I earn ${target}/month — consistently.` };
-    }
-    case 'practice': {
-      if (refined) {
-        const t = applyBecomeTransform(refined);
-        if (t) return { kind: 'sentence', text: t };
-        return { kind: 'stacked', finishLine: refined };
-      }
-      return { kind: 'stacked', finishLine: lock.goalLabel };
-    }
-    case 'starting': {
-      if (lock.isStandard) {
-        const action = lock.dailyInput.replace(/\.$/, '').trim();
-        return { kind: 'sentence', text: `I never miss "${action}".` };
-      }
-      if (refined) {
-        const t = applyBecomeTransform(refined);
-        if (t) return { kind: 'sentence', text: t };
-        return { kind: 'stacked', finishLine: refined };
-      }
-      return { kind: 'stacked', finishLine: lock.goalLabel };
-    }
-  }
-}
-
-function displayGoalLabel(lock: LockedGoal): string {
-  if (lock.decodePath === 'numbers' && lock.resolvedTargetStr) {
-    return lock.goalLabel;
-  }
-  return lock.doneLooksText?.trim() || lock.goalLabel;
-}
-
-function formatGoalLabel(goal: MockGoal, overrides: Record<number, string>): string {
-  return overrides[goal.id] ?? goal.label;
-}
+};
 
 function normalizeTarget(raw: string): string {
   const s = raw.trim();
@@ -174,7 +74,7 @@ const DIGIT_COMMA_PLACEHOLDER = '\u200B';
 
 let _goalIdSeq = 100;
 
-function parseGoalsFromText(text: string): MockGoal[] {
+function parseGoalsFromText(text: string): FlowGoal[] {
   const protected_ = text.replace(/(\d),(\d)/g, `$1${DIGIT_COMMA_PLACEHOLDER}$2`);
   const parts = protected_
     .split(',')
@@ -193,8 +93,8 @@ function parseGoalsFromText(text: string): MockGoal[] {
 // ─── Result assembly ──────────────────────────────────────────────────────────
 
 function buildIdentityStatement(
-  goals: MockGoal[],
-  locked: LockedGoal[],
+  goals: FlowGoal[],
+  locked: ExtendedLockedGoal[],
   identityOverrides: Record<number, string>,
 ): string {
   const lines = goals.map(g => {
@@ -209,8 +109,8 @@ function buildIdentityStatement(
 }
 
 function buildDimensions(
-  goals: MockGoal[],
-  locked: LockedGoal[],
+  goals: FlowGoal[],
+  locked: ExtendedLockedGoal[],
   goalLabelOverrides: Record<number, string>,
 ): Dimension[] {
   return goals.map(g => {
@@ -236,7 +136,7 @@ function buildDimensions(
   });
 }
 
-function buildInputsAndRaw(locked: LockedGoal[]): {
+function buildInputsAndRaw(locked: ExtendedLockedGoal[]): {
   inputs: string[];
   rawInputs: RawInputEntry[];
 } {
@@ -259,7 +159,7 @@ function SignatureScreen({
   locked,
   onComplete,
 }: {
-  locked: LockedGoal[];
+  locked: ExtendedLockedGoal[];
   onComplete: () => void;
 }) {
   const { colors, isDark } = useTheme();
@@ -419,7 +319,7 @@ const sigStyles = StyleSheet.create({
 
 // ─── Hard-coded demo goals (shown on the demo route, not in live flow) ────────
 
-const HARDCODED_GOALS: MockGoal[] = [
+const HARDCODED_GOALS: FlowGoal[] = [
   {
     id: 1,
     label: 'earning $25,000/month consistently',
@@ -478,8 +378,8 @@ export default function IdentityBuilder({ onComplete }: Props) {
 
   const [phase, setPhase] = useState<Phase>({ kind: 'splash' });
   const [history, setHistory] = useState<Phase[]>([]);
-  const [goals, setGoals] = useState<MockGoal[]>(HARDCODED_GOALS);
-  const [locked, setLocked] = useState<LockedGoal[]>([]);
+  const [goals, setGoals] = useState<FlowGoal[]>(HARDCODED_GOALS);
+  const [locked, setLocked] = useState<ExtendedLockedGoal[]>([]);
   const [decodeResults, setDecodeResults] = useState<Record<number, string>>({});
   const [goalLabelOverrides, setGoalLabelOverrides] = useState<Record<number, string>>({});
   const [identityOverrides, setIdentityOverrides] = useState<Record<number, string>>({});
@@ -844,7 +744,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
 
       case 'compass-story':
         return (
-          <MockupCompassStoryScreen
+          <CompassStoryScreen
             onNext={() => navigate({ kind: 'compass-domino' })}
             onBack={goBack}
           />
