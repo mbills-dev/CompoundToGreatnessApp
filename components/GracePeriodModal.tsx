@@ -26,8 +26,8 @@ export default function GracePeriodModal({
   onKeepGoing,
   onStartOver,
 }: GracePeriodModalProps) {
-  const { colors, isDark } = useTheme();
-  const scaleAnim = useRef(new Animated.Value(0.92)).current;
+  const { colors } = useTheme();
+  const scaleAnim = useRef(new Animated.Value(0.94)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -35,19 +35,19 @@ export default function GracePeriodModal({
       Animated.parallel([
         Animated.timing(opacityAnim, {
           toValue: 1,
-          duration: 220,
+          duration: 240,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.spring(scaleAnim, {
           toValue: 1,
-          damping: 20,
-          stiffness: 260,
+          damping: 22,
+          stiffness: 280,
           useNativeDriver: true,
         }),
       ]).start();
     } else {
-      scaleAnim.setValue(0.92);
+      scaleAnim.setValue(0.94);
       opacityAnim.setValue(0);
     }
   }, [visible]);
@@ -61,55 +61,52 @@ export default function GracePeriodModal({
           style={[
             styles.card,
             {
-              backgroundColor: isDark ? '#111111' : '#FFFFFF',
-              borderColor: isDark ? '#2A2A2A' : '#E5E5E5',
+              backgroundColor: colors.backgroundSecondary,
+              borderColor: `${colors.primary}28`,
               opacity: opacityAnim,
               transform: [{ scale: scaleAnim }],
             },
           ]}
         >
           <Text style={[styles.title, { color: colors.text }]}>
-            {isReset ? 'Day 1.' : 'Did yesterday happen?'}
+            {isReset ? 'Day 1.' : 'WHAT HAPPENED?'}
           </Text>
 
-          <Text style={[styles.body, { color: isDark ? '#B0B0B0' : '#404040' }]}>
+          <Text style={[styles.body, { color: colors.textSecondary }]}>
             {isReset
-              ? "You missed more than a day. That's okay — the challenge only works because missing it costs something. Start again."
-              : "You didn't log your inputs yesterday. If you did the work and just forgot to log it, say so — it counts. If you missed it, the rule is the rule."}
+              ? "More than a day missed. Start again — that's the deal you signed."
+              : 'No log yesterday. If you did the work and forgot, it counts.'}
           </Text>
 
           {isReset ? (
             <TouchableOpacity
-              style={[styles.keepGoingButton, { backgroundColor: colors.primary }]}
+              style={[styles.primaryButton, { backgroundColor: colors.primary }]}
               onPress={onStartOver}
-              activeOpacity={0.8}
+              activeOpacity={0.82}
             >
-              <Text style={styles.keepGoingText}>Start Day 1</Text>
+              <Text style={styles.primaryButtonText}>Start Day 1</Text>
             </TouchableOpacity>
           ) : (
-            <View style={styles.buttonRow}>
+            <View style={styles.buttonStack}>
+              <TouchableOpacity
+                style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+                onPress={onKeepGoing}
+                activeOpacity={0.82}
+              >
+                <Text style={styles.primaryButtonText}>I Completed Yesterday</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={[
-                  styles.startOverButton,
-                  {
-                    borderColor: isDark ? '#3A3A3A' : '#E0E0DB',
-                    backgroundColor: isDark ? colors.backgroundSecondary : '#FFFFFF',
-                  },
+                  styles.secondaryButton,
+                  { backgroundColor: colors.backgroundTertiary },
                 ]}
                 onPress={onStartOver}
                 activeOpacity={0.75}
               >
-                <Text style={[styles.startOverText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                  I missed it — restart me
+                <Text style={[styles.secondaryButtonText, { color: colors.text }]}>
+                  I Failed
                 </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.keepGoingButton, { backgroundColor: colors.primary }]}
-                onPress={onKeepGoing}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.keepGoingText}>I did the work — log it</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -122,7 +119,7 @@ export default function GracePeriodModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -132,49 +129,47 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     borderRadius: 24,
     borderWidth: 1,
-    padding: 32,
+    padding: 28,
   },
   title: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '900',
     letterSpacing: -0.5,
-    marginBottom: 16,
-    lineHeight: 34,
+    marginBottom: 14,
+    lineHeight: 36,
   },
   body: {
     fontSize: 16,
     fontWeight: '500',
     lineHeight: 26,
-    marginBottom: 32,
+    marginBottom: 28,
   },
-  buttonRow: {
-    flexDirection: 'row',
+  buttonStack: {
     gap: 12,
   },
-  startOverButton: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderRadius: 14,
-    paddingVertical: 16,
+  primaryButton: {
+    width: '100%',
+    borderRadius: 50,
+    paddingVertical: 17,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  startOverText: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  keepGoingButton: {
-    flex: 1,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  keepGoingText: {
+  primaryButtonText: {
     fontSize: 16,
     fontWeight: '800',
     color: '#000000',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
+  },
+  secondaryButton: {
+    width: '100%',
+    borderRadius: 50,
+    paddingVertical: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.1,
   },
 });
