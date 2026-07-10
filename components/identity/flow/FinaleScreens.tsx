@@ -40,6 +40,7 @@ export function FinaleScreen({
   goals,
   locked,
   identityOverrides,
+  aiStatements,
   compassFilter,
   onNext,
   onBack,
@@ -48,6 +49,7 @@ export function FinaleScreen({
   goals: FlowGoal[];
   locked: LockedGoal[];
   identityOverrides: Record<number, string>;
+  aiStatements: Record<number, string>;
   compassFilter: string;
   onNext: () => void;
   onBack: () => void;
@@ -60,6 +62,10 @@ export function FinaleScreen({
     const override = identityOverrides[g.id];
     if (override !== undefined) {
       return { kind: 'sentence', text: override } as IdentityShape;
+    }
+    const ai = aiStatements[g.id];
+    if (ai !== undefined) {
+      return { kind: 'sentence', text: ai } as IdentityShape;
     }
     return deriveIdentityLine(lock);
   }).filter(Boolean) as IdentityShape[];

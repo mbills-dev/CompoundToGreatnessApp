@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -121,12 +121,14 @@ export function IdentityScreen({
   goals,
   locked,
   identityOverrides,
+  aiStatements,
   onOverrideChange,
   onAccept,
 }: {
   goals: FlowGoal[];
   locked: LockedGoal[];
   identityOverrides: Record<number, string>;
+  aiStatements: Record<number, string>;
   onOverrideChange: (goalId: number, text: string) => void;
   onAccept: () => void;
 }) {
@@ -139,6 +141,11 @@ export function IdentityScreen({
 
   const [editingGoalId, setEditingGoalId] = useState<number | null>(null);
 
+  const aiSnapshot = useRef(aiStatements);
+  useEffect(() => {
+    aiSnapshot.current = aiStatements;
+  }, [aiStatements]);
+
   const lockedEntries = goals.map(g => {
     const lock = locked.find(l => l.goalId === g.id);
     if (!lock) return null;
@@ -149,6 +156,10 @@ export function IdentityScreen({
     const override = identityOverrides[goalId];
     if (override !== undefined) {
       return { kind: 'sentence', text: override };
+    }
+    const ai = aiSnapshot.current[goalId];
+    if (ai !== undefined) {
+      return { kind: 'sentence', text: ai };
     }
     return deriveIdentityLine(lock);
   };
