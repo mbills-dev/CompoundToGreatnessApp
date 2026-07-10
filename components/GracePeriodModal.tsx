@@ -13,6 +13,8 @@ import { useTheme } from '@/contexts/ThemeContext';
 interface GracePeriodModalProps {
   visible: boolean;
   daysMissed: number;
+  /** 'grace' = one-day choice modal; 'reset' = forced restart acknowledgment */
+  mode?: 'grace' | 'reset';
   onKeepGoing: () => void;
   onStartOver: () => void;
 }
@@ -20,6 +22,7 @@ interface GracePeriodModalProps {
 export default function GracePeriodModal({
   visible,
   daysMissed,
+  mode = 'grace',
   onKeepGoing,
   onStartOver,
 }: GracePeriodModalProps) {
@@ -49,9 +52,7 @@ export default function GracePeriodModal({
     }
   }, [visible]);
 
-  const missedText = daysMissed === 1
-    ? 'You missed 1 day.'
-    : `You missed ${daysMissed} days.`;
+  const isReset = mode === 'reset';
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
@@ -68,38 +69,50 @@ export default function GracePeriodModal({
           ]}
         >
           <Text style={[styles.title, { color: colors.text }]}>
-            What happened?
+            {isReset ? 'Day 1.' : 'Did yesterday happen?'}
           </Text>
 
           <Text style={[styles.body, { color: isDark ? '#B0B0B0' : '#404040' }]}>
-            If you did the work and just forgot to log it, keep going. If life got in the way — own it. Every comeback starts with Day 1.
+            {isReset
+              ? "You missed more than a day. That's okay — the challenge only works because missing it costs something. Start again."
+              : "You didn't log your inputs yesterday. If you did the work and just forgot to log it, say so — it counts. If you missed it, the rule is the rule."}
           </Text>
 
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={[
-                styles.startOverButton,
-                {
-                  borderColor: isDark ? '#3A3A3A' : '#E0E0DB',
-                  backgroundColor: isDark ? colors.backgroundSecondary : '#FFFFFF',
-                },
-              ]}
-              onPress={onStartOver}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.startOverText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                Start Over
-              </Text>
-            </TouchableOpacity>
-
+          {isReset ? (
             <TouchableOpacity
               style={[styles.keepGoingButton, { backgroundColor: colors.primary }]}
-              onPress={onKeepGoing}
+              onPress={onStartOver}
               activeOpacity={0.8}
             >
-              <Text style={styles.keepGoingText}>Keep Going</Text>
+              <Text style={styles.keepGoingText}>Start Day 1</Text>
             </TouchableOpacity>
-          </View>
+          ) : (
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[
+                  styles.startOverButton,
+                  {
+                    borderColor: isDark ? '#3A3A3A' : '#E0E0DB',
+                    backgroundColor: isDark ? colors.backgroundSecondary : '#FFFFFF',
+                  },
+                ]}
+                onPress={onStartOver}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.startOverText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                  I missed it — restart me
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.keepGoingButton, { backgroundColor: colors.primary }]}
+                onPress={onKeepGoing}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.keepGoingText}>I did the work — log it</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </Animated.View>
       </View>
     </Modal>

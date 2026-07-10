@@ -19,7 +19,7 @@ import { Goal, DailyCompletion, DailyActivity } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import { isDateLocked, getDateForChallengeDay, toLocalDateString } from '@/lib/dateHelpers';
+import { isDateLocked, getDateForChallengeDay, toLocalDateString, parseLocalDate } from '@/lib/dateHelpers';
 import EvidenceLogSection from './EvidenceLog';
 import GracePeriodModal from './GracePeriodModal';
 import DayCardModal, { TileLayout } from './DayCardModal';
@@ -322,6 +322,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
   const [isSharing, setIsSharing] = useState(false);
   const [showGracePeriodModal, setShowGracePeriodModal] = useState(false);
   const [gracePeriodDaysMissed, setGracePeriodDaysMissed] = useState(0);
+  const [gracePeriodMode, setGracePeriodMode] = useState<'grace' | 'reset'>('grace');
   const isFocused = useIsFocused();
   const shareViewRef = useRef<View>(null);
   const rootWrapperRef = useRef<View>(null);
@@ -439,8 +440,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const lastCompletion = new Date(goal.last_completion_date);
-    lastCompletion.setHours(0, 0, 0, 0);
+    const lastCompletion = parseLocalDate(goal.last_completion_date);
 
     const daysDiff = Math.floor((today.getTime() - lastCompletion.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -449,11 +449,16 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
     const todayStr = toLocalDateString(today);
     if (goal.grace_period_prompted_date === todayStr) return;
 
-    if (daysDiff > 7) {
-      await resetChallenge();
+    if (daysDiff === 2) {
+      setGracePeriodMode('grace');
+      setGracePeriodDaysMissed(1);
+      setShowGracePeriodModal(true);
       return;
     }
 
+    // daysDiff > 2: forced reset with acknowledgment modal
+    await resetChallenge();
+    setGracePeriodMode('reset');
     setGracePeriodDaysMissed(daysDiff - 1);
     setShowGracePeriodModal(true);
   };
@@ -492,55 +497,43 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
       .update({ grace_period_prompted_date: todayStr })
       .eq('id', goal.id);
 
-    const lastDate = new Date(goal.last_completion_date!);
-    lastDate.setHours(0, 0, 0, 0);
+    // Grace is one day only: backfill just yesterday.
     const todayDate = new Date();
     todayDate.setHours(0, 0, 0, 0);
-
-    const missedDates: string[] = [];
-    const cursor = new Date(lastDate);
-    cursor.setDate(cursor.getDate() + 1);
-    while (cursor < todayDate) {
-      missedDates.push(toLocalDateString(cursor));
-      cursor.setDate(cursor.getDate() + 1);
-    }
-
-    for (const date of missedDates) {
-      const { data: existing } = await supabase
-        .from('daily_completions')
-        .select('id')
-        .eq('goal_id', goal.id)
-        .eq('completion_date', date)
-        .maybeSingle();
-
-      if (existing) {
-        await supabase
-          .from('daily_completions')
-          .update({
-            activities_completed: activities.map((a) => a.id),
-            completed_at: new Date(date + 'T23:59:00').toISOString(),
-          })
-          .eq('id', existing.id);
-      } else {
-        await supabase.from('daily_completions').insert({
-          goal_id: goal.id,
-          completion_date: date,
-          activities_completed: activities.map((a) => a.id),
-          completed_at: new Date(date + 'T23:59:00').toISOString(),
-          is_rest_day: false,
-        });
-      }
-    }
-
     const yesterday = new Date(todayDate);
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = toLocalDateString(yesterday);
+
+    const { data: existing } = await supabase
+      .from('daily_completions')
+      .select('id')
+      .eq('goal_id', goal.id)
+      .eq('completion_date', yesterdayStr)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from('daily_completions')
+        .update({
+          activities_completed: activities.map((a) => a.id),
+          completed_at: new Date(yesterdayStr + 'T23:59:00').toISOString(),
+        })
+        .eq('id', existing.id);
+    } else {
+      await supabase.from('daily_completions').insert({
+        goal_id: goal.id,
+        completion_date: yesterdayStr,
+        activities_completed: activities.map((a) => a.id),
+        completed_at: new Date(yesterdayStr + 'T23:59:00').toISOString(),
+        is_rest_day: false,
+      });
+    }
 
     const { data } = await supabase
       .from('goals')
       .update({
         last_completion_date: yesterdayStr,
-        current_challenge_day: (goal.current_challenge_day || 0) + missedDates.length,
+        current_challenge_day: (goal.current_challenge_day || 0) + 1,
       })
       .eq('id', goal.id)
       .select()
@@ -552,7 +545,11 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
 
   const handleGraceStartOver = async () => {
     setShowGracePeriodModal(false);
-    await resetChallenge();
+    // In reset mode the challenge was already reset before the modal opened;
+    // in grace mode (user chose "I missed it") reset now.
+    if (gracePeriodMode === 'grace') {
+      await resetChallenge();
+    }
     loadCompletions();
   };
 
@@ -734,6 +731,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
       <GracePeriodModal
         visible={showGracePeriodModal}
         daysMissed={gracePeriodDaysMissed}
+        mode={gracePeriodMode}
         onKeepGoing={handleGraceKeepGoing}
         onStartOver={handleGraceStartOver}
       />

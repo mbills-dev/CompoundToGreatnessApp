@@ -31,7 +31,7 @@ import EvidenceLogSection from './EvidenceLog';
 import CompassCard from './CompassCard';
 import GracePeriodModal from './GracePeriodModal';
 import ChallengeCompleteScreen from './ChallengeCompleteScreen';
-import { isDateLocked, toLocalDateString } from '@/lib/dateHelpers';
+import { isDateLocked, toLocalDateString, parseLocalDate } from '@/lib/dateHelpers';
 import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import CoachCard from './CoachCard';
 import { useRacingBorder } from '@/contexts/RacingBorderContext';
@@ -211,6 +211,7 @@ export default function DailyDashboard({
   const [bestStreak, setBestStreak] = useState(goal.best_streak || 0);
   const [showGracePeriodModal, setShowGracePeriodModal] = useState(false);
   const [gracePeriodDaysMissed, setGracePeriodDaysMissed] = useState(0);
+  const [gracePeriodMode, setGracePeriodMode] = useState<'grace' | 'reset'>('grace');
 
   const progressWidth = useSharedValue(0);
   const progressTextColor = useSharedValue(0);
@@ -290,7 +291,7 @@ export default function DailyDashboard({
       currentDate.setHours(0, 0, 0, 0);
 
       for (const dateString of sortedDates) {
-        const date = new Date(dateString);
+        const date = parseLocalDate(dateString);
         const expectedDate = new Date(currentDate);
         expectedDate.setDate(expectedDate.getDate() - streakCount);
 
@@ -366,9 +367,7 @@ export default function DailyDashboard({
     if (isKeepGoing) return;
     if (!goal.last_completion_date) return;
 
-    const lastDate = new Date(goal.last_completion_date);
-    lastDate.setHours(0, 0, 0, 0);
-
+    const lastDate = parseLocalDate(goal.last_completion_date);
     const todayDate = new Date();
     todayDate.setHours(0, 0, 0, 0);
 
@@ -379,11 +378,16 @@ export default function DailyDashboard({
     const todayStr = toLocalDateString(todayDate);
     if (goal.grace_period_prompted_date === todayStr) return;
 
-    if (daysDiff > 7) {
-      await performReset();
+    if (daysDiff === 2) {
+      setGracePeriodMode('grace');
+      setGracePeriodDaysMissed(1);
+      setShowGracePeriodModal(true);
       return;
     }
 
+    // daysDiff > 2: forced reset with acknowledgment
+    await performReset();
+    setGracePeriodMode('reset');
     setGracePeriodDaysMissed(daysDiff - 1);
     setShowGracePeriodModal(true);
   };
@@ -414,55 +418,43 @@ export default function DailyDashboard({
     setShowGracePeriodModal(false);
     await markGracePromptSeen();
 
-    const lastDate = new Date(goal.last_completion_date!);
-    lastDate.setHours(0, 0, 0, 0);
+    // Grace is one day only: backfill just yesterday.
     const todayDate = new Date();
     todayDate.setHours(0, 0, 0, 0);
-
-    const missedDates: string[] = [];
-    const cursor = new Date(lastDate);
-    cursor.setDate(cursor.getDate() + 1);
-    while (cursor < todayDate) {
-      missedDates.push(toLocalDateString(cursor));
-      cursor.setDate(cursor.getDate() + 1);
-    }
-
-    for (const date of missedDates) {
-      const { data: existing } = await supabase
-        .from('daily_completions')
-        .select('id')
-        .eq('goal_id', goal.id)
-        .eq('completion_date', date)
-        .maybeSingle();
-
-      if (existing) {
-        await supabase
-          .from('daily_completions')
-          .update({
-            activities_completed: activities.map((a) => a.id),
-            completed_at: new Date(date + 'T23:59:00').toISOString(),
-          })
-          .eq('id', existing.id);
-      } else {
-        await supabase.from('daily_completions').insert({
-          goal_id: goal.id,
-          completion_date: date,
-          activities_completed: activities.map((a) => a.id),
-          completed_at: new Date(date + 'T23:59:00').toISOString(),
-          is_rest_day: false,
-        });
-      }
-    }
-
     const yesterday = new Date(todayDate);
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = toLocalDateString(yesterday);
+
+    const { data: existing } = await supabase
+      .from('daily_completions')
+      .select('id')
+      .eq('goal_id', goal.id)
+      .eq('completion_date', yesterdayStr)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from('daily_completions')
+        .update({
+          activities_completed: activities.map((a) => a.id),
+          completed_at: new Date(yesterdayStr + 'T23:59:00').toISOString(),
+        })
+        .eq('id', existing.id);
+    } else {
+      await supabase.from('daily_completions').insert({
+        goal_id: goal.id,
+        completion_date: yesterdayStr,
+        activities_completed: activities.map((a) => a.id),
+        completed_at: new Date(yesterdayStr + 'T23:59:00').toISOString(),
+        is_rest_day: false,
+      });
+    }
 
     await supabase
       .from('goals')
       .update({
         last_completion_date: yesterdayStr,
-        current_challenge_day: (goal.current_challenge_day || 0) + missedDates.length,
+        current_challenge_day: (goal.current_challenge_day || 0) + 1,
       })
       .eq('id', goal.id);
 
@@ -471,7 +463,12 @@ export default function DailyDashboard({
 
   const handleGraceStartOver = async () => {
     setShowGracePeriodModal(false);
-    await performReset();
+    // In reset mode the challenge was already reset before the modal opened;
+    // in grace mode (user chose "I missed it") reset now.
+    if (gracePeriodMode === 'grace') {
+      await performReset();
+    }
+    onRefresh();
   };
 
   const loadTodayCompletion = async () => {
@@ -528,6 +525,7 @@ export default function DailyDashboard({
     if (onLockedInteraction) { onLockedInteraction(); return; }
     if (editMode || isDayLocked) return;
 
+    const wasComplete = completedActivities.length === activities.length;
     const newCompleted = completedActivities.includes(activityId)
       ? completedActivities.filter((id) => id !== activityId)
       : [...completedActivities, activityId];
@@ -535,6 +533,7 @@ export default function DailyDashboard({
     setCompletedActivities(newCompleted);
 
     const allComplete = newCompleted.length === activities.length;
+    const becameIncomplete = wasComplete && !allComplete;
 
     try {
       const { error } = await supabase
@@ -546,6 +545,32 @@ export default function DailyDashboard({
         .eq('id', completion!.id);
 
       if (error) throw error;
+
+      if (becameIncomplete && goal.last_completion_date === today) {
+        // Revert the day advance: find the most recent prior completion date.
+        const { data: prior } = await supabase
+          .from('daily_completions')
+          .select('completion_date')
+          .eq('goal_id', goal.id)
+          .not('completed_at', 'is', null)
+          .neq('completion_date', today)
+          .order('completion_date', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        await supabase
+          .from('goals')
+          .update({
+            current_challenge_day: Math.max(1, (goal.current_challenge_day || 1) - 1),
+            last_completion_date: prior?.completion_date ?? null,
+          })
+          .eq('id', goal.id);
+
+        loadStreak();
+        loadPerfectDays();
+        onRefresh();
+        return;
+      }
 
       if (allComplete) {
         const shouldIncrementDay = goal.last_completion_date !== today;
@@ -565,10 +590,9 @@ export default function DailyDashboard({
             updates.challenge_start_date = startDate.toISOString();
           }
 
-          if (newDay >= 77 && goal.challenge_phase === 'challenge') {
-            updates.challenge_phase = 'keep_going';
-            archiveCurrentChallenge(goal, supabase, 'completed').catch(() => {});
-          }
+          // Day-77 side effects (archive + phase flip) are deferred to the
+          // celebration modal so an accidental tap can be un-checked.
+          // We only advance the day here; the modal fires separately.
         }
 
         await supabase
@@ -587,7 +611,7 @@ export default function DailyDashboard({
           }, 600);
         });
 
-        const newDay = (updates.current_challenge_day ?? goal.current_challenge_day);
+        const newDay = updates.current_challenge_day ?? goal.current_challenge_day;
         if (newDay >= 77 && !goal.celebration_seen && goal.challenge_phase === 'challenge') {
           setTimeout(() => {
             setShowChallengeComplete(true);
@@ -916,7 +940,15 @@ export default function DailyDashboard({
             goal={goal}
             totalDaysLogged={perfectDays}
             bestStreak={bestStreak}
-            onKeepGoing={() => {
+            onKeepGoing={async () => {
+              // Deferred from toggleActivity: now safe to flip phase and archive.
+              if (goal.challenge_phase === 'challenge') {
+                await supabase
+                  .from('goals')
+                  .update({ challenge_phase: 'keep_going' })
+                  .eq('id', goal.id);
+                archiveCurrentChallenge(goal, supabase, 'completed').catch(() => {});
+              }
               setShowChallengeComplete(false);
               onRefresh();
             }}
@@ -926,6 +958,7 @@ export default function DailyDashboard({
       <GracePeriodModal
         visible={showGracePeriodModal}
         daysMissed={gracePeriodDaysMissed}
+        mode={gracePeriodMode}
         onKeepGoing={handleGraceKeepGoing}
         onStartOver={handleGraceStartOver}
       />

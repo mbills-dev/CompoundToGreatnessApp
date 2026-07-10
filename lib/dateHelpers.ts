@@ -1,3 +1,8 @@
+export function parseLocalDate(dateString: string): Date {
+  const [y, m, d] = dateString.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 export function toLocalDateString(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -45,11 +50,8 @@ export function getDayNumberFromChallengeStart(
 ): number {
   if (!challengeStartDate) return 1;
 
-  const startDate = new Date(challengeStartDate);
-  startDate.setHours(0, 0, 0, 0);
-
-  const target = new Date(targetDate);
-  target.setHours(0, 0, 0, 0);
+  const startDate = parseLocalDate(challengeStartDate.split('T')[0]);
+  const target = parseLocalDate(targetDate.split('T')[0]);
 
   const daysDiff = Math.floor(
     (target.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
@@ -66,9 +68,7 @@ export function getDateForChallengeDay(
     return getTodayDateString();
   }
 
-  const startDate = new Date(challengeStartDate);
-  startDate.setHours(0, 0, 0, 0);
-
+  const startDate = parseLocalDate(challengeStartDate.split('T')[0]);
   const targetDate = new Date(startDate);
   targetDate.setDate(startDate.getDate() + (dayNumber - 1));
 
