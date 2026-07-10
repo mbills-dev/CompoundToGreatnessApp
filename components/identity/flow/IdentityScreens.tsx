@@ -38,7 +38,7 @@ export function deriveIdentityLine(lock: LockedGoal): IdentityShape {
     case 'numbers': {
       const target = lock.resolvedTargetStr ?? lock.goalLabel;
       const suffix = lock.periodSuffix ?? 'month';
-      return { kind: 'sentence', text: `I earn ${target}/${suffix} — consistently.` };
+      return { kind: 'sentence', text: `I earn ${target} a ${suffix} consistently.` };
     }
     case 'practice': {
       if (refined) {

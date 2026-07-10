@@ -47,6 +47,7 @@ import { IdentityScreen, deriveIdentityLine } from './flow/IdentityScreens';
 import { CompassStoryScreen, CompassDominoScreen, CompassMechanismScreen } from './flow/CompassScreens';
 import { FinaleScreen } from './flow/FinaleScreens';
 import { generateIdentityStatements } from './identityAi';
+import { supabase } from '@/lib/supabase';
 
 // ─── Helpers (local — result assembly only) ───────────────────────────────────
 
@@ -159,9 +160,11 @@ function buildInputsAndRaw(locked: ExtendedLockedGoal[]): {
 
 function SignatureScreen({
   locked,
+  displayName,
   onComplete,
 }: {
   locked: ExtendedLockedGoal[];
+  displayName: string;
   onComplete: () => void;
 }) {
   const { colors, isDark } = useTheme();
@@ -218,9 +221,20 @@ function SignatureScreen({
     >
       <Animated.View style={[fadeStyle, { gap: 0 }]}>
         <Text style={[sigStyles.headline, { color: colors.text, marginBottom: 6 }]}>
-          {'I commit to hitting\nmy daily inputs\nevery day for '}
-          <Text style={{ color: colors.primary }}>{'77 days'}</Text>
-          {'.'}
+          {displayName
+            ? <>
+                {'I, '}
+                <Text style={{ color: colors.primary }}>{displayName}</Text>
+                {', commit to hitting\nmy daily inputs\nevery day for '}
+                <Text style={{ color: colors.primary }}>{'77 days'}</Text>
+                {'.'}
+              </>
+            : <>
+                {'I commit to hitting\nmy daily inputs\nevery day for '}
+                <Text style={{ color: colors.primary }}>{'77 days'}</Text>
+                {'.'}
+              </>
+          }
         </Text>
 
         <View style={[sigStyles.checklistCard, {
@@ -300,7 +314,7 @@ function SignatureScreen({
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }
             setShowConfetti(true);
-            setTimeout(() => { onComplete(); }, 1600);
+            setTimeout(() => { onComplete(); }, 2600);
           }}
           activeOpacity={(hasSig && !committed) ? 0.85 : 1}
           disabled={!hasSig || committed}
@@ -401,6 +415,23 @@ export default function IdentityBuilder({ onComplete }: Props) {
   const requestedGoalIds = useRef<Set<number>>(new Set());
   const [dominoGoalId, setDominoGoalId] = useState<number | null>(null);
   const [savedStates, setSavedStates] = useState<Record<string, string>>({});
+  const [displayName, setDisplayName] = useState<string>('');
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data?.user?.id;
+      if (!uid) return;
+      supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('id', uid)
+        .maybeSingle()
+        .then(({ data: profile }) => {
+          const name = profile?.display_name?.trim() ?? '';
+          if (name) setDisplayName(name);
+        });
+    });
+  }, []);
 
   const screenAnim = useSharedValue(1);
   const slideAnim = useSharedValue(0);
@@ -834,6 +865,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
         return (
           <SignatureScreen
             locked={locked}
+            displayName={displayName}
             onComplete={handleSignatureComplete}
           />
         );

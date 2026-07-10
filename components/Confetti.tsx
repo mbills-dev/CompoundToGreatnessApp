@@ -8,7 +8,6 @@ import Animated, {
   withRepeat,
   withSequence,
   Easing,
-  runOnJS,
 } from 'react-native-reanimated';
 
 const LIME = '#CCFF00';
@@ -29,6 +28,7 @@ interface PieceConfig {
   delay: number;
   duration: number;
   swayAmount: number;
+  swayLegDuration: number;
   rotationSpeed: number;
   rotationDir: 1 | -1;
   startY: number;
@@ -41,14 +41,13 @@ function ConfettiPiece({ cfg, screenHeight, onDone }: { cfg: PieceConfig; screen
   const opacity = useSharedValue(1);
 
   useEffect(() => {
-    const totalDist = screenHeight - cfg.startY + 60;
     const fadeStart = 0.8;
 
     translateY.value = withDelay(
       cfg.delay,
       withTiming(screenHeight + 60, {
         duration: cfg.duration,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+        easing: Easing.bezier(0.33, 0.0, 0.67, 1.0),
       }),
     );
 
@@ -56,8 +55,8 @@ function ConfettiPiece({ cfg, screenHeight, onDone }: { cfg: PieceConfig; screen
       cfg.delay,
       withRepeat(
         withSequence(
-          withTiming(cfg.x + cfg.swayAmount, { duration: cfg.duration / 4, easing: Easing.inOut(Easing.sin) }),
-          withTiming(cfg.x - cfg.swayAmount, { duration: cfg.duration / 4, easing: Easing.inOut(Easing.sin) }),
+          withTiming(cfg.x + cfg.swayAmount, { duration: cfg.swayLegDuration, easing: Easing.inOut(Easing.sin) }),
+          withTiming(cfg.x - cfg.swayAmount, { duration: cfg.swayLegDuration, easing: Easing.inOut(Easing.sin) }),
         ),
         -1,
         true,
@@ -86,9 +85,7 @@ function ConfettiPiece({ cfg, screenHeight, onDone }: { cfg: PieceConfig; screen
 
     if (onDone) {
       const total = cfg.delay + cfg.duration;
-      const timer = setTimeout(() => {
-        onDone();
-      }, total);
+      const timer = setTimeout(() => { onDone(); }, total);
       return () => clearTimeout(timer);
     }
   }, []);
@@ -125,12 +122,12 @@ interface ConfettiProps {
   onDone?: () => void;
 }
 
-export default function Confetti({ count = 48, onDone }: ConfettiProps) {
+export default function Confetti({ count = 36, onDone }: ConfettiProps) {
   const doneCalledRef = useRef(false);
 
-  const pieces: PieceConfig[] = Array.from({ length: count }, (_, i) => {
-    const duration = randomBetween(2600, 4200);
-    const delay = randomBetween(0, 700);
+  const pieces: PieceConfig[] = Array.from({ length: count }, () => {
+    const duration = randomBetween(6500, 9500);
+    const delay = randomBetween(0, 1500);
     return {
       x: randomBetween(0, 380),
       width: randomBetween(8, 14),
@@ -138,8 +135,9 @@ export default function Confetti({ count = 48, onDone }: ConfettiProps) {
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
       delay,
       duration,
-      swayAmount: randomBetween(12, 26),
-      rotationSpeed: randomBetween(600, 1400),
+      swayAmount: randomBetween(8, 18),
+      swayLegDuration: randomBetween(1600, 2400),
+      rotationSpeed: randomBetween(1200, 2800),
       rotationDir: Math.random() > 0.5 ? 1 : -1,
       startY: randomBetween(-240, -40),
     };
