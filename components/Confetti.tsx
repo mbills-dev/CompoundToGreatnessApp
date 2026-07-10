@@ -127,7 +127,7 @@ export default function Confetti({ count = 36, onDone }: ConfettiProps) {
 
   const pieces: PieceConfig[] = Array.from({ length: count }, () => {
     const duration = randomBetween(6500, 9500);
-    const delay = randomBetween(0, 1500);
+    const delay = randomBetween(0, 600);
     return {
       x: randomBetween(0, 380),
       width: randomBetween(8, 14),
@@ -139,7 +139,7 @@ export default function Confetti({ count = 36, onDone }: ConfettiProps) {
       swayLegDuration: randomBetween(1600, 2400),
       rotationSpeed: randomBetween(1200, 2800),
       rotationDir: Math.random() > 0.5 ? 1 : -1,
-      startY: randomBetween(-240, -40),
+      startY: randomBetween(-120, -20),
     };
   });
 
