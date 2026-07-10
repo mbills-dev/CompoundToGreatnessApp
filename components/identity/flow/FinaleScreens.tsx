@@ -39,8 +39,7 @@ export function FinaleScreen({
   beat,
   goals,
   locked,
-  identityOverrides,
-  aiStatements,
+  acceptedIdentity,
   compassFilter,
   onNext,
   onBack,
@@ -48,8 +47,7 @@ export function FinaleScreen({
   beat: 0 | 1 | 2;
   goals: FlowGoal[];
   locked: LockedGoal[];
-  identityOverrides: Record<number, string>;
-  aiStatements: Record<number, string>;
+  acceptedIdentity: Record<number, string>;
   compassFilter: string;
   onNext: () => void;
   onBack: () => void;
@@ -59,13 +57,9 @@ export function FinaleScreen({
   const identityShapes = goals.map(g => {
     const lock = locked.find(l => l.goalId === g.id);
     if (!lock) return null;
-    const override = identityOverrides[g.id];
-    if (override !== undefined) {
-      return { kind: 'sentence', text: override } as IdentityShape;
-    }
-    const ai = aiStatements[g.id];
-    if (ai !== undefined) {
-      return { kind: 'sentence', text: ai } as IdentityShape;
+    const accepted = acceptedIdentity[g.id];
+    if (accepted !== undefined) {
+      return { kind: 'sentence', text: accepted } as IdentityShape;
     }
     return deriveIdentityLine(lock);
   }).filter(Boolean) as IdentityShape[];

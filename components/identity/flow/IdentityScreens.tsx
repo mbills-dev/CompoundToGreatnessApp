@@ -130,7 +130,7 @@ export function IdentityScreen({
   identityOverrides: Record<number, string>;
   aiStatements: Record<number, string>;
   onOverrideChange: (goalId: number, text: string) => void;
-  onAccept: () => void;
+  onAccept: (resolved: Record<number, string>) => void;
 }) {
   const { colors, isDark } = useTheme();
   const opacity = useSharedValue(0);
@@ -262,7 +262,14 @@ export function IdentityScreen({
 
         <TouchableOpacity
           style={[styles.primaryBtn, { backgroundColor: colors.primary, marginTop: 32 }]}
-          onPress={onAccept}
+          onPress={() => {
+            const resolved: Record<number, string> = {};
+            lockedEntries.forEach(({ goalId, lock }) => {
+              const shape = resolveShape(goalId, lock);
+              resolved[goalId] = shape.kind === 'sentence' ? shape.text : shape.finishLine;
+            });
+            onAccept(resolved);
+          }}
           activeOpacity={0.85}
         >
           <Text style={styles.primaryBtnText}>I Accept My Identity →</Text>

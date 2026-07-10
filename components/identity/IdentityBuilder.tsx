@@ -95,16 +95,13 @@ function parseGoalsFromText(text: string): FlowGoal[] {
 function buildIdentityStatement(
   goals: FlowGoal[],
   locked: ExtendedLockedGoal[],
-  identityOverrides: Record<number, string>,
-  aiStatements: Record<number, string>,
+  acceptedIdentity: Record<number, string>,
 ): string {
   const lines = goals.map(g => {
+    const text = acceptedIdentity[g.id];
+    if (text !== undefined) return text;
     const lock = locked.find(l => l.goalId === g.id);
     if (!lock) return null;
-    const override = identityOverrides[g.id];
-    if (override !== undefined) return override.trim();
-    const ai = aiStatements[g.id];
-    if (ai !== undefined) return ai;
     const shape = deriveIdentityLine(lock);
     return shape.kind === 'sentence' ? shape.text : shape.finishLine;
   }).filter(Boolean) as string[];
@@ -386,7 +383,9 @@ export default function IdentityBuilder({ onComplete }: Props) {
   const [goalLabelOverrides, setGoalLabelOverrides] = useState<Record<number, string>>({});
   const [identityOverrides, setIdentityOverrides] = useState<Record<number, string>>({});
   const [aiStatements, setAiStatements] = useState<Record<number, string>>({});
+  const [acceptedIdentity, setAcceptedIdentity] = useState<Record<number, string> | null>(null);
   const [compassFilter, setCompassFilter] = useState<string>('');
+  const requestedGoalIds = useRef<Set<number>>(new Set());
   const [dominoGoalId, setDominoGoalId] = useState<number | null>(null);
   const [savedStates, setSavedStates] = useState<Record<string, string>>({});
 
@@ -470,6 +469,25 @@ export default function IdentityBuilder({ onComplete }: Props) {
       doneLooksText,
       ...numbersPayload,
     });
+
+    // Fire per-goal AI identity generation for eligible goals
+    const isAiEligible = !(decodePath === 'numbers' && resolvedTargetStr) && !isStandard;
+    if (isAiEligible) {
+      const goalId = goal.id;
+      if (!requestedGoalIds.current.has(goalId)) {
+        requestedGoalIds.current.add(goalId);
+        const finishLineText = doneLooksText?.trim() || formatGoalLabel(goal, goalLabelOverrides);
+        if (finishLineText.length > 0) {
+          generateIdentityStatements([finishLineText]).then(result => {
+            if (!result) return;
+            const statement = result[0];
+            if (statement && typeof statement === 'string') {
+              setAiStatements(prev => ({ ...prev, [goalId]: statement }));
+            }
+          });
+        }
+      }
+    }
   };
 
   const handleAnchorDone = (
@@ -519,34 +537,12 @@ export default function IdentityBuilder({ onComplete }: Props) {
     if (nextIdx < goals.length) {
       navigate({ kind: 'path-select', goalIdx: nextIdx });
     } else {
-      const candidates = locked.filter(l => {
-        const shape = deriveIdentityLine(l);
-        return shape.kind === 'stacked';
-      });
-      if (candidates.length > 0) {
-        const texts = candidates.map(l => {
-          const shape = deriveIdentityLine(l);
-          return shape.kind === 'stacked' ? shape.finishLine : '';
-        }).filter(t => t.length > 0);
-        if (texts.length > 0) {
-          generateIdentityStatements(texts).then(result => {
-            if (!result) return;
-            const mapping: Record<number, string> = {};
-            candidates.forEach((lock, i) => {
-              if (result[i] && typeof result[i] === 'string') {
-                mapping[lock.goalId] = result[i]!;
-              }
-            });
-            setAiStatements(mapping);
-          });
-        }
-      }
       navigate({ kind: 'identity' });
     }
   };
 
   const handleSignatureComplete = () => {
-    const identityStatement = buildIdentityStatement(goals, locked, identityOverrides, aiStatements);
+    const identityStatement = buildIdentityStatement(goals, locked, acceptedIdentity ?? {});
     const dimensions = buildDimensions(goals, locked, goalLabelOverrides);
     const { inputs, rawInputs } = buildInputsAndRaw(locked);
 
@@ -757,7 +753,10 @@ export default function IdentityBuilder({ onComplete }: Props) {
             identityOverrides={identityOverrides}
             aiStatements={aiStatements}
             onOverrideChange={(goalId, text) => setIdentityOverrides(prev => ({ ...prev, [goalId]: text }))}
-            onAccept={() => navigate({ kind: 'compass-story' })}
+            onAccept={(resolved) => {
+              setAcceptedIdentity(resolved);
+              navigate({ kind: 'compass-story' });
+            }}
           />
         );
 
@@ -805,8 +804,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
             beat={phase.beat}
             goals={goals}
             locked={locked}
-            identityOverrides={identityOverrides}
-            aiStatements={aiStatements}
+            acceptedIdentity={acceptedIdentity ?? {}}
             compassFilter={compassFilter}
             onNext={() => {
               if (phase.beat < 2) {
