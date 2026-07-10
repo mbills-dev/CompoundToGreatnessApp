@@ -33,6 +33,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { UserSettings, Goal } from '@/types/database';
 import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
+import { resetChallenge } from '@/lib/resetHelpers';
 import {
   ProfilePhotoSection,
   ProfileInput,
@@ -150,14 +151,11 @@ export default function SettingsScreen() {
     const confirmAction = async () => {
       setChallengeActionLoading(true);
       try {
-        await archiveCurrentChallenge(activeGoal, supabase, 'restarted');
+        await resetChallenge(activeGoal, supabase, 'restarted');
+        // Also clear challenge_phase + celebration_seen which resetChallenge doesn't touch.
         await supabase
           .from('goals')
           .update({
-            current_challenge_day: 0,
-            challenge_start_date: null,
-            last_completion_date: null,
-            total_restarts: (activeGoal.total_restarts || 0) + 1,
             challenge_phase: 'challenge',
             celebration_seen: false,
             grace_period_prompted_date: null,

@@ -20,6 +20,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { isDateLocked, getDateForChallengeDay, toLocalDateString, parseLocalDate, getDayNumberFromChallengeStart, getTodayDateString } from '@/lib/dateHelpers';
+import { resetChallenge as doResetChallenge } from '@/lib/resetHelpers';
 import EvidenceLogSection from './EvidenceLog';
 import GracePeriodModal from './GracePeriodModal';
 import DayCardModal, { TileLayout } from './DayCardModal';
@@ -464,27 +465,11 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
   };
 
   const resetChallenge = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('goals')
-        .update({
-          current_challenge_day: 0,
-          challenge_start_date: null,
-          last_completion_date: null,
-          total_restarts: (goal.total_restarts || 0) + 1,
-          grace_period_prompted_date: toLocalDateString(new Date()),
-        })
-        .eq('id', goal.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      if (data) {
-        setGoal(data);
-        setSelectedDay(null);
-      }
-    } catch (error) {
-      console.error('Error resetting challenge:', error);
+    const updated = await doResetChallenge(goal, supabase, 'restarted');
+    if (updated) {
+      setGoal(updated);
+      setSelectedDay(null);
+      setCompletions([]);
     }
   };
 

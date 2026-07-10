@@ -33,6 +33,7 @@ import GracePeriodModal from './GracePeriodModal';
 import ChallengeCompleteScreen from './ChallengeCompleteScreen';
 import { isDateLocked, toLocalDateString, parseLocalDate, getDayNumberFromChallengeStart } from '@/lib/dateHelpers';
 import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
+import { resetChallenge } from '@/lib/resetHelpers';
 import CoachCard from './CoachCard';
 import { useRacingBorder } from '@/contexts/RacingBorderContext';
 
@@ -404,16 +405,7 @@ export default function DailyDashboard({
   };
 
   const performReset = async () => {
-    await supabase
-      .from('goals')
-      .update({
-        current_challenge_day: 0,
-        challenge_start_date: null,
-        last_completion_date: null,
-        total_restarts: (goal.total_restarts || 0) + 1,
-        grace_period_prompted_date: toLocalDateString(new Date()),
-      })
-      .eq('id', goal.id);
+    await resetChallenge(goal, supabase, 'restarted');
     onRefresh();
   };
 
