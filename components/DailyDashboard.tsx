@@ -921,7 +921,7 @@ export default function DailyDashboard({
                 goalId={goal.id}
                 date={today}
                 readOnly={isDayLocked}
-                challengeDay={goal.current_challenge_day || 1}
+                challengeDay={displayDay}
                 onLockedInteraction={onLockedInteraction}
               />
             )}

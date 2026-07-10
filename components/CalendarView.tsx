@@ -19,7 +19,7 @@ import { Goal, DailyCompletion, DailyActivity } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import { isDateLocked, getDateForChallengeDay, toLocalDateString, parseLocalDate } from '@/lib/dateHelpers';
+import { isDateLocked, getDateForChallengeDay, toLocalDateString, parseLocalDate, getDayNumberFromChallengeStart, getTodayDateString } from '@/lib/dateHelpers';
 import EvidenceLogSection from './EvidenceLog';
 import GracePeriodModal from './GracePeriodModal';
 import DayCardModal, { TileLayout } from './DayCardModal';
@@ -666,6 +666,10 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
 
   const completedDays = getCompletedDaysCount();
   const currentDay = goal.current_challenge_day || 1;
+  const displayDay = getDayNumberFromChallengeStart(
+    goal.challenge_start_date ?? null,
+    getTodayDateString()
+  );
   const isCompleted = goal.challenge_phase === 'keep_going' || currentDay > TOTAL_CHALLENGE_DAYS;
   const isChallengePhase = goal.challenge_phase === 'challenge' && !isCompleted;
 
@@ -749,7 +753,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
               <Text style={[styles.completedText, { color: colors.error }]}>COMPLETED</Text>
             </View>
           ) : null}
-          <Text style={[styles.dayTitle, { color: textPrimary }]}>DAY {currentDay}</Text>
+          <Text style={[styles.dayTitle, { color: textPrimary }]}>DAY {displayDay}</Text>
           <Text style={[styles.challengeSubtitle, { color: challengeSubtitleColor }]}>77-DAY CHALLENGE</Text>
         </View>
 
@@ -768,7 +772,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
                 />
               </View>
               <Text style={[styles.progressBarLabel, { color: textMuted }]}>
-                DAY {currentDay} of {TOTAL_CHALLENGE_DAYS}
+                DAY {displayDay} of {TOTAL_CHALLENGE_DAYS}
               </Text>
             </View>
             <View style={styles.shareStatsRow}>
