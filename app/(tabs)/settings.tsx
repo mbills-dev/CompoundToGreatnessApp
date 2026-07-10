@@ -54,6 +54,8 @@ export default function SettingsScreen() {
   const router = useRouter();
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -74,6 +76,16 @@ export default function SettingsScreen() {
   const loadSettings = async () => {
     if (!user) return;
     try {
+      // Load persisted profile photo
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('photo_url')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (profile?.photo_url) {
+        setProfilePhoto(profile.photo_url);
+      }
+
       const { data, error } = await supabase
         .from('user_settings')
         .select('*')
@@ -259,11 +271,50 @@ export default function SettingsScreen() {
     saveSettings({ save_progress_photos: value });
   };
 
+  const uploadProfilePhoto = async (uri: string) => {
+    if (!user) return;
+    setUploading(true);
+    setPhotoError(null);
+    try {
+      const ext = uri.split('.').pop()?.split('?')[0] ?? 'jpg';
+      const path = `${user.id}/avatar.${ext}`;
+      const response = await fetch(uri);
+      const blob = await response.blob();
+
+      const { error: uploadError } = await supabase.storage
+        .from('profile-photos')
+        .upload(path, blob, { upsert: true, contentType: `image/${ext}` });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('profile-photos')
+        .getPublicUrl(path);
+
+      const publicUrl = urlData.publicUrl;
+
+      const { error: upsertError } = await supabase
+        .from('profiles')
+        .upsert({ id: user.id, photo_url: publicUrl }, { onConflict: 'id' });
+
+      if (upsertError) throw upsertError;
+
+      setProfilePhoto(publicUrl);
+    } catch (err: any) {
+      setPhotoError(err?.message ?? 'Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const pickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert('Permission Required', 'Permission to access camera roll is required!');
-      return;
+    setShowPhotoOptions(false);
+    if (Platform.OS !== 'web') {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        setPhotoError('Permission to access photo library is required.');
+        return;
+      }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -272,16 +323,20 @@ export default function SettingsScreen() {
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
-      setUploading(true);
-      setProfilePhoto(result.assets[0].uri);
-      setUploading(false);
+      await uploadProfilePhoto(result.assets[0].uri);
     }
   };
 
   const takePhoto = async () => {
+    setShowPhotoOptions(false);
+    if (Platform.OS === 'web') {
+      // Camera capture not available on web — fall back to file picker
+      await pickImage();
+      return;
+    }
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert('Permission Required', 'Permission to access camera is required!');
+      setPhotoError('Permission to access camera is required.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -290,22 +345,13 @@ export default function SettingsScreen() {
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
-      setUploading(true);
-      setProfilePhoto(result.assets[0].uri);
-      setUploading(false);
+      await uploadProfilePhoto(result.assets[0].uri);
     }
   };
 
   const handlePhotoOptions = () => {
-    Alert.alert(
-      'Profile Photo',
-      'Choose an option',
-      [
-        { text: 'Take Photo', onPress: takePhoto },
-        { text: 'Choose from Library', onPress: pickImage },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    setPhotoError(null);
+    setShowPhotoOptions(true);
   };
 
   const handleShareApp = async () => {
@@ -386,6 +432,31 @@ export default function SettingsScreen() {
             onPress={handlePhotoOptions}
             colors={colors}
           />
+
+          {showPhotoOptions && (
+            <View style={[styles.photoOptionsPanel, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
+              {Platform.OS !== 'web' && (
+                <TouchableOpacity style={styles.photoOption} onPress={takePhoto} activeOpacity={0.7}>
+                  <Text style={[styles.photoOptionText, { color: colors.primary }]}>Take Photo</Text>
+                </TouchableOpacity>
+              )}
+              {Platform.OS !== 'web' && (
+                <View style={[styles.photoOptionDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)' }]} />
+              )}
+              <TouchableOpacity style={styles.photoOption} onPress={pickImage} activeOpacity={0.7}>
+                <Text style={[styles.photoOptionText, { color: colors.primary }]}>Choose from Library</Text>
+              </TouchableOpacity>
+              <View style={[styles.photoOptionDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)' }]} />
+              <TouchableOpacity style={styles.photoOption} onPress={() => setShowPhotoOptions(false)} activeOpacity={0.7}>
+                <Text style={[styles.photoOptionText, { color: colors.textSecondary }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {photoError && (
+            <Text style={[styles.photoError, { color: colors.error }]}>{photoError}</Text>
+          )}
+
           <Text style={[styles.profileName, { color: colors.text }]}>
             {firstName || lastName ? `${firstName} ${lastName}`.trim() : 'Your Name'}
           </Text>
@@ -654,5 +725,29 @@ const styles = StyleSheet.create({
   confirmBtnText: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  photoOptionsPanel: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  photoOption: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  photoOptionText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  photoOptionDivider: {
+    height: StyleSheet.hairlineWidth,
+  },
+  photoError: {
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 8,
   },
 });
