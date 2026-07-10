@@ -475,7 +475,7 @@ export default function DailyDashboard({
   };
 
   const loadTodayCompletion = async () => {
-    if (onLockedInteraction) return;
+    if (onLockedInteraction) { setLoading(false); return; }
     try {
       await checkForMissedDays();
 
