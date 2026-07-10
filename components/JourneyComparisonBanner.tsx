@@ -1,0 +1,489 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  Modal,
+  ScrollView,
+  Dimensions,
+  ActivityIndicator,
+} from 'react-native';
+import { ArrowRight, X } from 'lucide-react-native';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { isMilestoneDay } from '@/constants/milestones';
+
+interface ProgressPhoto {
+  id: string;
+  challenge_day: number;
+  storage_url: string;
+  is_milestone: boolean;
+}
+
+interface JourneyStats {
+  earliestPhoto: ProgressPhoto | null;
+  latestPhoto: ProgressPhoto | null;
+  photoCount: number;
+  perfectDays: number;
+  daysCompleted: number;
+}
+
+interface JourneyComparisonBannerProps {
+  goalId: string;
+  currentChallengeDay: number;
+}
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+export default function JourneyComparisonBanner({ goalId, currentChallengeDay }: JourneyComparisonBannerProps) {
+  const { user } = useAuth();
+  const [stats, setStats] = useState<JourneyStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (user && goalId) {
+      loadData();
+    }
+  }, [user, goalId]);
+
+  const loadData = async () => {
+    try {
+      const [photosRes, completionsRes] = await Promise.all([
+        supabase
+          .from('progress_photos')
+          .select('id, challenge_day, storage_url, is_milestone')
+          .eq('goal_id', goalId)
+          .eq('user_id', user!.id)
+          .order('challenge_day', { ascending: true }),
+        supabase
+          .from('daily_completions')
+          .select('activities_completed')
+          .eq('goal_id', goalId),
+      ]);
+
+      const photos: ProgressPhoto[] = photosRes.data || [];
+      const completions = completionsRes.data || [];
+
+      const perfectDays = completions.filter((c) => {
+        const acts: string[] = c.activities_completed || [];
+        return acts.length > 0;
+      }).length;
+
+      if (photos.length < 2) {
+        setStats(null);
+        return;
+      }
+
+      setStats({
+        earliestPhoto: photos[0],
+        latestPhoto: photos[photos.length - 1],
+        photoCount: photos.length,
+        perfectDays,
+        daysCompleted: currentChallengeDay,
+      });
+    } catch (err) {
+      console.error('Error loading journey data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading || !stats) return null;
+
+  const { earliestPhoto, latestPhoto, photoCount, perfectDays, daysCompleted } = stats;
+  if (!earliestPhoto || !latestPhoto) return null;
+
+  const isEarliestMilestone = isMilestoneDay(earliestPhoto.challenge_day) || earliestPhoto.is_milestone;
+  const isLatestMilestone = isMilestoneDay(latestPhoto.challenge_day) || latestPhoto.is_milestone;
+
+  return (
+    <>
+      <View style={styles.card}>
+        <View style={styles.header}>
+          <Text style={styles.title}>
+            <Text style={styles.titleWhite}>See Your </Text>
+            <Text style={styles.titleLime}>Journey.</Text>
+          </Text>
+          <Text style={styles.subtitle}>
+            Day {earliestPhoto.challenge_day} → Day {latestPhoto.challenge_day} · {photoCount} photos captured
+          </Text>
+        </View>
+
+        <View style={styles.photoSection}>
+          <View style={styles.photoPanel}>
+            <Image source={{ uri: earliestPhoto.storage_url }} style={styles.photo} resizeMode="cover" />
+            <View style={[styles.dayBadge, isEarliestMilestone && styles.dayBadgeMilestone]}>
+              <Text style={[styles.dayBadgeText, isEarliestMilestone && styles.dayBadgeTextMilestone]}>
+                DAY {earliestPhoto.challenge_day}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.arrowCircle}>
+            <ArrowRight size={14} color="#1A1A1A" strokeWidth={2.5} />
+          </View>
+
+          <View style={styles.photoPanel}>
+            <Image source={{ uri: latestPhoto.storage_url }} style={styles.photo} resizeMode="cover" />
+            <View style={[styles.dayBadge, isLatestMilestone && styles.dayBadgeMilestone]}>
+              <Text style={[styles.dayBadgeText, isLatestMilestone && styles.dayBadgeTextMilestone]}>
+                DAY {latestPhoto.challenge_day}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statTile}>
+            <Text style={styles.statValue}>{daysCompleted}</Text>
+            <Text style={styles.statLabel}>DAYS IN</Text>
+          </View>
+          <View style={styles.statTile}>
+            <Text style={styles.statValue}>{perfectDays}</Text>
+            <Text style={styles.statLabel}>PERFECT DAYS</Text>
+          </View>
+          <View style={styles.statTile}>
+            <Text style={styles.statValue}>{photoCount}</Text>
+            <Text style={styles.statLabel}>PHOTOS</Text>
+          </View>
+        </View>
+
+        <TouchableOpacity style={styles.ctaButton} onPress={() => setModalVisible(true)} activeOpacity={0.8}>
+          <Text style={styles.ctaText}>View Full Comparison →</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ComparisonModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        earliestPhoto={earliestPhoto}
+        latestPhoto={latestPhoto}
+      />
+    </>
+  );
+}
+
+interface ComparisonModalProps {
+  visible: boolean;
+  onClose: () => void;
+  earliestPhoto: ProgressPhoto;
+  latestPhoto: ProgressPhoto;
+}
+
+function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }: ComparisonModalProps) {
+  const isEarliestMilestone = isMilestoneDay(earliestPhoto.challenge_day) || earliestPhoto.is_milestone;
+  const isLatestMilestone = isMilestoneDay(latestPhoto.challenge_day) || latestPhoto.is_milestone;
+
+  const panelWidth = (SCREEN_WIDTH - 48 - 8) / 2;
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" statusBarTranslucent>
+      <View style={modalStyles.container}>
+        <View style={modalStyles.topBar}>
+          <Text style={modalStyles.topBarTitle}>Your Journey</Text>
+          <TouchableOpacity onPress={onClose} style={modalStyles.closeBtn} activeOpacity={0.7}>
+            <X size={18} color="rgba(255,255,255,0.6)" strokeWidth={2.5} />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView contentContainerStyle={modalStyles.content} showsVerticalScrollIndicator={false}>
+          <Text style={modalStyles.sectionLabel}>SIDE BY SIDE</Text>
+
+          <View style={modalStyles.sideBySide}>
+            <View style={[modalStyles.modalPhotoPanel, { width: panelWidth }]}>
+              <Image
+                source={{ uri: earliestPhoto.storage_url }}
+                style={modalStyles.modalPhoto}
+                resizeMode="cover"
+              />
+              <View style={modalStyles.modalOverlay}>
+                <View style={[modalStyles.modalDayBadge, isEarliestMilestone && modalStyles.modalDayBadgeMilestone]}>
+                  <Text style={[modalStyles.modalDayBadgeText, isEarliestMilestone && modalStyles.modalDayBadgeTextMilestone]}>
+                    DAY {earliestPhoto.challenge_day}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={[modalStyles.modalPhotoPanel, { width: panelWidth }]}>
+              <Image
+                source={{ uri: latestPhoto.storage_url }}
+                style={modalStyles.modalPhoto}
+                resizeMode="cover"
+              />
+              <View style={modalStyles.modalOverlay}>
+                <View style={[modalStyles.modalDayBadge, isLatestMilestone && modalStyles.modalDayBadgeMilestone]}>
+                  <Text style={[modalStyles.modalDayBadgeText, isLatestMilestone && modalStyles.modalDayBadgeTextMilestone]}>
+                    DAY {latestPhoto.challenge_day}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          <Text style={modalStyles.sectionLabel}>EARLIEST</Text>
+          <View style={modalStyles.fullPhotoPanel}>
+            <Image
+              source={{ uri: earliestPhoto.storage_url }}
+              style={modalStyles.fullPhoto}
+              resizeMode="cover"
+            />
+            <View style={modalStyles.fullOverlay}>
+              <View style={[modalStyles.modalDayBadge, isEarliestMilestone && modalStyles.modalDayBadgeMilestone]}>
+                <Text style={[modalStyles.modalDayBadgeText, isEarliestMilestone && modalStyles.modalDayBadgeTextMilestone]}>
+                  DAY {earliestPhoto.challenge_day}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <Text style={modalStyles.sectionLabel}>MOST RECENT</Text>
+          <View style={modalStyles.fullPhotoPanel}>
+            <Image
+              source={{ uri: latestPhoto.storage_url }}
+              style={modalStyles.fullPhoto}
+              resizeMode="cover"
+            />
+            <View style={modalStyles.fullOverlay}>
+              <View style={[modalStyles.modalDayBadge, isLatestMilestone && modalStyles.modalDayBadgeMilestone]}>
+                <Text style={[modalStyles.modalDayBadgeText, isLatestMilestone && modalStyles.modalDayBadgeTextMilestone]}>
+                  DAY {latestPhoto.challenge_day}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#000000',
+    borderWidth: 1,
+    borderColor: '#222222',
+    borderRadius: 24,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  header: {
+    backgroundColor: '#1A1A1A',
+    paddingTop: 14,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  titleWhite: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  titleLime: {
+    color: '#CCFF00',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  subtitle: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.4)',
+  },
+  photoSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  photoPanel: {
+    flex: 1,
+    height: 150,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  photo: {
+    width: '100%',
+    height: '100%',
+  },
+  dayBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 8,
+    paddingVertical: 3,
+    paddingHorizontal: 7,
+  },
+  dayBadgeMilestone: {
+    backgroundColor: '#CCFF00',
+    borderColor: '#CCFF00',
+  },
+  dayBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  dayBadgeTextMilestone: {
+    color: '#1A1A1A',
+  },
+  arrowCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#CCFF00',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    gap: 8,
+  },
+  statTile: {
+    flex: 1,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#CCFF00',
+    marginBottom: 2,
+  },
+  statLabel: {
+    fontSize: 9,
+    color: 'rgba(255,255,255,0.4)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  ctaButton: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: '#CCFF00',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  ctaText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1A1A1A',
+  },
+});
+
+const modalStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1A1A1A',
+  },
+  topBarTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  content: {
+    padding: 24,
+    paddingBottom: 48,
+    gap: 12,
+  },
+  sectionLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.35)',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  sideBySide: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modalPhotoPanel: {
+    height: 220,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  modalPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+  },
+  fullPhotoPanel: {
+    width: '100%',
+    height: 320,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  fullPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  fullOverlay: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+  },
+  modalDayBadge: {
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 9,
+  },
+  modalDayBadgeMilestone: {
+    backgroundColor: '#CCFF00',
+    borderColor: '#CCFF00',
+  },
+  modalDayBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  modalDayBadgeTextMilestone: {
+    color: '#1A1A1A',
+  },
+});
