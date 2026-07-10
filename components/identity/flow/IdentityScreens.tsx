@@ -142,9 +142,10 @@ export function IdentityScreen({
   const [editingGoalId, setEditingGoalId] = useState<number | null>(null);
 
   const aiSnapshot = useRef(aiStatements);
-  useEffect(() => {
-    aiSnapshot.current = aiStatements;
-  }, [aiStatements]);
+  // Intentionally no effect — aiSnapshot is captured once at mount and
+  // must never update while this screen is visible. If AI statements
+  // arrive after the user is already viewing this screen, they must not
+  // see cards change under them.
 
   const lockedEntries = goals.map(g => {
     const lock = locked.find(l => l.goalId === g.id);
