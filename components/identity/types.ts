@@ -8,6 +8,7 @@ export interface Dimension {
   // Additive decode fields — only present for goals decoded via the new flow.
   decodePath?: 'numbers' | 'practice' | 'starting';
   resolvedTargetStr?: string;
+  periodSuffix?: 'week' | 'month' | 'year';
   dailyNumber?: number;
   winNoun?: string;
   actionNoun?: string;

@@ -71,6 +71,25 @@ function extractTargetFromText(text: string): string | null {
   return match ? match[0].trim() : null;
 }
 
+// ─── Period detection ──────────────────────────────────────────────────────────
+
+export type PeriodInfo = {
+  label: 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+  days: 7 | 30 | 365;
+  suffix: 'week' | 'month' | 'year';
+};
+
+export function detectPeriod(...texts: string[]): PeriodInfo {
+  const combined = texts.join(' ').toLowerCase();
+  if (/\b(week|weekly|wk)\b/.test(combined)) {
+    return { label: 'WEEKLY', days: 7, suffix: 'week' };
+  }
+  if (/\b(year|yearly|annual|annually|yr)\b/.test(combined)) {
+    return { label: 'YEARLY', days: 365, suffix: 'year' };
+  }
+  return { label: 'MONTHLY', days: 30, suffix: 'month' };
+}
+
 // ─── Shared ChipGroup internals ───────────────────────────────────────────────
 
 function PresetChip({
@@ -295,7 +314,7 @@ export function PathNumbers({
   onDone: (
     result: string,
     resolvedTargetStr: string,
-    payload: { dailyNumber: number; winNoun: string; actionNoun: string; ratio: number },
+    payload: { dailyNumber: number; winNoun: string; actionNoun: string; ratio: number; periodSuffix: 'week' | 'month' | 'year' },
   ) => void;
 }) {
   const { colors, isDark } = useTheme();
@@ -311,7 +330,8 @@ export function PathNumbers({
   const [targetDraft, setTargetDraft] = useState('');
 
   const resolvedTarget = parseNum(targetStr);
-  const daysPerPeriod = 30;
+  const period = detectPeriod(goal.label, doneLooksText ?? '', targetStr);
+  const daysPerPeriod = period.days;
 
   const winNounOptions = ['deal', 'sale', 'client', 'order'];
   const [winNoun, setWinNoun] = useState<string | null>(null);
@@ -406,7 +426,7 @@ export function PathNumbers({
         >
           <View style={{ flex: 1 }}>
             <Text style={[styles.inheritedLabel, { color: colors.primary }]}>
-              MONTHLY TARGET
+              {period.label} TARGET
             </Text>
             {!editingTarget ? (
               <Text style={[styles.inheritedValue, { color: colors.text }]}>
@@ -629,7 +649,7 @@ export function PathNumbers({
             onPress={() => onDone(
               `${fmtNum(daily)} ${an}s per day`,
               targetStr,
-              { dailyNumber: daily, winNoun: wn, actionNoun: an, ratio },
+              { dailyNumber: daily, winNoun: wn, actionNoun: an, ratio, periodSuffix: period.suffix },
             )}
             activeOpacity={0.85}
           >

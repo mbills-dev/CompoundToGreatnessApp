@@ -34,7 +34,6 @@ import Animated, {
 import { ArrowLeft, Check } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { IdentityBuilderResult, RawInputEntry, Dimension } from './types';
-import SignupSplashScreen from '@/components/SignupSplashScreen';
 import { scheduleTaskReminder } from './notifications';
 import { WhenPickerValue } from './WhenPickerModal';
 import { DecodePath, FlowGoal, AnchoredInput, LockedGoal } from './flow/types';
@@ -349,7 +348,6 @@ const HARDCODED_GOALS: FlowGoal[] = [
 // ─── Phase union ──────────────────────────────────────────────────────────────
 
 type Phase =
-  | { kind: 'splash' }
   | { kind: 'welcome'; screen: 0 | 1 | 2 }
   | { kind: 'goals-entry' }
   | { kind: 'intro' }
@@ -357,7 +355,7 @@ type Phase =
   | { kind: 'goal-done-looks'; goalIdx: number; chosenPath: DecodePath; doneLooksInitial?: string }
   | { kind: 'goal-fuel-redirect'; goalIdx: number; practiceText: string; redirectInitial?: string }
   | { kind: 'decode'; goalIdx: number; path: DecodePath; doneLooksText?: string }
-  | { kind: 'anchor'; goalIdx: number; dailyInput: string; isStandard?: boolean; decodePath: DecodePath; resolvedTargetStr?: string; doneLooksText?: string; dailyNumber?: number; winNoun?: string; actionNoun?: string; ratio?: number }
+  | { kind: 'anchor'; goalIdx: number; dailyInput: string; isStandard?: boolean; decodePath: DecodePath; resolvedTargetStr?: string; doneLooksText?: string; dailyNumber?: number; winNoun?: string; actionNoun?: string; ratio?: number; periodSuffix?: 'week' | 'month' | 'year' }
   | { kind: 'add-input'; goalIdx: number }
   | { kind: 'locked'; goalIdx: number; dailyInput: string }
   | { kind: 'identity' }
@@ -376,7 +374,7 @@ interface Props {
 export default function IdentityBuilder({ onComplete }: Props) {
   const { colors } = useTheme();
 
-  const [phase, setPhase] = useState<Phase>({ kind: 'splash' });
+  const [phase, setPhase] = useState<Phase>({ kind: 'welcome', screen: 0 });
   const [history, setHistory] = useState<Phase[]>([]);
   const [goals, setGoals] = useState<FlowGoal[]>(HARDCODED_GOALS);
   const [locked, setLocked] = useState<ExtendedLockedGoal[]>([]);
@@ -445,14 +443,15 @@ export default function IdentityBuilder({ onComplete }: Props) {
     isStandard?: boolean,
     decodePath?: DecodePath,
     doneLooksText?: string,
-    numbersPayload?: { dailyNumber: number; winNoun: string; actionNoun: string; ratio: number },
+    numbersPayload?: { dailyNumber: number; winNoun: string; actionNoun: string; ratio: number; periodSuffix: 'week' | 'month' | 'year' },
   ) => {
     const goal = goals[goalIdx];
     if (resolvedTargetStr) {
       if (goal.deriveLabel) {
         setGoalLabelOverrides(prev => ({ ...prev, [goal.id]: goal.deriveLabel!(resolvedTargetStr) }));
       } else {
-        setGoalLabelOverrides(prev => ({ ...prev, [goal.id]: `earning ${resolvedTargetStr}/month consistently` }));
+        const suffix = numbersPayload?.periodSuffix ?? 'month';
+        setGoalLabelOverrides(prev => ({ ...prev, [goal.id]: `earning ${resolvedTargetStr}/${suffix} consistently` }));
       }
     }
     setDecodeResults(prev => ({ ...prev, [goalIdx]: result }));
@@ -482,6 +481,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
     winNoun?: string,
     actionNoun?: string,
     ratio?: number,
+    periodSuffix?: 'week' | 'month' | 'year',
   ) => {
     const goal = goals[goalIdx];
     const goalLabel = formatGoalLabel(goal, goalLabelOverrides);
@@ -493,7 +493,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
       {
         goalId: goal.id, dailyInput, goalLabel, doneLooksText,
         what: dailyInput, when, where, schedule, isStandard, decodePath,
-        resolvedTargetStr, dailyNumber, winNoun, actionNoun, ratio,
+        resolvedTargetStr, dailyNumber, winNoun, actionNoun, ratio, periodSuffix,
         additionalInputs: [],
       },
     ]);
@@ -540,15 +540,6 @@ export default function IdentityBuilder({ onComplete }: Props) {
 
   const renderPhase = () => {
     switch (phase.kind) {
-      case 'splash': {
-        const advance = () => navigate({ kind: 'welcome', screen: 0 });
-        return (
-          <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={advance} activeOpacity={1}>
-            <SignupSplashScreen onComplete={advance} />
-          </TouchableOpacity>
-        );
-      }
-
       case 'welcome':
         return (
           <WelcomeSeriesScreen
@@ -673,7 +664,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
       }
 
       case 'anchor': {
-        const { goalIdx, dailyInput, isStandard, decodePath, resolvedTargetStr, doneLooksText, dailyNumber, winNoun, actionNoun, ratio } = phase;
+        const { goalIdx, dailyInput, isStandard, decodePath, resolvedTargetStr, doneLooksText, dailyNumber, winNoun, actionNoun, ratio, periodSuffix } = phase;
         const goal = goals[goalIdx];
         return (
           <View style={{ flex: 1 }}>
@@ -688,7 +679,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
                 goal={goal}
                 dailyInput={dailyInput}
                 isStandard={isStandard}
-                onDone={(when, where, schedule) => handleAnchorDone(goalIdx, dailyInput, when, where, schedule, isStandard, decodePath, resolvedTargetStr, doneLooksText, dailyNumber, winNoun, actionNoun, ratio)}
+                onDone={(when, where, schedule) => handleAnchorDone(goalIdx, dailyInput, when, where, schedule, isStandard, decodePath, resolvedTargetStr, doneLooksText, dailyNumber, winNoun, actionNoun, ratio, periodSuffix)}
               />
             </ScrollView>
           </View>

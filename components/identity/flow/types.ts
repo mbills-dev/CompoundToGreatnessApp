@@ -33,5 +33,6 @@ export interface LockedGoal {
   isStandard?: boolean;
   decodePath: DecodePath;
   resolvedTargetStr?: string;
+  periodSuffix?: 'week' | 'month' | 'year';
   additionalInputs: AnchoredInput[];
 }
