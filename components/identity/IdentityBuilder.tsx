@@ -23,6 +23,8 @@ import {
   PanResponder,
   Animated as RNAnimated,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import Confetti from '@/components/Confetti';
 import Svg, { Path as SvgPath, Line as SvgLine } from 'react-native-svg';
 import Animated, {
   useSharedValue,
@@ -169,6 +171,8 @@ function SignatureScreen({
 
   const [paths, setPaths] = useState<string[]>([]);
   const [currentPath, setCurrentPath] = useState<string>('');
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [committed, setCommitted] = useState(false);
   const placeholderAnim = useRef(new RNAnimated.Value(1)).current;
   const hasSig = paths.length > 0 || currentPath.length > 0;
 
@@ -287,17 +291,26 @@ function SignatureScreen({
           style={[sigStyles.ctaBtn, {
             backgroundColor: hasSig ? '#CCFF00' : (isDark ? '#1C2400' : '#D8E8C0'),
             marginTop: 24,
-            opacity: hasSig ? 1 : 0.38,
+            opacity: (hasSig && !committed) ? 1 : 0.38,
           }]}
-          onPress={() => { if (hasSig) onComplete(); }}
-          activeOpacity={hasSig ? 0.85 : 1}
-          disabled={!hasSig}
+          onPress={() => {
+            if (!hasSig || committed) return;
+            setCommitted(true);
+            if (Platform.OS !== 'web') {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }
+            setShowConfetti(true);
+            setTimeout(() => { onComplete(); }, 1600);
+          }}
+          activeOpacity={(hasSig && !committed) ? 0.85 : 1}
+          disabled={!hasSig || committed}
         >
-          <Text style={[sigStyles.ctaText, { color: hasSig ? '#000' : (isDark ? '#3A4A00' : '#7A9A40') }]}>
+          <Text style={[sigStyles.ctaText, { color: (hasSig && !committed) ? '#000' : (isDark ? '#3A4A00' : '#7A9A40') }]}>
             Start My 77-Day Challenge
           </Text>
         </TouchableOpacity>
       </Animated.View>
+      {showConfetti && <Confetti count={48} />}
     </ScrollView>
   );
 }
@@ -471,7 +484,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
     });
 
     // Fire per-goal AI identity generation for eligible goals
-    const isAiEligible = !(decodePath === 'numbers' && resolvedTargetStr) && !isStandard;
+    const isAiEligible = !(decodePath === 'numbers' && resolvedTargetStr);
     if (isAiEligible) {
       const goalId = goal.id;
       if (!requestedGoalIds.current.has(goalId)) {

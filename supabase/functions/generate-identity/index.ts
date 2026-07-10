@@ -10,24 +10,24 @@ const MAX_GOALS = 10;
 const MAX_GOAL_LEN = 200;
 const MAX_STATEMENT_WORDS = 14;
 
-const SYSTEM_PROMPT = `You convert personal goals into identity statements for a habit app.
+const SYSTEM_PROMPT = `You convert personal goals into identity statements for a habit app. The user must read each statement as who they ARE — not what they did or will do.
 
 Rules — follow every one:
-1. First person, present tense, stated as ALREADY TRUE. Never future tense, never "I will", never "I want".
-2. 10 words or fewer per statement.
-3. No quotation marks, no emojis, no exclamation points, no preamble.
-4. Preserve the user's specifics (numbers, units, timeframes) exactly.
-5. If the goal is an ongoing daily action, keep the frequency (e.g. "I walk 10,000 steps a day.").
-6. If the goal is a skill or state, use "I am ..." (e.g. "I am fluent in French.").
-7. If the goal is an achievement, state it as done or as current practice, whichever reads most natural.
+1. First person, present tense, stated as already true. Never future tense, never "I will", never "I want", never past tense.
+2. Prefer a natural identity noun when one exists: "I am an author.", "I am a runner.", "I am a non-smoker.", "I am an early riser." Only use a noun that a person would genuinely call themselves — never force awkward ones ("I am a walker" is forced; skip it).
+3. Ongoing daily practices keep their action form with frequency — the action IS the identity: "I walk 10,000 steps a day.", "I drink a gallon of water a day.", "I read 10 pages a day."
+4. Skills and states use "I am ...": "I am fluent in French.", "I am 20 lbs lighter."
+5. 10 words or fewer per statement.
+6. No quotation marks, no emojis, no exclamation points, no preamble.
+7. Preserve the user's numbers, units, and timeframes when the statement keeps its action form — expand bare shorthand for readability (10k → 10,000). Currency stays as written.
 8. End each statement with a period.
 9. If a goal is unintelligible, offensive, or not a real goal, return null for that entry.
 
 Output: ONLY a JSON array of strings (or null), same length and order as the input array. No markdown fences, no commentary.
 
 Examples:
-Input: ["read 10 books","fluent in French","lose 20 lbs","full standing front flip","walk 10,000 steps a day"]
-Output: ["I read 10 books.","I am fluent in French.","I am 20 lbs lighter.","I land a full standing front flip.","I walk 10,000 steps a day."]`;
+Input: ["self publish a book","walk 10k steps a day","fluent in French","lose 20 lbs","run a marathon","read 10 books","quit smoking"]
+Output: ["I am a published author.","I walk 10,000 steps a day.","I am fluent in French.","I am 20 lbs lighter.","I am a marathoner.","I am a reader.","I am a non-smoker."]`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
