@@ -33,6 +33,7 @@ interface CalendarViewProps {
 }
 
 const TOTAL_CHALLENGE_DAYS = MILESTONE_DAYS[MILESTONE_DAYS.length - 1];
+const LIME = '#CCFF00';
 
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   const styleId = 'day-tile-keyframes';
@@ -183,9 +184,10 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, on
   useEffect(() => {
     if (!needsGlow) return;
     glowOpacity.setValue(1.0);
+    const minOpacity = isCompletedMilestone ? 0.5 : 0.3;
     const anim = Animated.loop(
       Animated.sequence([
-        Animated.timing(glowOpacity, { toValue: 0.3, duration: 1000, useNativeDriver: false }),
+        Animated.timing(glowOpacity, { toValue: minOpacity, duration: 1000, useNativeDriver: false }),
         Animated.timing(glowOpacity, { toValue: 1.0, duration: 1000, useNativeDriver: false }),
       ])
     );
@@ -219,7 +221,7 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, on
   };
 
   const glowColor = isFireGlow ? '#FF4400' : '#CCFF00';
-  const BLUR = 8;
+  const BLUR = isCompletedMilestone ? 12 : 8;
   const svgPad = BLUR * 2;
   const svgW = tileSize + svgPad * 2;
   const svgH = tileSize + svgPad * 2;
@@ -266,7 +268,7 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, on
             />
           </Svg>
         </View>
-        <View style={[styles.dayTile, { width: tileSize, height: tileSize, backgroundColor: getBg() }]}>
+        <View style={[styles.dayTile, { width: tileSize, height: tileSize, backgroundColor: getBg() }, isCompletedMilestone && { borderWidth: 2, borderColor: LIME }]}>
           <View style={styles.dayTileInner}>
             <Text style={[styles.dayNumber, { color: getNumberColor(), fontSize: getNumberSize() }]}>{day}</Text>
             {isCompletedMilestone && (

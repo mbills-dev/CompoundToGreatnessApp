@@ -120,13 +120,15 @@ function ConfettiPiece({ cfg, screenHeight, onDone }: { cfg: PieceConfig; screen
 interface ConfettiProps {
   count?: number;
   onDone?: () => void;
+  fallDurationMin?: number;
+  fallDurationMax?: number;
 }
 
-export default function Confetti({ count = 36, onDone }: ConfettiProps) {
+export default function Confetti({ count = 36, onDone, fallDurationMin = 6500, fallDurationMax = 9500 }: ConfettiProps) {
   const doneCalledRef = useRef(false);
 
   const pieces: PieceConfig[] = Array.from({ length: count }, () => {
-    const duration = randomBetween(6500, 9500);
+    const duration = randomBetween(fallDurationMin, fallDurationMax);
     const delay = randomBetween(0, 600);
     return {
       x: randomBetween(0, 380),
