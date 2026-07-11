@@ -411,13 +411,13 @@ function DayShield({ day, size }: { day: number; size: number }) {
       Animated.sequence([
         Animated.timing(sway, {
           toValue: 1,
-          duration: 3200,
+          duration: 2400,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
         Animated.timing(sway, {
           toValue: -1,
-          duration: 3200,
+          duration: 2400,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
@@ -449,19 +449,19 @@ function DayShield({ day, size }: { day: number; size: number }) {
 
   const rotateY = sway.interpolate({
     inputRange: [-1, 1],
-    outputRange: ['-8deg', '8deg'],
+    outputRange: ['-15deg', '15deg'],
   });
   const rotateZ = sway.interpolate({
     inputRange: [-1, 1],
-    outputRange: ['-1.5deg', '1.5deg'],
+    outputRange: ['-2deg', '2deg'],
   });
   const glowOpacity = glow.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.55, 1],
+    outputRange: [0.5, 1],
   });
   const glowScale = glow.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 1.06],
+    outputRange: [1, 1.12],
   });
 
   return (
@@ -485,8 +485,9 @@ function DayShield({ day, size }: { day: number; size: number }) {
         >
           <Defs>
             <RadialGradient id="shield-radial" cx="50%" cy="50%" r="50%">
-              <Stop offset="0%" stopColor={LIME} stopOpacity={0.35} />
-              <Stop offset="60%" stopColor={LIME} stopOpacity={0.08} />
+              <Stop offset="0%" stopColor={LIME} stopOpacity={0.55} />
+              <Stop offset="35%" stopColor={LIME} stopOpacity={0.32} />
+              <Stop offset="70%" stopColor={LIME} stopOpacity={0.12} />
               <Stop offset="100%" stopColor={LIME} stopOpacity={0} />
             </RadialGradient>
           </Defs>
