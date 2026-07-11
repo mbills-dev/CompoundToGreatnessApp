@@ -1058,7 +1058,7 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 7,
+    gap: 6,
     backgroundColor: 'transparent',
   },
   dayTile: {

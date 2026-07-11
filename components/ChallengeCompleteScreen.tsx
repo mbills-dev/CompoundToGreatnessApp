@@ -79,6 +79,7 @@ export default function ChallengeCompleteScreen({
     } catch (error) {
       console.error('Error marking celebration seen:', error);
     }
+    wallPeeked = false;
     onKeepGoing();
   };
 
@@ -122,6 +123,7 @@ export default function ChallengeCompleteScreen({
             setBusy(true);
             try {
               await resetChallenge(goal, supabase, 'completed');
+              wallPeeked = false;
               onRunItAgain();
             } catch (error) {
               console.error('Error running it again:', error);
@@ -158,6 +160,7 @@ export default function ChallengeCompleteScreen({
                 .from('goals')
                 .update({ is_active: false })
                 .eq('id', goal.id);
+              wallPeeked = false;
               onStartFresh();
             } catch (error) {
               console.error('Error starting fresh:', error);

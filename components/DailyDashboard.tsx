@@ -256,7 +256,7 @@ export default function DailyDashboard({
       if (celebrationPending && !showChallengeComplete) {
         setShowChallengeComplete(true);
       }
-    }, [goal.challenge_phase, goal.current_challenge_day, goal.celebration_seen, showChallengeComplete])
+    }, [goal.challenge_phase, goal.current_challenge_day, goal.celebration_seen])
   );
 
   const progress = activities.length > 0
