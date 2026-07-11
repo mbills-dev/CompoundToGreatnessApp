@@ -651,10 +651,10 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
 
   const completedDays = getCompletedDaysCount();
   const currentDay = goal.current_challenge_day || 1;
-  const displayDay = getDayNumberFromChallengeStart(
+  const displayDay = Math.max(1, getDayNumberFromChallengeStart(
     goal.challenge_start_date ?? null,
     getTodayDateString()
-  );
+  ));
   const isCompleted = goal.challenge_phase === 'keep_going' || currentDay > TOTAL_CHALLENGE_DAYS;
   const isChallengePhase = goal.challenge_phase === 'challenge' && !isCompleted;
 
@@ -780,7 +780,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
                 <DayTile
                   key={day}
                   day={day}
-                  currentDay={currentDay}
+                  currentDay={displayDay}
                   completed={completed}
                   isSelected={day === selectedDay}
                   tileSize={tileSize}
