@@ -188,6 +188,7 @@ export default function DailyDashboard({
   const { triggerRacingBorder } = useRacingBorder();
   const router = useRouter();
   const scrollViewRef = useRef<ScrollView>(null);
+  const celebrationSuppressed = useRef(false);
   const [completion, setCompletion] = useState<DailyCompletion | null>(null);
   const [completedActivities, setCompletedActivities] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -254,7 +255,7 @@ export default function DailyDashboard({
         goal.challenge_phase === 'challenge' &&
         goal.current_challenge_day >= 77 &&
         !goal.celebration_seen;
-      if (celebrationPending && !celebrationOpen) {
+      if (celebrationPending && !celebrationOpen && !celebrationSuppressed.current) {
         openCelebration();
       }
     }, [goal.challenge_phase, goal.current_challenge_day, goal.celebration_seen])
@@ -625,6 +626,7 @@ export default function DailyDashboard({
         const newDay = updates.current_challenge_day ?? goal.current_challenge_day;
         if (newDay >= 77 && !goal.celebration_seen && goal.challenge_phase === 'challenge') {
           setTimeout(() => {
+            celebrationSuppressed.current = false;
             openCelebration();
           }, 3500);
         }
@@ -976,6 +978,10 @@ export default function DailyDashboard({
               // returns to the Today tab.
               closeCelebration();
               router.push('/(tabs)/calendar');
+            }}
+            onDismiss={() => {
+              celebrationSuppressed.current = true;
+              closeCelebration();
             }}
           />
         </Modal>

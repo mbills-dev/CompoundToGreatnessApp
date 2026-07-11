@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Text as SvgText, Defs, RadialGradient, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
-import { Share2, ChevronRight } from 'lucide-react-native';
+import { Share2, ChevronRight, X } from 'lucide-react-native';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as Haptics from 'expo-haptics';
@@ -39,6 +39,7 @@ interface ChallengeCompleteScreenProps {
   onRunItAgain: () => void;
   onStartFresh: () => void;
   onSeeWall: () => void;
+  onDismiss: () => void;
 }
 
 export default function ChallengeCompleteScreen({
@@ -48,6 +49,7 @@ export default function ChallengeCompleteScreen({
   onRunItAgain,
   onStartFresh,
   onSeeWall,
+  onDismiss,
 }: ChallengeCompleteScreenProps) {
   const { colors } = useTheme();
   const shareCardRef = useRef<View>(null);
@@ -364,6 +366,13 @@ export default function ChallengeCompleteScreen({
 
   return (
     <View style={styles.root}>
+      <TouchableOpacity
+        onPress={onDismiss}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        style={{ position: 'absolute', top: 64, right: 24, zIndex: 10 }}
+      >
+        <X size={24} color="rgba(255,255,255,0.4)" />
+      </TouchableOpacity>
       <LinearGradient
         colors={['#000000', '#0A0A0A', '#000000']}
         style={styles.gradient}
