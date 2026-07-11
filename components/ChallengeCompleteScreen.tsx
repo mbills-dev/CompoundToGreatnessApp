@@ -511,12 +511,14 @@ function DayShield({ day, size }: { day: number; size: number }) {
           style={{
             ...StyleSheet.absoluteFillObject,
             transform: [{ translateX: edgeShift }],
+            zIndex: 0,
           }}
         >
           <Svg width={size} height={size * 1.05} viewBox={viewBox}>
             <Path d={shieldPath} fill="#080808" stroke={LIME} strokeWidth={2.5} strokeOpacity={0.5} />
           </Svg>
         </Animated.View>
+        <View style={{ zIndex: 1 }}>
         <Svg width={size} height={size * 1.05} viewBox={viewBox}>
           <Defs>
             <SvgLinearGradient id="shield-face" x1="0" y1="0" x2="0" y2="1">
@@ -534,6 +536,7 @@ function DayShield({ day, size }: { day: number; size: number }) {
             {day}
           </SvgText>
         </Svg>
+        </View>
       </Animated.View>
     </View>
   );
