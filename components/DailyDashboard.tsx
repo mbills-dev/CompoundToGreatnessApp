@@ -621,15 +621,14 @@ export default function DailyDashboard({
           setTimeout(() => {
             scrollViewRef.current?.scrollToEnd({ animated: true });
           }, 600);
+          const newDay = updates.current_challenge_day ?? goal.current_challenge_day;
+          if (newDay >= 77 && !goal.celebration_seen && goal.challenge_phase === 'challenge') {
+            setTimeout(() => {
+              celebrationSuppressed.current = false;
+              openCelebration();
+            }, 900);
+          }
         });
-
-        const newDay = updates.current_challenge_day ?? goal.current_challenge_day;
-        if (newDay >= 77 && !goal.celebration_seen && goal.challenge_phase === 'challenge') {
-          setTimeout(() => {
-            celebrationSuppressed.current = false;
-            openCelebration();
-          }, 3500);
-        }
       }
       onRefresh();
     } catch (error) {
