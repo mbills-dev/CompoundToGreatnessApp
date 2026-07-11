@@ -7,6 +7,8 @@ import {
   ScrollView,
   Alert,
   Platform,
+  Animated,
+  Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Text as SvgText, Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
@@ -401,9 +403,76 @@ function DayShield({ day, size }: { day: number; size: number }) {
   const viewBox = '0 0 110 115';
   const glowSize = size * 1.6;
 
+  const sway = useRef(new Animated.Value(-1)).current;
+  const glow = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const swayLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sway, {
+          toValue: 1,
+          duration: 3200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(sway, {
+          toValue: -1,
+          duration: 3200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    const glowLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glow, {
+          toValue: 1,
+          duration: 2400,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(glow, {
+          toValue: 0,
+          duration: 2400,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    swayLoop.start();
+    glowLoop.start();
+    return () => {
+      swayLoop.stop();
+      glowLoop.stop();
+    };
+  }, [sway, glow]);
+
+  const rotateY = sway.interpolate({
+    inputRange: [-1, 1],
+    outputRange: ['-8deg', '8deg'],
+  });
+  const rotateZ = sway.interpolate({
+    inputRange: [-1, 1],
+    outputRange: ['-1.5deg', '1.5deg'],
+  });
+  const glowOpacity = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.55, 1],
+  });
+  const glowScale = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.06],
+  });
+
   return (
     <View style={styles.shieldWrapper}>
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Animated.View
+        style={[StyleSheet.absoluteFill, {
+          opacity: glowOpacity,
+          transform: [{ scale: glowScale }],
+        }]}
+        pointerEvents="none"
+      >
         <Svg
           width={glowSize}
           height={glowSize}
@@ -423,18 +492,28 @@ function DayShield({ day, size }: { day: number; size: number }) {
           </Defs>
           <Rect x="0" y="0" width="110" height="115" fill="url(#shield-radial)" />
         </Svg>
-      </View>
-      <Svg width={size} height={size * 1.05} viewBox={viewBox}>
-        <Path d={shieldPath} fill="#161616" stroke={LIME} strokeWidth={2.5} />
-        <Path d={innerRing1} fill="none" stroke={LIME} strokeWidth={1} opacity={0.4} />
-        <Path d={innerRing2} fill="none" stroke={LIME} strokeWidth={1} opacity={0.2} />
-        <SvgText x="55" y="44" textAnchor="middle" fontSize={9} fontWeight="700" fill={LIME} letterSpacing={2} fontFamily="Inter-Black">
-          DAY
-        </SvgText>
-        <SvgText x="55" y="74" textAnchor="middle" fontSize={30} fontWeight="900" fill="#ffffff" fontFamily="Inter-Black">
-          {day}
-        </SvgText>
-      </Svg>
+      </Animated.View>
+      <Animated.View
+        style={{
+          transform: [
+            { perspective: 800 },
+            { rotateY },
+            { rotateZ },
+          ],
+        }}
+      >
+        <Svg width={size} height={size * 1.05} viewBox={viewBox}>
+          <Path d={shieldPath} fill="#161616" stroke={LIME} strokeWidth={2.5} />
+          <Path d={innerRing1} fill="none" stroke={LIME} strokeWidth={1} opacity={0.4} />
+          <Path d={innerRing2} fill="none" stroke={LIME} strokeWidth={1} opacity={0.2} />
+          <SvgText x="55" y="44" textAnchor="middle" fontSize={9} fontWeight="700" fill={LIME} letterSpacing={2} fontFamily="Inter-Black">
+            DAY
+          </SvgText>
+          <SvgText x="55" y="74" textAnchor="middle" fontSize={30} fontWeight="900" fill="#ffffff" fontFamily="Inter-Black">
+            {day}
+          </SvgText>
+        </Svg>
+      </Animated.View>
     </View>
   );
 }
