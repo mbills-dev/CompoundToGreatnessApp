@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { Goal } from '@/types/database';
@@ -18,6 +19,14 @@ export default function CalendarScreen() {
       loadGoal();
     }
   }, [user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        loadGoal();
+      }
+    }, [user])
+  );
 
   const loadGoal = async () => {
     try {
