@@ -849,13 +849,13 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
 
       {/* Continue bar — shown only when celebration is pending */}
       {isCelebrationPending && (
-        <View style={styles.continueBar}>
+        <View style={styles.continueBar} pointerEvents="box-none">
           <TouchableOpacity
             style={styles.continueBarButton}
-            onPress={() => router.push('/(tabs)/index')}
+            onPress={() => router.push('/')}
             activeOpacity={0.8}
           >
-            <Text style={styles.continueBarText}>CONTINUE → CHOOSE WHAT'S NEXT</Text>
+            <Text style={styles.continueBarText}>CONTINUE →</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -877,30 +877,33 @@ const styles = StyleSheet.create({
   },
   continueBar: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 100,
     left: 0,
     right: 0,
-    paddingHorizontal: 24,
-    paddingBottom: 100,
-    paddingTop: 12,
-    backgroundColor: '#000000',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(204,255,0,0.15)',
+    paddingBottom: 0,
+    paddingTop: 0,
+    alignItems: 'center',
   },
   continueBarButton: {
-    backgroundColor: '#CCFF00',
-    borderRadius: 18,
+    backgroundColor: '#FF4400',
+    borderRadius: 999,
     paddingVertical: 16,
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
+    alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
   continueBarText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
-    color: '#000000',
+    color: '#FFFFFF',
     fontFamily: 'Inter-Black',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
   container: {
     flex: 1,
