@@ -626,7 +626,7 @@ export default function DailyDashboard({
             setTimeout(() => {
               celebrationSuppressed.current = false;
               openCelebration();
-            }, 900);
+            }, 2400);
           }
         });
       }
