@@ -10,13 +10,15 @@ import {
   Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path, Text as SvgText, Defs, Filter, FeGaussianBlur } from 'react-native-svg';
-import { Share2, ChevronRight } from 'lucide-react-native';
+import Svg, { Path, Text as SvgText, Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
+import { Share2, ChevronRight, RotateCcw, Sparkles } from 'lucide-react-native';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@/lib/supabase';
-import { Goal } from '@/types/database';
+import { Goal, DailyActivity } from '@/types/database';
+import { resetChallenge } from '@/lib/resetHelpers';
+import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import { useTheme } from '@/contexts/ThemeContext';
 import Confetti from './Confetti';
 
@@ -27,21 +29,24 @@ const LIME_DARK = '#aed900';
 
 interface ChallengeCompleteScreenProps {
   goal: Goal;
-  totalDaysLogged: number;
-  bestStreak: number;
+  activities: DailyActivity[];
   onKeepGoing: () => void;
+  onRunItAgain: () => void;
+  onStartFresh: () => void;
 }
 
 export default function ChallengeCompleteScreen({
   goal,
-  totalDaysLogged,
-  bestStreak,
+  activities,
   onKeepGoing,
+  onRunItAgain,
+  onStartFresh,
 }: ChallengeCompleteScreenProps) {
   const { colors } = useTheme();
   const shareCardRef = useRef<View>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [showConfetti, setShowConfetti] = useState(true);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -93,17 +98,96 @@ export default function ChallengeCompleteScreen({
     }
   };
 
+  const handleRunItAgain = () => {
+    Alert.alert(
+      'Run It Again?',
+      'Same inputs. Same identity. Day 1 starts now.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Run It Again',
+          style: 'default',
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await supabase
+                .from('goals')
+                .update({ celebration_seen: true })
+                .eq('id', goal.id);
+              await resetChallenge(goal, supabase, 'completed');
+              onRunItAgain();
+            } catch (error) {
+              console.error('Error running it again:', error);
+              Alert.alert('Error', 'Something went wrong. Please try again.');
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleStartFresh = () => {
+    Alert.alert(
+      'Start Fresh?',
+      'This archives your challenge and starts onboarding over.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Start Fresh',
+          style: 'destructive',
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await supabase
+                .from('goals')
+                .update({ celebration_seen: true })
+                .eq('id', goal.id);
+              await archiveCurrentChallenge(goal, supabase, 'completed');
+              // Deactivate the goal (keep the row for history) and clear
+              // daily_activities so the IdentityBuilder onboarding flow
+              // is triggered naturally by index.tsx (which queries for
+              // is_active=true first, then falls through to IdentityBuilder).
+              // We keep the goals row (is_active=false) rather than deleting
+              // it so that the archived-challenge-detail reader — which
+              // reads from challenge_archives, not goals — still has a
+              // referential goal_id link. challenge_archives stores a
+              // snapshot of all identity/compass data, so the reader
+              // works regardless of the goals row state.
+              await supabase
+                .from('daily_activities')
+                .delete()
+                .eq('goal_id', goal.id);
+              await supabase
+                .from('goals')
+                .update({ is_active: false })
+                .eq('id', goal.id);
+              onStartFresh();
+            } catch (error) {
+              console.error('Error starting fresh:', error);
+              Alert.alert('Error', 'Something went wrong. Please try again.');
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  // Identity statements: split goal.identity_statement on '\n', each line full text
   const identityLines: string[] = [];
-  if (goal.identity_dimensions && goal.identity_dimensions.length > 0) {
-    goal.identity_dimensions.forEach((dim: Record<string, any>) => {
-      if (dim.specific) identityLines.push(dim.specific);
-      else if (dim.label) identityLines.push(dim.label);
-    });
-  } else if (goal.identity_statement) {
-    identityLines.push(goal.identity_statement);
+  if (goal.identity_statement) {
+    goal.identity_statement
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0)
+      .forEach((l) => identityLines.push(l));
   }
 
-  const showRestarts = (goal.total_restarts ?? 0) > 0;
+  const activityCount = activities.length;
+  const promisesKept = activityCount * 77;
 
   return (
     <View style={styles.root}>
@@ -157,22 +241,15 @@ export default function ChallengeCompleteScreen({
                 </View>
                 <View style={styles.shareCardStatDivider} />
                 <View style={styles.shareCardStat}>
-                  <Text style={styles.shareCardStatValue}>{bestStreak}</Text>
-                  <Text style={styles.shareCardStatLabel}>BEST{'\n'}STREAK</Text>
+                  <Text style={styles.shareCardStatValue}>{activityCount}</Text>
+                  <Text style={styles.shareCardStatLabel}>DAILY{'\n'}INPUTS</Text>
                 </View>
-                {showRestarts && (
-                  <>
-                    <View style={styles.shareCardStatDivider} />
-                    <View style={styles.shareCardStat}>
-                      <Text style={styles.shareCardStatValue}>{goal.total_restarts}</Text>
-                      <Text style={styles.shareCardStatLabel}>TOTAL{'\n'}RESTARTS</Text>
-                    </View>
-                  </>
-                )}
+                <View style={styles.shareCardStatDivider} />
+                <View style={styles.shareCardStat}>
+                  <Text style={styles.shareCardStatValue}>{promisesKept}</Text>
+                  <Text style={styles.shareCardStatLabel}>PROMISES{'\n'}KEPT</Text>
+                </View>
               </View>
-
-              <View style={styles.shareCardDivider} />
-              <Text style={styles.shareCardFooter}>Keep going.</Text>
             </LinearGradient>
           </View>
 
@@ -189,7 +266,11 @@ export default function ChallengeCompleteScreen({
           )}
 
           {/* KEEP GOING */}
-          <TouchableOpacity style={styles.keepGoingButton} onPress={handleKeepGoing}>
+          <TouchableOpacity
+            style={styles.keepGoingButton}
+            onPress={handleKeepGoing}
+            disabled={busy}
+          >
             <LinearGradient
               colors={[LIME, LIME_DARK]}
               style={styles.keepGoingGradient}
@@ -197,6 +278,25 @@ export default function ChallengeCompleteScreen({
               <Text style={styles.keepGoingText}>Keep Going</Text>
               <ChevronRight size={24} color="#000000" strokeWidth={3} />
             </LinearGradient>
+          </TouchableOpacity>
+
+          {/* RUN IT AGAIN */}
+          <TouchableOpacity
+            style={styles.runAgainButton}
+            onPress={handleRunItAgain}
+            disabled={busy}
+          >
+            <RotateCcw size={20} color="#FFFFFF" strokeWidth={2.5} />
+            <Text style={styles.runAgainText}>Run It Again</Text>
+          </TouchableOpacity>
+
+          {/* START FRESH — tertiary text link */}
+          <TouchableOpacity
+            style={styles.startFreshLink}
+            onPress={handleStartFresh}
+            disabled={busy}
+          >
+            <Text style={styles.startFreshText}>Start fresh with new goals</Text>
           </TouchableOpacity>
         </ScrollView>
       </LinearGradient>
@@ -222,25 +322,32 @@ function DayShield({ day, size }: { day: number; size: number }) {
   const innerRing1 = 'M55 12 L92 26 L92 58 C92 76 74 91 55 101 C36 91 18 76 18 58 L18 26 Z';
   const innerRing2 = 'M55 20 L84 32 L84 58 C84 73 68 86 55 95 C42 86 26 73 26 58 L26 32 Z';
   const viewBox = '0 0 110 115';
-  const scale = size / 110;
+  const glowSize = size * 1.6;
 
   return (
     <View style={styles.shieldWrapper}>
-      {/* Glow */}
-      <Svg
-        width={size * 1.6}
-        height={size * 1.6}
-        viewBox={viewBox}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      >
-        <Defs>
-          <Filter id="shield-glow" x="-50%" y="-50%" width="200%" height="200%">
-            <FeGaussianBlur stdDeviation={6} />
-          </Filter>
-        </Defs>
-        <Path d={shieldPath} fill={LIME} filter="url(#shield-glow)" opacity={0.35} />
-      </Svg>
+      {/* Glow — centered radial gradient behind the shield */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Svg
+          width={glowSize}
+          height={glowSize}
+          viewBox="0 0 110 115"
+          style={{
+            position: 'absolute',
+            top: (size - glowSize) / 2,
+            left: (size - glowSize) / 2,
+          }}
+        >
+          <Defs>
+            <RadialGradient id="shield-radial" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor={LIME} stopOpacity={0.35} />
+              <Stop offset="60%" stopColor={LIME} stopOpacity={0.08} />
+              <Stop offset="100%" stopColor={LIME} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Rect x="0" y="0" width="110" height="115" fill="url(#shield-radial)" />
+        </Svg>
+      </View>
       {/* Shield */}
       <Svg width={size} height={size * 1.05} viewBox={viewBox}>
         <Path d={shieldPath} fill="#161616" stroke={LIME} strokeWidth={2.5} />
@@ -337,7 +444,7 @@ const styles = StyleSheet.create({
   identityLine: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.85)',
+    color: '#FFFFFF',
     textAlign: 'center',
     lineHeight: 20,
     fontFamily: 'Inter-Black',
@@ -372,12 +479,6 @@ const styles = StyleSheet.create({
     width: 1,
     height: 44,
     backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  shareCardFooter: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.5)',
-    fontFamily: 'Inter-Black',
   },
   shareButton: {
     flexDirection: 'row',
@@ -417,6 +518,39 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontFamily: 'Inter-Black',
     letterSpacing: -0.5,
+  },
+  runAgainButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    width: '100%',
+    marginTop: 12,
+  },
+  runAgainText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-Black',
+  },
+  startFreshLink: {
+    marginTop: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  alignSelf: 'center',
+  },
+  startFreshText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.4)',
+    fontFamily: 'Inter-Black',
+    textDecorationLine: 'underline',
   },
   confettiOverlay: {
     position: 'absolute',

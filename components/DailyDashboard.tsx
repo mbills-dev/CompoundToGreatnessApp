@@ -933,8 +933,7 @@ export default function DailyDashboard({
         <Modal visible={showChallengeComplete} animationType="fade" statusBarTranslucent>
           <ChallengeCompleteScreen
             goal={goal}
-            totalDaysLogged={perfectDays}
-            bestStreak={bestStreak}
+            activities={activities}
             onKeepGoing={async () => {
               // Deferred from toggleActivity: now safe to flip phase and archive.
               if (goal.challenge_phase === 'challenge') {
@@ -944,6 +943,14 @@ export default function DailyDashboard({
                   .eq('id', goal.id);
                 archiveCurrentChallenge(goal, supabase, 'completed').catch(() => {});
               }
+              setShowChallengeComplete(false);
+              onRefresh();
+            }}
+            onRunItAgain={() => {
+              setShowChallengeComplete(false);
+              onRefresh();
+            }}
+            onStartFresh={() => {
               setShowChallengeComplete(false);
               onRefresh();
             }}
