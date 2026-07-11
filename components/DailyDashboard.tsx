@@ -954,6 +954,13 @@ export default function DailyDashboard({
               setShowChallengeComplete(false);
               onRefresh();
             }}
+            onSeeWall={() => {
+              // Dismiss WITHOUT setting celebration_seen —
+              // the celebration will reappear when the user
+              // returns to the Today tab.
+              setShowChallengeComplete(false);
+              router.push('/(tabs)/calendar');
+            }}
           />
         </Modal>
       )}

@@ -179,7 +179,7 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, on
   const isDay77Locked = isDay77 && !completed;
   const isDay77Completed = isDay77 && completed;
   const isFireGlow = isDay77Locked || isDay77Completed;
-  const needsGlow = isCompletedMilestone || isUpcomingMilestone || isFireGlow;
+  const needsGlow = isUpcomingMilestone || isFireGlow;
 
   useEffect(() => {
     if (!needsGlow) return;
@@ -196,14 +196,16 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, on
   }, [needsGlow]);
 
   const getBg = (): string => {
-    if (isDay77Completed) return '#FF4400';
+    if (isDay77Completed) return '#0D0D0D';
+    if (isCompletedMilestone) return '#0D0D0D';
     if (completed) return '#CCFF00';
     return '#2C2C2C';
   };
 
   const getNumberColor = (): string => {
-    if (isDay77Completed) return '#FFFFFF';
+    if (isDay77Completed) return '#FF4400';
     if (isDay77Locked) return '#FF4400';
+    if (isCompletedMilestone) return LIME;
     if (completed) return '#1A1A1A';
     if (isCurrent) return isLight ? 'rgba(0,0,0,0.5)' : 'rgba(204,255,0,0.5)';
     if (isUpcomingMilestone) return '#CCFF00';
@@ -268,12 +270,12 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, on
             />
           </Svg>
         </View>
-        <View style={[styles.dayTile, { width: tileSize, height: tileSize, backgroundColor: getBg() }, isCompletedMilestone && { borderWidth: 2, borderColor: LIME }]}>
+        <View style={[styles.dayTile, { width: tileSize, height: tileSize, backgroundColor: getBg() }, isCompletedMilestone && { borderWidth: 2, borderColor: LIME }, isDay77Completed && { borderWidth: 2, borderColor: '#FF4400' }]}>
           <View style={styles.dayTileInner}>
             <Text style={[styles.dayNumber, { color: getNumberColor(), fontSize: getNumberSize() }]}>{day}</Text>
             {isCompletedMilestone && (
               <View style={styles.starBadge}>
-                <Text style={styles.starText}>★</Text>
+                <Text style={[styles.starText, { color: LIME }]}>★</Text>
               </View>
             )}
           </View>
