@@ -204,7 +204,7 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, on
           <View style={styles.dayTileInner}>
             {(isCompletedMilestone || isDay77Completed) && (
               <View style={styles.starIconWrapper}>
-                <Star size={10} color={isDay77Completed ? '#FFFFFF' : '#1A1A1A'} fill={isDay77Completed ? '#FFFFFF' : '#1A1A1A'} strokeWidth={0} />
+                <Star size={9} color={isDay77Completed ? '#FFFFFF' : '#1A1A1A'} fill={isDay77Completed ? '#FFFFFF' : '#1A1A1A'} strokeWidth={0} />
               </View>
             )}
             <Text style={[styles.dayNumber, { color: getNumberColor(), fontSize: getNumberSize() }]}>{day}</Text>
@@ -236,7 +236,7 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, on
         >
           {(isCompletedMilestone || isDay77Completed) && (
             <View style={styles.starIconWrapper}>
-              <Star size={10} color={isDay77Completed ? '#FFFFFF' : '#1A1A1A'} fill={isDay77Completed ? '#FFFFFF' : '#1A1A1A'} strokeWidth={0} />
+              <Star size={9} color={isDay77Completed ? '#FFFFFF' : '#1A1A1A'} fill={isDay77Completed ? '#FFFFFF' : '#1A1A1A'} strokeWidth={0} />
             </View>
           )}
           <Text style={[styles.dayNumber, { color: getNumberColor(), fontSize: getNumberSize() }]}>{day}</Text>
@@ -249,8 +249,8 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, on
 export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
   const { colors, isDark } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
-  const GRID_COLS = 6;
-  const GRID_GAP = 7;
+  const GRID_COLS = 7;
+  const GRID_GAP = 6;
   const GRID_PADDING = 48;
   const tileSize = Math.floor((screenWidth - GRID_PADDING - (GRID_COLS - 1) * GRID_GAP) / GRID_COLS);
   const [goal, setGoal] = useState(initialGoal);
@@ -779,6 +779,18 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
           <Text style={styles.shareJourneyText}>SHARE YOUR JOURNEY</Text>
         </TouchableOpacity>
 
+        {/* Inline continue button — shown only when celebration is pending.
+            Rendered OUTSIDE shareViewRef so it never appears in share images. */}
+        {isCelebrationPending && (
+          <TouchableOpacity
+            style={styles.continueButton}
+            onPress={() => router.push('/')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.continueButtonText}>CONTINUE →</Text>
+          </TouchableOpacity>
+        )}
+
         {selectedDay && (() => {
           const completedActivities = getCompletedActivitiesForDay(selectedDay);
           const isPast = selectedDay < currentDay;
@@ -847,19 +859,6 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
       </LinearGradient>
       </ScrollView>
 
-      {/* Continue bar — shown only when celebration is pending */}
-      {isCelebrationPending && (
-        <View style={styles.continueBar} pointerEvents="box-none">
-          <TouchableOpacity
-            style={styles.continueBarButton}
-            onPress={() => router.push('/')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.continueBarText}>CONTINUE →</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       <DayCardModal
         visible={dayCardDay !== null}
         day={dayCardDay}
@@ -875,16 +874,7 @@ const styles = StyleSheet.create({
   rootWrapper: {
     flex: 1,
   },
-  continueBar: {
-    position: 'absolute',
-    bottom: 100,
-    left: 0,
-    right: 0,
-    paddingBottom: 0,
-    paddingTop: 0,
-    alignItems: 'center',
-  },
-  continueBarButton: {
+  continueButton: {
     backgroundColor: '#FF4400',
     borderRadius: 999,
     paddingVertical: 16,
@@ -892,13 +882,9 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
+    marginTop: 16,
   },
-  continueBarText: {
+  continueButtonText: {
     fontSize: 15,
     fontWeight: '900',
     color: '#FFFFFF',

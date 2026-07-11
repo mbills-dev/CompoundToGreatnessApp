@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,7 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { CircleCheck as CheckCircle, Circle, Flame, Award, TrendingUp, Check, Plus, Lock, Eye, X } from 'lucide-react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyActivity, DailyCompletion } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -243,6 +243,21 @@ export default function DailyDashboard({
       setShowChallengeComplete(true);
     }
   }, [goal.id]);
+
+  // Re-present the celebration when returning to the Today tab
+  // while it's still pending (not yet seen). Tab screens stay mounted,
+  // so the mount effect above won't re-run on tab focus.
+  useFocusEffect(
+    useCallback(() => {
+      const celebrationPending =
+        goal.challenge_phase === 'challenge' &&
+        goal.current_challenge_day >= 77 &&
+        !goal.celebration_seen;
+      if (celebrationPending && !showChallengeComplete) {
+        setShowChallengeComplete(true);
+      }
+    }, [goal.challenge_phase, goal.current_challenge_day, goal.celebration_seen, showChallengeComplete])
+  );
 
   const progress = activities.length > 0
     ? (completedActivities.length / activities.length) * 100
