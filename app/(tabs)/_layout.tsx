@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import { Users } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RacingBorderProvider, useRacingBorder } from '@/contexts/RacingBorderContext';
+import { CelebrationProvider } from '@/contexts/CelebrationContext';
 import { TabBarVisibilityProvider, useTabBarVisibility } from '@/contexts/TabBarVisibilityContext';
 import { RacingBorder } from '@/components/RacingBorder';
 import Svg, { Path } from 'react-native-svg';
@@ -108,9 +109,11 @@ function TabLayoutInner() {
 export default function TabLayout() {
   return (
     <TabBarVisibilityProvider>
-      <RacingBorderProvider>
-        <TabLayoutInner />
-      </RacingBorderProvider>
+      <CelebrationProvider>
+        <RacingBorderProvider>
+          <TabLayoutInner />
+        </RacingBorderProvider>
+      </CelebrationProvider>
     </TabBarVisibilityProvider>
   );
 }

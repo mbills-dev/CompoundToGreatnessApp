@@ -11,7 +11,7 @@ import {
   Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path, Text as SvgText, Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
+import Svg, { Path, Text as SvgText, Defs, RadialGradient, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import { Share2, ChevronRight } from 'lucide-react-native';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
@@ -455,6 +455,10 @@ function DayShield({ day, size }: { day: number; size: number }) {
     inputRange: [-1, 1],
     outputRange: ['-2deg', '2deg'],
   });
+  const edgeShift = sway.interpolate({
+    inputRange: [-1, 1],
+    outputRange: [7, -7],
+  });
   const glowOpacity = glow.interpolate({
     inputRange: [0, 1],
     outputRange: [0.5, 1],
@@ -503,8 +507,24 @@ function DayShield({ day, size }: { day: number; size: number }) {
           ],
         }}
       >
+        <Animated.View
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            transform: [{ translateX: edgeShift }],
+          }}
+        >
+          <Svg width={size} height={size * 1.05} viewBox={viewBox}>
+            <Path d={shieldPath} fill="#080808" stroke={LIME} strokeWidth={2.5} strokeOpacity={0.5} />
+          </Svg>
+        </Animated.View>
         <Svg width={size} height={size * 1.05} viewBox={viewBox}>
-          <Path d={shieldPath} fill="#161616" stroke={LIME} strokeWidth={2.5} />
+          <Defs>
+            <SvgLinearGradient id="shield-face" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor="#222222" />
+              <Stop offset="100%" stopColor="#0D0D0D" />
+            </SvgLinearGradient>
+          </Defs>
+          <Path d={shieldPath} fill="url(#shield-face)" stroke={LIME} strokeWidth={2.5} />
           <Path d={innerRing1} fill="none" stroke={LIME} strokeWidth={1} opacity={0.4} />
           <Path d={innerRing2} fill="none" stroke={LIME} strokeWidth={1} opacity={0.2} />
           <SvgText x="55" y="44" textAnchor="middle" fontSize={9} fontWeight="700" fill={LIME} letterSpacing={2} fontFamily="Inter-Black">

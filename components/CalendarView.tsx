@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyCompletion, DailyActivity } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useCelebration } from '@/contexts/CelebrationContext';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { isDateLocked, getDateForChallengeDay, toLocalDateString, parseLocalDate, getDayNumberFromChallengeStart, getTodayDateString } from '@/lib/dateHelpers';
@@ -248,6 +249,7 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, on
 
 export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
   const { colors, isDark } = useTheme();
+  const { openCelebration } = useCelebration();
   const { width: screenWidth } = useWindowDimensions();
   const GRID_COLS = 7;
   const GRID_GAP = 6;
@@ -784,7 +786,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
         {isCelebrationPending && (
           <TouchableOpacity
             style={styles.continueButton}
-            onPress={() => router.push('/')}
+            onPress={() => openCelebration()}
             activeOpacity={0.8}
           >
             <Text style={styles.continueButtonText}>CONTINUE →</Text>

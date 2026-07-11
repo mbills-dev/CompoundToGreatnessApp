@@ -36,6 +36,7 @@ import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import { resetChallenge } from '@/lib/resetHelpers';
 import CoachCard from './CoachCard';
 import { useRacingBorder } from '@/contexts/RacingBorderContext';
+import { useCelebration } from '@/contexts/CelebrationContext';
 
 let Haptics: any = null;
 if (Platform.OS !== 'web') {
@@ -205,7 +206,7 @@ export default function DailyDashboard({
     targetIndex: null,
   });
   const [confettiCompleted, setConfettiCompleted] = useState(false);
-  const [showChallengeComplete, setShowChallengeComplete] = useState(false);
+  const { celebrationOpen, openCelebration, closeCelebration } = useCelebration();
   const [watcherCount, setWatcherCount] = useState(0);
   const [perfectDays, setPerfectDays] = useState(0);
   const [phase2ThisMonth, setPhase2ThisMonth] = useState(0);
@@ -240,7 +241,7 @@ export default function DailyDashboard({
       loadPhase2ThisMonth();
     }
     if (!goal.celebration_seen && isKeepGoing) {
-      setShowChallengeComplete(true);
+      openCelebration();
     }
   }, [goal.id]);
 
@@ -253,8 +254,8 @@ export default function DailyDashboard({
         goal.challenge_phase === 'challenge' &&
         goal.current_challenge_day >= 77 &&
         !goal.celebration_seen;
-      if (celebrationPending && !showChallengeComplete) {
-        setShowChallengeComplete(true);
+      if (celebrationPending && !celebrationOpen) {
+        openCelebration();
       }
     }, [goal.challenge_phase, goal.current_challenge_day, goal.celebration_seen])
   );
@@ -624,7 +625,7 @@ export default function DailyDashboard({
         const newDay = updates.current_challenge_day ?? goal.current_challenge_day;
         if (newDay >= 77 && !goal.celebration_seen && goal.challenge_phase === 'challenge') {
           setTimeout(() => {
-            setShowChallengeComplete(true);
+            openCelebration();
           }, 3500);
         }
       }
@@ -944,8 +945,8 @@ export default function DailyDashboard({
       </ScrollView>
 
 
-      {showChallengeComplete && (
-        <Modal visible={showChallengeComplete} animationType="fade" statusBarTranslucent>
+      {celebrationOpen && (
+        <Modal visible={celebrationOpen} animationType="fade" statusBarTranslucent>
           <ChallengeCompleteScreen
             goal={goal}
             activities={activities}
@@ -958,22 +959,22 @@ export default function DailyDashboard({
                   .eq('id', goal.id);
                 archiveCurrentChallenge(goal, supabase, 'completed').catch(() => {});
               }
-              setShowChallengeComplete(false);
+              closeCelebration();
               onRefresh();
             }}
             onRunItAgain={() => {
-              setShowChallengeComplete(false);
+              closeCelebration();
               onRefresh();
             }}
             onStartFresh={() => {
-              setShowChallengeComplete(false);
+              closeCelebration();
               onRefresh();
             }}
             onSeeWall={() => {
               // Dismiss WITHOUT setting celebration_seen —
               // the celebration will reappear when the user
               // returns to the Today tab.
-              setShowChallengeComplete(false);
+              closeCelebration();
               router.push('/(tabs)/calendar');
             }}
           />
