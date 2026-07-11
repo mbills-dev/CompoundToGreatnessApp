@@ -3,7 +3,7 @@ import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { Stack, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useFonts, Inter_900Black } from '@expo-google-fonts/inter';
+import { useFonts, Inter_900Black, Inter_700Bold } from '@expo-google-fonts/inter';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -99,6 +99,7 @@ export default function RootLayout() {
 
   const [fontsLoaded, fontError] = useFonts({
     'Inter-Black': Inter_900Black,
+    'Inter-Bold': Inter_700Bold,
   });
 
   useEffect(() => {

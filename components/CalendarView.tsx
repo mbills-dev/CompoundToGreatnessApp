@@ -12,8 +12,9 @@ import {
 } from 'react-native';
 import Svg, { Rect, Defs, Filter, FeGaussianBlur } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Share2, Lock, ArrowUpFromLine } from 'lucide-react-native';
+import { Share2, Lock, ArrowUpFromLine, Star } from 'lucide-react-native';
 import { useIsFocused } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyCompletion, DailyActivity } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -84,74 +85,6 @@ interface DayTileProps {
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
-const SWATCH_SIZE = 18;
-const SWATCH_BLUR = 5;
-const SWATCH_PAD = SWATCH_BLUR * 2;
-const SWATCH_SVG = SWATCH_SIZE + SWATCH_PAD * 2;
-
-function GlowSwatch({ color }: { color: string }) {
-  const opacity = useRef(new Animated.Value(1.0)).current;
-  useEffect(() => {
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.3, duration: 1000, useNativeDriver: false }),
-        Animated.timing(opacity, { toValue: 1.0, duration: 1000, useNativeDriver: false }),
-      ])
-    );
-    anim.start();
-    return () => anim.stop();
-  }, []);
-
-  return (
-    <View style={{ width: SWATCH_SIZE, height: SWATCH_SIZE }}>
-      <View style={{ position: 'absolute', top: -SWATCH_PAD, left: -SWATCH_PAD, width: SWATCH_SVG, height: SWATCH_SVG, pointerEvents: 'none' }}>
-        <Svg width={SWATCH_SVG} height={SWATCH_SVG} pointerEvents="none">
-          <Defs>
-            <Filter id={`sglow-${color}`} x="-60%" y="-60%" width="220%" height="220%">
-              <FeGaussianBlur stdDeviation={SWATCH_BLUR} result="blur" />
-            </Filter>
-          </Defs>
-          <AnimatedRect
-            x={SWATCH_PAD}
-            y={SWATCH_PAD}
-            width={SWATCH_SIZE}
-            height={SWATCH_SIZE}
-            rx={4}
-            ry={4}
-            fill={color}
-            filter={`url(#sglow-${color})`}
-            opacity={opacity}
-          />
-          <AnimatedRect
-            x={SWATCH_PAD + 1}
-            y={SWATCH_PAD + 1}
-            width={SWATCH_SIZE - 2}
-            height={SWATCH_SIZE - 2}
-            rx={3}
-            ry={3}
-            fill="#0D0D0D"
-            stroke={color}
-            strokeWidth={0}
-            opacity={1}
-          />
-          <AnimatedRect
-            x={SWATCH_PAD + 1}
-            y={SWATCH_PAD + 1}
-            width={SWATCH_SIZE - 2}
-            height={SWATCH_SIZE - 2}
-            rx={3}
-            ry={3}
-            fill="none"
-            stroke={color}
-            strokeWidth={2}
-            opacity={opacity}
-          />
-        </Svg>
-      </View>
-    </View>
-  );
-}
-
 function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, onPress }: DayTileProps) {
   const tileRef = useRef<View>(null);
   const glowOpacity = useRef(new Animated.Value(1.0)).current;
@@ -178,8 +111,7 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, on
   const isUpcomingMilestone = !completed && isMilestoneDay(day) && !isDay77 && day > currentDay;
   const isDay77Locked = isDay77 && !completed;
   const isDay77Completed = isDay77 && completed;
-  const isFireGlow = isDay77Locked || isDay77Completed;
-  const needsGlow = isUpcomingMilestone || isFireGlow;
+  const needsGlow = isUpcomingMilestone || isDay77Locked;
 
   useEffect(() => {
     if (!needsGlow) return;
@@ -196,16 +128,14 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, on
   }, [needsGlow]);
 
   const getBg = (): string => {
-    if (isDay77Completed) return '#0D0D0D';
-    if (isCompletedMilestone) return '#0D0D0D';
+    if (isDay77Completed) return '#FF4400';
     if (completed) return '#CCFF00';
     return '#2C2C2C';
   };
 
   const getNumberColor = (): string => {
-    if (isDay77Completed) return '#FF4400';
+    if (isDay77Completed) return '#FFFFFF';
     if (isDay77Locked) return '#FF4400';
-    if (isCompletedMilestone) return LIME;
     if (completed) return '#1A1A1A';
     if (isCurrent) return isLight ? 'rgba(0,0,0,0.5)' : 'rgba(204,255,0,0.5)';
     if (isUpcomingMilestone) return '#CCFF00';
@@ -222,8 +152,8 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, on
     return {};
   };
 
-  const glowColor = isFireGlow ? '#FF4400' : '#CCFF00';
-  const BLUR = isCompletedMilestone ? 12 : 8;
+  const glowColor = isDay77Locked ? '#FF4400' : '#CCFF00';
+  const BLUR = 8;
   const svgPad = BLUR * 2;
   const svgW = tileSize + svgPad * 2;
   const svgH = tileSize + svgPad * 2;
@@ -270,14 +200,14 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, on
             />
           </Svg>
         </View>
-        <View style={[styles.dayTile, { width: tileSize, height: tileSize, backgroundColor: getBg() }, isCompletedMilestone && { borderWidth: 2, borderColor: LIME }, isDay77Completed && { borderWidth: 2, borderColor: '#FF4400' }]}>
+        <View style={[styles.dayTile, { width: tileSize, height: tileSize, backgroundColor: getBg() }]}>
           <View style={styles.dayTileInner}>
-            <Text style={[styles.dayNumber, { color: getNumberColor(), fontSize: getNumberSize() }]}>{day}</Text>
-            {isCompletedMilestone && (
-              <View style={styles.starBadge}>
-                <Text style={[styles.starText, { color: LIME }]}>★</Text>
+            {(isCompletedMilestone || isDay77Completed) && (
+              <View style={styles.starIconWrapper}>
+                <Star size={10} color={isDay77Completed ? '#FFFFFF' : '#1A1A1A'} fill={isDay77Completed ? '#FFFFFF' : '#1A1A1A'} strokeWidth={0} />
               </View>
             )}
+            <Text style={[styles.dayNumber, { color: getNumberColor(), fontSize: getNumberSize() }]}>{day}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -304,6 +234,11 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, on
           activeOpacity={0.8}
           style={styles.dayTileInner}
         >
+          {(isCompletedMilestone || isDay77Completed) && (
+            <View style={styles.starIconWrapper}>
+              <Star size={10} color={isDay77Completed ? '#FFFFFF' : '#1A1A1A'} fill={isDay77Completed ? '#FFFFFF' : '#1A1A1A'} strokeWidth={0} />
+            </View>
+          )}
           <Text style={[styles.dayNumber, { color: getNumberColor(), fontSize: getNumberSize() }]}>{day}</Text>
         </TouchableOpacity>
       </View>
@@ -661,6 +596,10 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
   ));
   const isCompleted = goal.challenge_phase === 'keep_going' || currentDay > TOTAL_CHALLENGE_DAYS;
   const isChallengePhase = goal.challenge_phase === 'challenge' && !isCompleted;
+  const router = useRouter();
+  const isCelebrationPending = goal.challenge_phase === 'challenge'
+    && currentDay >= TOTAL_CHALLENGE_DAYS
+    && !goal.celebration_seen;
 
   const getIndividualStats = () => {
     if (activities.length === 0) return [];
@@ -817,11 +756,15 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
             <Text style={[styles.legendLabel, { color: legendTextColor }]}>Today</Text>
           </View>
           <View style={styles.legendItem}>
-            <GlowSwatch color="#CCFF00" />
+            <View style={[styles.legendSwatch, { backgroundColor: '#CCFF00' }]}>
+              <Star size={8} color="#1A1A1A" fill="#1A1A1A" strokeWidth={0} />
+            </View>
             <Text style={[styles.legendLabel, { color: legendTextColor }]}>Milestone</Text>
           </View>
           <View style={styles.legendItem}>
-            <GlowSwatch color="#FF4400" />
+            <View style={[styles.legendSwatch, { backgroundColor: '#FF4400' }]}>
+              <Star size={8} color="#FFFFFF" fill="#FFFFFF" strokeWidth={0} />
+            </View>
             <Text style={[styles.legendLabel, { color: legendTextColor }]}>Day 77</Text>
           </View>
         </View>
@@ -903,6 +846,20 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
         />
       </LinearGradient>
       </ScrollView>
+
+      {/* Continue bar — shown only when celebration is pending */}
+      {isCelebrationPending && (
+        <View style={styles.continueBar}>
+          <TouchableOpacity
+            style={styles.continueBarButton}
+            onPress={() => router.push('/(tabs)/index')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.continueBarText}>CONTINUE → CHOOSE WHAT'S NEXT</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <DayCardModal
         visible={dayCardDay !== null}
         day={dayCardDay}
@@ -917,6 +874,33 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
 const styles = StyleSheet.create({
   rootWrapper: {
     flex: 1,
+  },
+  continueBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
+    paddingBottom: 100,
+    paddingTop: 12,
+    backgroundColor: '#000000',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(204,255,0,0.15)',
+  },
+  continueBarButton: {
+    backgroundColor: '#CCFF00',
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  continueBarText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#000000',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 0.5,
   },
   container: {
     flex: 1,
@@ -1000,7 +984,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '900',
     letterSpacing: 2,
-    fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'Helvetica',
+    fontFamily: 'Inter-Black',
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -1105,19 +1089,11 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     fontFamily: 'Inter-Black',
   },
-  starBadge: {
+  starIconWrapper: {
     position: 'absolute',
-    top: 3,
-    right: 3,
-    width: 7,
-    height: 7,
+    top: 2,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  starText: {
-    fontSize: 7,
-    color: '#1A1A1A',
-    lineHeight: 7,
   },
   legend: {
     flexDirection: 'row',
@@ -1137,22 +1113,14 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   legendSwatchToday: {
     backgroundColor: 'transparent',
     borderWidth: 2,
     borderStyle: 'dashed',
     borderColor: '#CCFF00',
-  },
-  legendSwatchMilestone: {
-    backgroundColor: '#0D0D0D',
-    borderWidth: 2,
-    borderColor: '#CCFF00',
-  },
-  legendSwatchDay77: {
-    backgroundColor: '#0D0D0D',
-    borderWidth: 2,
-    borderColor: '#FF4400',
   },
   legendLabel: {
     fontSize: 11,

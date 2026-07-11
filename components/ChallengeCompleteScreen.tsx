@@ -24,6 +24,12 @@ import Confetti from './Confetti';
 const LIME = '#CCFF00';
 const LIME_DARK = '#aed900';
 
+// In-memory flag: once the user has seen the wall via the celebration
+// flow, re-openings start on the 'choose' step. Resets on app restart.
+let wallPeeked = false;
+
+type CelebrationStep = 'celebration' | 'choose';
+
 interface ChallengeCompleteScreenProps {
   goal: Goal;
   activities: DailyActivity[];
@@ -46,6 +52,9 @@ export default function ChallengeCompleteScreen({
   const [isSharing, setIsSharing] = useState(false);
   const [showConfetti, setShowConfetti] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState<CelebrationStep>(
+    wallPeeked ? 'choose' : 'celebration',
+  );
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -61,9 +70,6 @@ export default function ChallengeCompleteScreen({
 
   // ── Keep Going ──
   // This is the ONLY path that sets celebration_seen = true.
-  // Run It Again and Start Fresh do NOT set it because they
-  // immediately navigate away (archive/reset/deactivate) and
-  // the celebration should not re-appear after those actions.
   const handleKeepGoing = async () => {
     try {
       await supabase
@@ -102,10 +108,7 @@ export default function ChallengeCompleteScreen({
   };
 
   // ── Run It Again ──
-  // Does NOT set celebration_seen — resetChallenge archives + wipes
-  // completions + resets day to 0, so the user lands on Day 1.
-  // The celebration won't reappear because the goal is no longer
-  // at day 77.
+  // Does NOT set celebration_seen.
   const handleRunItAgain = () => {
     Alert.alert(
       'Run It Again?',
@@ -133,10 +136,7 @@ export default function ChallengeCompleteScreen({
   };
 
   // ── Start Fresh ──
-  // Does NOT set celebration_seen — we archive + deactivate the
-  // goal + delete daily_activities, so index.tsx falls through to
-  // IdentityBuilder. The celebration won't reappear because there
-  // is no active goal at day 77 anymore.
+  // Does NOT set celebration_seen.
   const handleStartFresh = () => {
     Alert.alert(
       'Start Fresh?',
@@ -172,9 +172,9 @@ export default function ChallengeCompleteScreen({
   };
 
   // ── See Wall ──
-  // Dismisses the celebration WITHOUT setting celebration_seen,
-  // so returning to the Today tab re-presents it.
+  // Dismisses WITHOUT setting celebration_seen.
   const handleSeeWall = () => {
+    wallPeeked = true;
     onSeeWall();
   };
 
@@ -191,6 +191,172 @@ export default function ChallengeCompleteScreen({
   const activityCount = activities.length;
   const promisesKept = activityCount * 77;
 
+  // ── STEP: CELEBRATION ──
+  const renderCelebration = () => (
+    <>
+      {/* HERO: Day shield */}
+      <View style={styles.heroSection}>
+        <DayShield day={77} size={140} />
+        <Text style={styles.headline}>77 Days.</Text>
+        <Text style={[styles.headline, { color: LIME }]}>Done.</Text>
+      </View>
+
+      {/* SHARE CARD */}
+      <View
+        ref={shareCardRef}
+        style={styles.shareCard}
+        collapsable={false}
+      >
+        <LinearGradient
+          colors={[colors.backgroundSecondary, colors.backgroundSecondary]}
+          style={styles.shareCardInner}
+        >
+          <Text style={styles.shareCardBrand}>COMPOUND TO GREATNESS</Text>
+          <Text style={styles.shareCardTagline}>77-DAY CHALLENGE COMPLETE</Text>
+
+          <View style={styles.shareCardDivider} />
+
+          <Text style={styles.eyebrow}>THE IDENTITY</Text>
+          {identityLines.length > 0 && (
+            <View style={styles.identityContainer}>
+              {identityLines.map((line, i) => (
+                <Text key={i} style={styles.identityLine}>
+                  {line}
+                </Text>
+              ))}
+            </View>
+          )}
+
+          <View style={styles.shareCardDivider} />
+
+          <Text style={styles.eyebrow}>THE RECEIPTS</Text>
+          <View style={styles.shareCardStats}>
+            <View style={styles.shareCardStat}>
+              <Text style={styles.shareCardStatValue}>77</Text>
+              <Text style={styles.shareCardStatLabel}>DAYS{'\n'}COMPLETED</Text>
+            </View>
+            <View style={styles.shareCardStatDivider} />
+            <View style={styles.shareCardStat}>
+              <Text style={styles.shareCardStatValue}>{activityCount}</Text>
+              <Text style={styles.shareCardStatLabel}>DAILY{'\n'}INPUTS</Text>
+            </View>
+            <View style={styles.shareCardStatDivider} />
+            <View style={styles.shareCardStat}>
+              <Text style={styles.shareCardStatValue}>{promisesKept}</Text>
+              <Text style={styles.shareCardStatLabel}>PROMISES{'\n'}KEPT</Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* SHARE BUTTON — native only */}
+      {Platform.OS !== 'web' && (
+        <TouchableOpacity
+          style={styles.shareButton}
+          onPress={handleShare}
+          disabled={isSharing}
+        >
+          <Share2 size={20} color="#FFFFFF" strokeWidth={2.5} />
+          <Text style={styles.shareButtonText}>Share Your Achievement</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* PRIMARY CTA: SEE YOUR WALL */}
+      <TouchableOpacity
+        style={styles.seeWallButton}
+        onPress={handleSeeWall}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={[LIME, LIME_DARK]}
+          style={styles.seeWallGradient}
+        >
+          <Text style={styles.seeWallButtonText}>SEE YOUR WALL →</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+
+      {/* QUIET LINK: Choose what's next */}
+      <TouchableOpacity
+        style={styles.chooseNextLink}
+        onPress={() => setStep('choose')}
+        activeOpacity={0.6}
+      >
+        <Text style={styles.chooseNextText}>Choose what's next</Text>
+      </TouchableOpacity>
+    </>
+  );
+
+  // ── STEP: CHOOSE ──
+  const renderChoose = () => (
+    <>
+      {/* COMPACT HEADER */}
+      <View style={styles.chooseHeader}>
+        <Text style={styles.eyebrow}>77 DAYS COMPLETE</Text>
+        <Text style={styles.chooseTitle}>What's next?</Text>
+      </View>
+
+      {/* THREE EQUAL-WEIGHT OPTION CARDS */}
+      <View style={styles.optionCardsContainer}>
+        {/* 1. Keep Going */}
+        <TouchableOpacity
+          style={styles.optionCard}
+          onPress={handleKeepGoing}
+          disabled={busy}
+          activeOpacity={0.7}
+        >
+          <View style={styles.optionCardHeader}>
+            <Text style={styles.optionCardTitle}>Keep Going</Text>
+            <ChevronRight size={20} color={LIME} strokeWidth={2.5} />
+          </View>
+          <Text style={styles.optionCardDescription}>
+            The challenge ends. The inputs don't. Stack days past 77 — no restart rule.
+          </Text>
+        </TouchableOpacity>
+
+        {/* 2. Run It Again */}
+        <TouchableOpacity
+          style={styles.optionCard}
+          onPress={handleRunItAgain}
+          disabled={busy}
+          activeOpacity={0.7}
+        >
+          <View style={styles.optionCardHeader}>
+            <Text style={styles.optionCardTitle}>Run It Again</Text>
+            <ChevronRight size={20} color={LIME} strokeWidth={2.5} />
+          </View>
+          <Text style={styles.optionCardDescription}>
+            Another 77. Same inputs, same covenant — miss a day, start over.
+          </Text>
+        </TouchableOpacity>
+
+        {/* 3. Start Fresh */}
+        <TouchableOpacity
+          style={styles.optionCard}
+          onPress={handleStartFresh}
+          disabled={busy}
+          activeOpacity={0.7}
+        >
+          <View style={styles.optionCardHeader}>
+            <Text style={styles.optionCardTitle}>Start Fresh</Text>
+            <ChevronRight size={20} color={LIME} strokeWidth={2.5} />
+          </View>
+          <Text style={styles.optionCardDescription}>
+            New goals. Back through the full build, from vague target to daily number.
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* SEE WALL AGAIN LINK */}
+      <TouchableOpacity
+        style={styles.chooseNextLink}
+        onPress={handleSeeWall}
+        activeOpacity={0.6}
+      >
+        <Text style={styles.chooseNextText}>See your wall again →</Text>
+      </TouchableOpacity>
+    </>
+  );
+
   return (
     <View style={styles.root}>
       <LinearGradient
@@ -199,141 +365,17 @@ export default function ChallengeCompleteScreen({
       >
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            step === 'choose' && { paddingTop: 100 },
+          ]}
           showsVerticalScrollIndicator={false}
         >
-          {/* HERO: Day shield */}
-          <View style={styles.heroSection}>
-            <DayShield day={77} size={140} />
-            <Text style={styles.headline}>77 Days.</Text>
-            <Text style={[styles.headline, { color: LIME }]}>Done.</Text>
-          </View>
-
-          {/* SHARE CARD — restyled to match app card language */}
-          <View
-            ref={shareCardRef}
-            style={styles.shareCard}
-            collapsable={false}
-          >
-            <LinearGradient
-              colors={[colors.backgroundSecondary, colors.backgroundSecondary]}
-              style={styles.shareCardInner}
-            >
-              <Text style={styles.shareCardBrand}>COMPOUND TO GREATNESS</Text>
-              <Text style={styles.shareCardTagline}>77-DAY CHALLENGE COMPLETE</Text>
-
-              <View style={styles.shareCardDivider} />
-
-              {/* THE IDENTITY eyebrow */}
-              <Text style={styles.eyebrow}>THE IDENTITY</Text>
-              {identityLines.length > 0 && (
-                <View style={styles.identityContainer}>
-                  {identityLines.map((line, i) => (
-                    <Text key={i} style={styles.identityLine}>
-                      {line}
-                    </Text>
-                  ))}
-                </View>
-              )}
-
-              <View style={styles.shareCardDivider} />
-
-              {/* THE RECEIPTS eyebrow */}
-              <Text style={styles.eyebrow}>THE RECEIPTS</Text>
-              <View style={styles.shareCardStats}>
-                <View style={styles.shareCardStat}>
-                  <Text style={styles.shareCardStatValue}>77</Text>
-                  <Text style={styles.shareCardStatLabel}>DAYS{'\n'}COMPLETED</Text>
-                </View>
-                <View style={styles.shareCardStatDivider} />
-                <View style={styles.shareCardStat}>
-                  <Text style={styles.shareCardStatValue}>{activityCount}</Text>
-                  <Text style={styles.shareCardStatLabel}>DAILY{'\n'}INPUTS</Text>
-                </View>
-                <View style={styles.shareCardStatDivider} />
-                <View style={styles.shareCardStat}>
-                  <Text style={styles.shareCardStatValue}>{promisesKept}</Text>
-                  <Text style={styles.shareCardStatLabel}>PROMISES{'\n'}KEPT</Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </View>
-
-          {/* SHARE BUTTON — native only */}
-          {Platform.OS !== 'web' && (
-            <TouchableOpacity
-              style={styles.shareButton}
-              onPress={handleShare}
-              disabled={isSharing}
-            >
-              <Share2 size={20} color="#FFFFFF" strokeWidth={2.5} />
-              <Text style={styles.shareButtonText}>Share Your Achievement</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* THREE EQUAL-WEIGHT OPTION CARDS */}
-          <View style={styles.optionCardsContainer}>
-            {/* 1. Keep Going */}
-            <TouchableOpacity
-              style={styles.optionCard}
-              onPress={handleKeepGoing}
-              disabled={busy}
-              activeOpacity={0.7}
-            >
-              <View style={styles.optionCardHeader}>
-                <Text style={styles.optionCardTitle}>Keep Going</Text>
-                <ChevronRight size={20} color={LIME} strokeWidth={2.5} />
-              </View>
-              <Text style={styles.optionCardDescription}>
-                The challenge ends. The inputs don't. Stack days past 77 — no restart rule.
-              </Text>
-            </TouchableOpacity>
-
-            {/* 2. Run It Again */}
-            <TouchableOpacity
-              style={styles.optionCard}
-              onPress={handleRunItAgain}
-              disabled={busy}
-              activeOpacity={0.7}
-            >
-              <View style={styles.optionCardHeader}>
-                <Text style={styles.optionCardTitle}>Run It Again</Text>
-                <ChevronRight size={20} color={LIME} strokeWidth={2.5} />
-              </View>
-              <Text style={styles.optionCardDescription}>
-                Another 77. Same inputs, same covenant — miss a day, start over.
-              </Text>
-            </TouchableOpacity>
-
-            {/* 3. Start Fresh */}
-            <TouchableOpacity
-              style={styles.optionCard}
-              onPress={handleStartFresh}
-              disabled={busy}
-              activeOpacity={0.7}
-            >
-              <View style={styles.optionCardHeader}>
-                <Text style={styles.optionCardTitle}>Start Fresh</Text>
-                <ChevronRight size={20} color={LIME} strokeWidth={2.5} />
-              </View>
-              <Text style={styles.optionCardDescription}>
-                New goals. Back through the full build, from vague target to daily number.
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* SEE WALL LINK */}
-          <TouchableOpacity
-            style={styles.seeWallLink}
-            onPress={handleSeeWall}
-            activeOpacity={0.6}
-          >
-            <Text style={styles.seeWallText}>See your 77-day wall first →</Text>
-          </TouchableOpacity>
+          {step === 'celebration' ? renderCelebration() : renderChoose()}
         </ScrollView>
       </LinearGradient>
 
-      {showConfetti && (
+      {showConfetti && step === 'celebration' && (
         <View style={styles.confettiOverlay} pointerEvents="none">
           <Confetti
             count={120}
@@ -413,6 +455,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     alignItems: 'center',
   },
+  // ── Celebration step ──
   heroSection: {
     alignItems: 'center',
     marginBottom: 32,
@@ -433,7 +476,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Inter-Black',
   },
-  // ── Share card: app card language ──
+  // ── Share card ──
   shareCard: {
     width: '100%',
     borderRadius: 24,
@@ -541,7 +584,51 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: 'Inter-Black',
   },
-  // ── Three equal-weight option cards ──
+  // ── See Wall button (primary CTA) ──
+  seeWallButton: {
+    width: '100%',
+    borderRadius: 18,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  seeWallGradient: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+  },
+  seeWallButtonText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#000000',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 0.5,
+  },
+  // ── Quiet links ──
+  chooseNextLink: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  chooseNextText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.35)',
+    fontFamily: 'Inter-Black',
+  },
+  // ── Choose step ──
+  chooseHeader: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  chooseTitle: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-Black',
+    letterSpacing: -1,
+    textAlign: 'center',
+  },
+  // ── Option cards ──
   optionCardsContainer: {
     width: '100%',
     gap: 12,
@@ -550,7 +637,7 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(204,255,0,0.35)',
     borderRadius: 16,
     padding: 18,
   },
@@ -572,18 +659,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: 'rgba(255,255,255,0.5)',
     lineHeight: 19,
-    fontFamily: 'Inter-Black',
-  },
-  // ── See wall link ──
-  seeWallLink: {
-    marginTop: 24,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  seeWallText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.35)',
     fontFamily: 'Inter-Black',
   },
   confettiOverlay: {
