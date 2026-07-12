@@ -13,16 +13,14 @@ export async function checkAndAwardBadges(userId: string, goal: Goal): Promise<v
 
   const badgeKeys: string[] = [];
 
-  if (goal.current_challenge_day === 77 && (goal.challenge_phase === 'challenge' || goal.challenge_phase === 'keep_going')) {
+  if (goal.current_challenge_day >= 77) {
     badgeKeys.push('day_77_complete');
   }
 
-  if (goal.challenge_phase === 'challenge') {
-    if (goal.current_challenge_day === 7) badgeKeys.push('milestone_7');
-    if (goal.current_challenge_day === 21) badgeKeys.push('milestone_21');
-    if (goal.current_challenge_day === 40) badgeKeys.push('milestone_40');
-    if (goal.current_challenge_day === 60) badgeKeys.push('milestone_60');
-  }
+  if (goal.current_challenge_day >= 7) badgeKeys.push('milestone_7');
+  if (goal.current_challenge_day >= 21) badgeKeys.push('milestone_21');
+  if (goal.current_challenge_day >= 40) badgeKeys.push('milestone_40');
+  if (goal.current_challenge_day >= 60) badgeKeys.push('milestone_60');
 
   if ((lifetimeDays ?? 0) >= 100) {
     badgeKeys.push('lifetime_100');
