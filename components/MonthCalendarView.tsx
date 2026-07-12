@@ -325,11 +325,6 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
                   >
                     {day}
                   </Text>
-                  {completed && (
-                    <View style={styles.dayCheck}>
-                      <Check size={10} color="#000000" strokeWidth={3} />
-                    </View>
-                  )}
                 </TouchableOpacity>
               );
             })}
@@ -533,6 +528,7 @@ const styles = StyleSheet.create({
   daysGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 6,
   },
   dayCell: {
     width: `${100 / 7}%`,
@@ -549,11 +545,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     fontFamily: 'Inter-Bold',
-  },
-  dayCheck: {
-    position: 'absolute',
-    top: 5,
-    left: 5,
   },
   editSection: {
     marginTop: 32,
