@@ -40,7 +40,11 @@ export async function checkAndAwardBadges(userId: string, goal: Goal): Promise<v
     day_number: goal.current_challenge_day,
   }));
 
-  await supabase
+  const { error } = await supabase
     .from('user_badges')
     .upsert(rows, { onConflict: 'user_id,badge_key', ignoreDuplicates: true });
+  if (error) {
+    console.error('checkAndAwardBadges upsert failed:', error);
+    throw error;
+  }
 }
