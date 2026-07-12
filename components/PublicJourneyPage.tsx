@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, Zap, Check, X, Send, ExternalLink } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import ChallengeWall from './ChallengeWall';
+import MonthWall from './MonthWall';
 import { getDateForChallengeDay } from '@/lib/dateHelpers';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
 
@@ -38,6 +39,7 @@ interface JourneyData {
   todayCompletedNames: string[];
   completionDates: string[];
   realStreak: number;
+  challengePhase: string;
 }
 
 interface Props {
@@ -76,7 +78,7 @@ export default function PublicJourneyPage({ username }: Props) {
 
       const { data: goal } = await supabase
         .from('goals')
-        .select('id, title, identity_statement, current_challenge_day, last_completion_date, compass_vision, challenge_start_date')
+        .select('id, title, identity_statement, current_challenge_day, last_completion_date, compass_vision, challenge_start_date, challenge_phase')
         .eq('user_id', profile.id)
         .eq('is_active', true)
         .maybeSingle();
@@ -142,6 +144,7 @@ export default function PublicJourneyPage({ username }: Props) {
         todayCompletedNames,
         completionDates,
         realStreak,
+        challengePhase: goal?.challenge_phase || 'challenge',
       });
     } catch {
       setNotFound(true);
@@ -265,23 +268,33 @@ export default function PublicJourneyPage({ username }: Props) {
               const completed = journey.todayCompletedNames.includes(activity.activity_name);
               return (
                 <View key={activity.id} style={styles.stackRow}>
-                  <View style={[styles.checkbox, completed && styles.checkboxFilled]}>
-                    {completed ? <Check size={12} color="#000000" strokeWidth={3} /> : null}
-                  </View>
                   <Text style={[styles.stackActivityName, completed && styles.stackActivityNameDone]}>
                     {activity.activity_name}
                   </Text>
+                  <View style={styles.checkmarkContainer}>
+                    {completed ? (
+                      <View style={styles.checkmarkCircleInner}>
+                        <Check size={24} color="#000000" strokeWidth={3} />
+                      </View>
+                    ) : (
+                      <View style={styles.uncheckedCircleInner} />
+                    )}
+                  </View>
                 </View>
               );
             })}
           </View>
         ) : null}
 
-        <ChallengeWall
-          currentDay={journey?.currentDay || 0}
-          isDayCompleted={isDayCompleted}
-          isLight={false}
-        />
+        {journey?.challengePhase === 'keep_going' ? (
+          <MonthWall goalId={journey.goalId} isLight={false} />
+        ) : (
+          <ChallengeWall
+            currentDay={journey?.currentDay || 0}
+            isDayCompleted={isDayCompleted}
+            isLight={false}
+          />
+        )}
 
         {journey?.compassVision ? (
           <View style={styles.visionCard}>
@@ -674,31 +687,39 @@ const styles = StyleSheet.create({
   stackRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#111',
+    padding: 20,
+    borderRadius: 16,
+    minHeight: 72,
   },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#2A2A2A',
+  checkmarkContainer: {
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
-  checkboxFilled: {
+  checkmarkCircleInner: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#ccff00',
-    borderColor: '#ccff00',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uncheckedCircleInner: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#333',
   },
   stackActivityName: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     fontFamily: 'Inter-Bold',
-    color: '#888',
+    color: '#666',
     flex: 1,
+    paddingRight: 12,
   },
   stackActivityNameDone: {
     color: '#FFFFFF',
