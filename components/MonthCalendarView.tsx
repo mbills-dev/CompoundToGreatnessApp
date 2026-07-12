@@ -229,7 +229,7 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
       >
         <View style={styles.header}>
           <View style={[styles.keepGoingBadge, { borderColor: colors.primary }]}>
-            <Zap size={14} fill={colors.primary} color={colors.primary} />
+            <Zap size={22} fill={colors.primary} color={colors.primary} />
             <Text style={[styles.keepGoingBadgeNumber, { color: colors.primary }]}>
               {streak}
             </Text>
@@ -237,17 +237,6 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
               DAY STREAK
             </Text>
           </View>
-          {goal.identity_statement && (
-            <View style={[styles.identityCard, {
-              backgroundColor: isDark ? colors.backgroundSecondary : '#1A1A1A',
-              borderColor: 'rgba(204,255,0,0.15)',
-            }]}>
-              <Text style={styles.identityCardLabel}>MY IDENTITY</Text>
-              <Text style={[styles.identityCardText, { color: '#FFFFFF' }]}>
-                {goal.identity_statement}
-              </Text>
-            </View>
-          )}
         </View>
 
         <JourneyComparisonBanner goalId={goal.id} currentChallengeDay={goal.current_challenge_day || 0} />
@@ -439,44 +428,24 @@ const styles = StyleSheet.create({
   },
   keepGoingBadge: {
     borderWidth: 1.5,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    borderRadius: 30,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
     marginBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   keepGoingBadgeText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '800',
     letterSpacing: 1.5,
     fontFamily: 'Inter-Black',
   },
   keepGoingBadgeNumber: {
-    fontSize: 16,
+    fontSize: 24,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
-  },
-  identityCard: {
-    borderRadius: 24,
-    borderWidth: 1.5,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    marginBottom: 16,
-    gap: 4,
-    width: '100%',
-  },
-  identityCardLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 2,
-    color: '#ccff00',
-  },
-  identityCardText: {
-    fontSize: 15,
-    fontWeight: '700',
-    lineHeight: 22,
   },
   goalTitle: {
     fontSize: 22,
