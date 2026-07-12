@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,12 @@ import {
   Modal,
   Platform,
   KeyboardAvoidingView,
-  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Eye, Zap, Lock, Check, X, Send, ExternalLink } from 'lucide-react-native';
+import { Eye, Zap, Check, X, Send, ExternalLink } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import ChallengeWall from './ChallengeWall';
+import { getDateForChallengeDay } from '@/lib/dateHelpers';
 
 interface Activity {
   id: string;
@@ -33,6 +34,7 @@ interface JourneyData {
   lastCompletionDate: string | null;
   activities: Activity[];
   todayCompletedNames: string[];
+  completionDates: string[];
 }
 
 interface Props {
@@ -78,28 +80,40 @@ export default function PublicJourneyPage({ username }: Props) {
 
       let activities: Activity[] = [];
       let todayCompletedNames: string[] = [];
+      let completionDates: string[] = [];
 
       if (goal?.id) {
-        const { data: acts } = await supabase
-          .from('daily_activities')
-          .select('id, activity_name, order_position')
-          .eq('goal_id', goal.id)
-          .order('order_position', { ascending: true });
-        activities = acts || [];
-
         const today = new Date().toISOString().split('T')[0];
-        const { data: todayCompletion } = await supabase
-          .from('daily_completions')
-          .select('activities_completed')
-          .eq('goal_id', goal.id)
-          .eq('completion_date', today)
-          .maybeSingle();
+        const [actsRes, todayCompletionRes, allCompletionsRes] = await Promise.all([
+          supabase
+            .from('daily_activities')
+            .select('id, activity_name, order_position')
+            .eq('goal_id', goal.id)
+            .order('order_position', { ascending: true }),
+          supabase
+            .from('daily_completions')
+            .select('activities_completed')
+            .eq('goal_id', goal.id)
+            .eq('completion_date', today)
+            .maybeSingle(),
+          supabase
+            .from('daily_completions')
+            .select('completion_date')
+            .eq('goal_id', goal.id)
+            .not('completed_at', 'is', null)
+            .order('completion_date', { ascending: false })
+            .limit(100),
+        ]);
 
-        if (todayCompletion?.activities_completed) {
-          todayCompletedNames = Array.isArray(todayCompletion.activities_completed)
-            ? todayCompletion.activities_completed
+        activities = actsRes.data || [];
+
+        if (todayCompletionRes.data?.activities_completed) {
+          todayCompletedNames = Array.isArray(todayCompletionRes.data.activities_completed)
+            ? todayCompletionRes.data.activities_completed
             : [];
         }
+
+        completionDates = (allCompletionsRes.data || []).map((c) => c.completion_date);
       }
 
       const displayName = settings
@@ -117,6 +131,7 @@ export default function PublicJourneyPage({ username }: Props) {
         lastCompletionDate: goal?.last_completion_date || null,
         activities,
         todayCompletedNames,
+        completionDates,
       });
     } catch {
       setNotFound(true);
@@ -152,15 +167,11 @@ export default function PublicJourneyPage({ username }: Props) {
     return { label: `Last active ${diffDays} days ago`, isActive: false };
   };
 
-  const getMilestones = () => {
-    const milestones = [7, 21, 40, 77];
-    const currentDay = journey?.currentDay || 0;
-    const nextTarget = milestones.find((m) => currentDay < m) ?? null;
-    return milestones.map((m) => ({
-      day: m,
-      achieved: currentDay >= m,
-      isNext: m === nextTarget,
-    }));
+  const isDayCompleted = (day: number): boolean => {
+    if (!journey?.completionDates || journey.completionDates.length === 0) return false;
+    if (!journey.goalId) return false;
+    const dateForDay = getDateForChallengeDay(journey.goalId, day);
+    return journey.completionDates.includes(dateForDay);
   };
 
   if (loading) {
@@ -198,7 +209,6 @@ export default function PublicJourneyPage({ username }: Props) {
   const progressPercent = Math.min(((journey?.currentDay || 0) / 77) * 100, 100);
   const firstName = journey?.displayName.split(' ')[0] || 'They';
   const lastActiveInfo = getLastActiveInfo();
-  const milestones = getMilestones();
 
   return (
     <View style={styles.outerContainer}>
@@ -279,11 +289,11 @@ export default function PublicJourneyPage({ username }: Props) {
           </View>
         ) : null}
 
-        <View style={styles.milestonesRow}>
-          {milestones.map((m) => (
-            <MilestoneTile key={m.day} day={m.day} achieved={m.achieved} isNext={m.isNext} />
-          ))}
-        </View>
+        <ChallengeWall
+          currentDay={journey?.currentDay || 0}
+          isDayCompleted={isDayCompleted}
+          isLight={false}
+        />
 
         {journey?.compassVision ? (
           <View style={styles.visionCard}>
@@ -334,58 +344,6 @@ export default function PublicJourneyPage({ username }: Props) {
         watchedUserId={journey?.userId || ''}
         watchedName={firstName}
       />
-    </View>
-  );
-}
-
-interface MilestoneTileProps {
-  day: number;
-  achieved: boolean;
-  isNext: boolean;
-}
-
-function MilestoneTile({ day, achieved, isNext }: MilestoneTileProps) {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (!isNext) return;
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.0, duration: 900, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 0.35, duration: 900, useNativeDriver: true }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, [isNext]);
-
-  if (achieved) {
-    return (
-      <View style={[styles.milestoneBadge, styles.milestoneBadgeAchieved]}>
-        <Check size={12} color="#000000" strokeWidth={3} />
-        <Text style={[styles.milestoneDayNum, styles.milestoneTextAchieved]}>{day}</Text>
-        <Text style={[styles.milestoneDayLbl, styles.milestoneTextAchieved]}>DAY</Text>
-      </View>
-    );
-  }
-
-  if (isNext) {
-    return (
-      <View style={[styles.milestoneBadge, styles.milestoneBadgeNext]}>
-        <Animated.View style={{ opacity: pulseAnim }}>
-          <View style={styles.nextGlowDot} />
-        </Animated.View>
-        <Text style={[styles.milestoneDayNum, styles.milestoneTextNext]}>{day}</Text>
-        <Text style={[styles.milestoneDayLbl, styles.milestoneTextNext]}>DAY</Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.milestoneBadge, styles.milestoneBadgeLocked]}>
-      <Lock size={10} color="#333" strokeWidth={2} />
-      <Text style={[styles.milestoneDayNum, styles.milestoneTextLocked]}>{day}</Text>
-      <Text style={[styles.milestoneDayLbl, styles.milestoneTextLocked]}>DAY</Text>
     </View>
   );
 }
@@ -813,53 +771,6 @@ const styles = StyleSheet.create({
   stackActivityNameDone: {
     color: '#FFFFFF',
   },
-  milestonesRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 20,
-  },
-  milestoneBadge: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 2,
-  },
-  milestoneBadgeAchieved: {
-    backgroundColor: 'rgba(204, 255, 0, 0.1)',
-    borderWidth: 1,
-    borderColor: '#ccff00',
-  },
-  milestoneBadgeNext: {
-    backgroundColor: 'rgba(204, 255, 0, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(204, 255, 0, 0.4)',
-  },
-  milestoneBadgeLocked: {
-    backgroundColor: '#0A0A0A',
-    borderWidth: 1,
-    borderColor: '#1A1A1A',
-  },
-  nextGlowDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#ccff00',
-  },
-  milestoneDayNum: {
-    fontSize: 18,
-    fontWeight: '900',
-    fontFamily: 'Inter-Black',
-  },
-  milestoneDayLbl: {
-    fontSize: 8,
-    fontWeight: '800',
-    fontFamily: 'Inter-Black',
-    letterSpacing: 1,
-  },
-  milestoneTextAchieved: { color: '#ccff00' },
-  milestoneTextNext: { color: '#ccff00' },
-  milestoneTextLocked: { color: '#2A2A2A' },
   visionCard: {
     backgroundColor: '#0A0A0A',
     borderRadius: 24,

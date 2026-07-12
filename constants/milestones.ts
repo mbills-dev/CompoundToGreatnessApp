@@ -1,4 +1,5 @@
 export const MILESTONE_DAYS = [7, 21, 40, 60, 77];
+export const TOTAL_CHALLENGE_DAYS = MILESTONE_DAYS[MILESTONE_DAYS.length - 1];
 
 export const MILESTONE_DATA: Record<number, {
   tag: string;
