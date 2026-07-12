@@ -330,13 +330,17 @@ export default function DailyDashboard({
 
       setStreak(streakCount);
 
-      if (streakCount > (goal.best_streak || 0)) {
-        setBestStreak(streakCount);
-        await supabase
-          .from('goals')
-          .update({ best_streak: streakCount })
-          .eq('id', goal.id);
-      }
+      setBestStreak((prevBest) => {
+        if (streakCount > prevBest) {
+          supabase
+            .from('goals')
+            .update({ best_streak: streakCount })
+            .eq('id', goal.id)
+            .then(() => {});
+          return streakCount;
+        }
+        return prevBest;
+      });
     } catch (error) {
       console.error('Error loading streak:', error);
     }
