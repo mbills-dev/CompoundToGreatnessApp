@@ -34,6 +34,7 @@ import ChallengeCompleteScreen from './ChallengeCompleteScreen';
 import { isDateLocked, toLocalDateString, parseLocalDate, getDayNumberFromChallengeStart } from '@/lib/dateHelpers';
 import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import { resetChallenge } from '@/lib/resetHelpers';
+import { computeCurrentStreak } from '@/lib/streakHelpers';
 import CoachCard from './CoachCard';
 import { useRacingBorder } from '@/contexts/RacingBorderContext';
 import { useCelebration } from '@/contexts/CelebrationContext';
@@ -296,37 +297,7 @@ export default function DailyDashboard({
 
   const loadStreak = async () => {
     try {
-      const { data, error } = await supabase
-        .from('daily_completions')
-        .select('completion_date')
-        .eq('goal_id', goal.id)
-        .not('completed_at', 'is', null)
-        .order('completion_date', { ascending: false })
-        .limit(1000);
-
-      if (error) throw error;
-
-      let streakCount = 0;
-      const sortedDates = (data || []).map((d) => d.completion_date).sort().reverse();
-      const currentDate = new Date();
-      currentDate.setHours(0, 0, 0, 0);
-
-      const todayStr = toLocalDateString(currentDate);
-      if (!sortedDates.includes(todayStr)) {
-        currentDate.setDate(currentDate.getDate() - 1);
-      }
-
-      for (const dateString of sortedDates) {
-        const date = parseLocalDate(dateString);
-        const expectedDate = new Date(currentDate);
-        expectedDate.setDate(expectedDate.getDate() - streakCount);
-
-        if (toLocalDateString(date) === toLocalDateString(expectedDate)) {
-          streakCount++;
-        } else {
-          break;
-        }
-      }
+      const streakCount = await computeCurrentStreak(goal.id);
 
       setStreak(streakCount);
 

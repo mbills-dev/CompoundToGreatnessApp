@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,13 @@ import {
   ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, ChevronRight, Check } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Check, Zap } from 'lucide-react-native';
+import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyCompletion, DailyActivity } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getTodayDateString, isPhase2DayLocked } from '@/lib/dateHelpers';
+import { computeCurrentStreak } from '@/lib/streakHelpers';
 import EvidenceLogSection from './EvidenceLog';
 import JourneyComparisonBanner from './JourneyComparisonBanner';
 
@@ -32,6 +34,7 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
 
   const [completions, setCompletions] = useState<DailyCompletion[]>([]);
   const [activities, setActivities] = useState<DailyActivity[]>([]);
+  const [streak, setStreak] = useState(0);
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -44,8 +47,23 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
     loadData();
   }, [goal.id]);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [goal.id])
+  );
+
   const loadData = async () => {
-    await Promise.all([loadCompletions(), loadActivities()]);
+    await Promise.all([loadCompletions(), loadActivities(), loadStreak()]);
+  };
+
+  const loadStreak = async () => {
+    try {
+      const count = await computeCurrentStreak(goal.id);
+      setStreak(count);
+    } catch (error) {
+      console.error('Error loading streak:', error);
+    }
   };
 
   const loadCompletions = async () => {
@@ -211,11 +229,25 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
       >
         <View style={styles.header}>
           <View style={[styles.keepGoingBadge, { borderColor: colors.primary }]}>
-            <Text style={[styles.keepGoingBadgeText, { color: colors.primary }]}>Day {goal.current_challenge_day}+</Text>
+            <Zap size={14} fill={colors.primary} color={colors.primary} />
+            <Text style={[styles.keepGoingBadgeNumber, { color: colors.primary }]}>
+              {streak}
+            </Text>
+            <Text style={[styles.keepGoingBadgeText, { color: colors.primary }]}>
+              DAY STREAK
+            </Text>
           </View>
-          <Text style={[styles.goalTitle, { color: colors.text }]} numberOfLines={2}>
-            {goal.title}
-          </Text>
+          {goal.identity_statement && (
+            <View style={[styles.identityCard, {
+              backgroundColor: isDark ? colors.backgroundSecondary : '#1A1A1A',
+              borderColor: 'rgba(204,255,0,0.15)',
+            }]}>
+              <Text style={styles.identityCardLabel}>MY IDENTITY</Text>
+              <Text style={[styles.identityCardText, { color: '#FFFFFF' }]}>
+                {goal.identity_statement}
+              </Text>
+            </View>
+          )}
         </View>
 
         <JourneyComparisonBanner goalId={goal.id} currentChallengeDay={goal.current_challenge_day || 0} />
@@ -242,6 +274,9 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
         </View>
 
         <View style={[styles.monthlySummary, { backgroundColor: isDark ? 'rgba(204,255,0,0.07)' : '#FFFFFF', borderColor: isDark ? 'rgba(204,255,0,0.15)' : '#E0E0DB' }]}>
+          <Text style={styles.monthlySummaryEyebrow}>
+            MONTHLY PROGRESS
+          </Text>
           <Text style={[styles.monthlySummaryText, { color: colors.text }]}>
             {MONTH_NAMES[currentMonth]} — {completedInMonth} of {totalInMonth} days
           </Text>
@@ -408,11 +443,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 6,
     marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   keepGoingBadgeText: {
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.5,
+    fontFamily: 'Inter-Black',
+  },
+  keepGoingBadgeNumber: {
+    fontSize: 16,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+  },
+  identityCard: {
+    borderRadius: 24,
+    borderWidth: 1.5,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    marginBottom: 16,
+    gap: 4,
+    width: '100%',
+  },
+  identityCardLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 2,
+    color: '#ccff00',
+  },
+  identityCardText: {
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 22,
   },
   goalTitle: {
     fontSize: 22,
@@ -450,19 +514,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginTop: 2,
+    fontFamily: 'Inter-Bold',
   },
   monthlySummary: {
     marginHorizontal: 24,
-    borderRadius: 14,
+    borderRadius: 24,
     borderWidth: 1,
     paddingVertical: 14,
     paddingHorizontal: 20,
     marginBottom: 24,
     gap: 10,
   },
+  monthlySummaryEyebrow: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 2,
+    color: '#ccff00',
+  },
   monthlySummaryText: {
     fontSize: 15,
     fontWeight: '700',
+    fontFamily: 'Inter-Bold',
   },
   monthlySummaryBar: {
     height: 6,
@@ -487,6 +559,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.5,
+    fontFamily: 'Inter-Bold',
   },
   daysGrid: {
     flexDirection: 'row',
@@ -497,7 +570,7 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
+    borderRadius: 9,
     position: 'relative',
   },
   dayCellFuture: {
