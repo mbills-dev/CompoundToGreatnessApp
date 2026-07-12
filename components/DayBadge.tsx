@@ -21,9 +21,11 @@ const MILESTONE_SUBTITLES: Record<number, string> = {
 interface DayBadgeProps {
   day: number;
   isMilestone: boolean;
+  variant?: 'challenge' | 'keepGoing';
+  streak?: number;
 }
 
-export function DayBadge({ day, isMilestone }: DayBadgeProps) {
+export function DayBadge({ day, isMilestone, variant = 'challenge', streak = 0 }: DayBadgeProps) {
   const scale = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -45,24 +47,34 @@ export function DayBadge({ day, isMilestone }: DayBadgeProps) {
   const innerRing1 = 'M55 12 L92 26 L92 58 C92 76 74 91 55 101 C36 91 18 76 18 58 L18 26 Z';
   const innerRing2 = 'M55 20 L84 32 L84 58 C84 73 68 86 55 95 C42 86 26 73 26 58 L26 32 Z';
 
-  const borderColor = isMilestone ? '#FF6B00' : '#CCFF00';
-  const bgColor = isMilestone ? '#1a0800' : '#161616';
-  const numberColor = isMilestone && day === 77 ? '#FF6B00' : '#ffffff';
-  const labelColor = isMilestone ? '#FF6B00' : '#CCFF00';
-  const badgeSize = isMilestone ? 130 : 100;
+  const isKeepGoing = variant === 'keepGoing';
+  const borderColor = isKeepGoing ? '#CCFF00' : (isMilestone ? '#FF6B00' : '#CCFF00');
+  const bgColor = isKeepGoing ? '#161616' : (isMilestone ? '#1a0800' : '#161616');
+  const numberColor = isKeepGoing ? '#ffffff' : (isMilestone && day === 77 ? '#FF6B00' : '#ffffff');
+  const labelColor = isKeepGoing ? '#CCFF00' : (isMilestone ? '#FF6B00' : '#CCFF00');
+  const badgeSize = isKeepGoing ? 100 : (isMilestone ? 130 : 100);
   const viewBox = '0 0 110 115';
 
   return (
     <Animated.View style={[styles.container, { opacity, transform: [{ scale }] }]}>
       <Svg width={badgeSize} height={badgeSize * 1.05} viewBox={viewBox}>
-        <Path d={shieldPath} fill={bgColor} stroke={borderColor} strokeWidth={isMilestone ? 2.5 : 2} />
-        {isMilestone && (
+        <Path d={shieldPath} fill={bgColor} stroke={borderColor} strokeWidth={isKeepGoing ? 2 : (isMilestone ? 2.5 : 2)} />
+        {isMilestone && !isKeepGoing && (
           <>
             <Path d={innerRing1} fill="none" stroke={borderColor} strokeWidth={1} opacity={0.4} />
             {day >= 40 && <Path d={innerRing2} fill="none" stroke={borderColor} strokeWidth={1} opacity={0.2} />}
           </>
         )}
-        {isMilestone ? (
+        {isKeepGoing ? (
+          <>
+            <SvgText x="55" y="46" textAnchor="middle" fontSize={9} fontWeight="700" fill={labelColor} letterSpacing={2} fontFamily="sans-serif">
+              STREAK
+            </SvgText>
+            <SvgText x="55" y="76" textAnchor="middle" fontSize={30} fontWeight="900" fill={numberColor} fontFamily="sans-serif">
+              {streak}
+            </SvgText>
+          </>
+        ) : isMilestone ? (
           <>
             <SvgText x="55" y="44" textAnchor="middle" fontSize={9} fontWeight="700" fill={labelColor} letterSpacing={2} fontFamily="sans-serif">
               {MILESTONE_LABELS[day]}
@@ -83,7 +95,9 @@ export function DayBadge({ day, isMilestone }: DayBadgeProps) {
         )}
       </Svg>
 
-      {isMilestone ? (
+      {isKeepGoing ? (
+        <Text style={styles.dailyLabel}>Another day stacked.</Text>
+      ) : isMilestone ? (
         <>
           <Text style={[styles.milestoneTitle, { color: borderColor }]}>
             {MILESTONE_LABELS[day]} Unlocked

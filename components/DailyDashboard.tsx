@@ -630,6 +630,7 @@ export default function DailyDashboard({
           }
         });
       }
+      loadStreak();
       onRefresh();
     } catch (error) {
       console.error('Error updating completion:', error);
@@ -816,7 +817,7 @@ export default function DailyDashboard({
                   </View>
                   <View style={[styles.metricCard, { backgroundColor: colors.card, borderColor: isDark ? colors.border : colors.primary }]}>
                     <Text style={[styles.metricValue, { color: colors.primary }]}>{perfectDays}</Text>
-                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Days Stacked</Text>
+                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Lifetime Days</Text>
                   </View>
                 </View>
               </View>
@@ -960,6 +961,8 @@ export default function DailyDashboard({
               <DayBadge
                 day={displayDay}
                 isMilestone={MILESTONE_DAYS.includes(displayDay)}
+                variant={isKeepGoing ? 'keepGoing' : 'challenge'}
+                streak={streak}
               />
             )}
           </View>
