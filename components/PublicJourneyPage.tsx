@@ -16,7 +16,7 @@ import { Eye, Zap, Check, X, Send, ExternalLink } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import ChallengeWall from './ChallengeWall';
 import MonthWall from './MonthWall';
-import { getDateForChallengeDay } from '@/lib/dateHelpers';
+import { getDateForChallengeDay, getTodayDateString, toLocalDateString } from '@/lib/dateHelpers';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
 
 interface Activity {
@@ -32,7 +32,6 @@ interface JourneyData {
   currentDay: number;
   identityStatement: string;
   goalTitle: string;
-  compassVision: string;
   lastCompletionDate: string | null;
   challengeStartDate: string | null;
   activities: Activity[];
@@ -78,7 +77,7 @@ export default function PublicJourneyPage({ username }: Props) {
 
       const { data: goal } = await supabase
         .from('goals')
-        .select('id, title, identity_statement, current_challenge_day, last_completion_date, compass_vision, challenge_start_date, challenge_phase')
+        .select('id, title, identity_statement, current_challenge_day, last_completion_date, challenge_start_date, challenge_phase')
         .eq('user_id', profile.id)
         .eq('is_active', true)
         .maybeSingle();
@@ -88,7 +87,7 @@ export default function PublicJourneyPage({ username }: Props) {
       let completionDates: string[] = [];
 
       if (goal?.id) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getTodayDateString();
         const [actsRes, todayCompletionRes, allCompletionsRes] = await Promise.all([
           supabase
             .from('daily_activities')
@@ -137,7 +136,6 @@ export default function PublicJourneyPage({ username }: Props) {
         currentDay: goal?.current_challenge_day || 0,
         identityStatement: goal?.identity_statement || '',
         goalTitle: goal?.title || 'their 77-day journey',
-        compassVision: goal?.compass_vision || '',
         lastCompletionDate: goal?.last_completion_date || null,
         challengeStartDate: goal?.challenge_start_date || null,
         activities,
@@ -157,8 +155,8 @@ export default function PublicJourneyPage({ username }: Props) {
     if (!journey?.lastCompletionDate) {
       return { label: 'Just getting started', isActive: false };
     }
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const today = getTodayDateString();
+    const yesterday = toLocalDateString(new Date(Date.now() - 86400000));
     if (journey.lastCompletionDate === today) {
       return { label: 'Active today ✓', isActive: true };
     }
@@ -296,12 +294,7 @@ export default function PublicJourneyPage({ username }: Props) {
           />
         )}
 
-        {journey?.compassVision ? (
-          <View style={styles.visionCard}>
-            <Text style={styles.visionLabel}>THEIR VISION</Text>
-            <Text style={styles.visionText}>{journey.compassVision}</Text>
-          </View>
-        ) : null}
+
 
         <View style={styles.ctaSection}>
           <TouchableOpacity
@@ -723,29 +716,6 @@ const styles = StyleSheet.create({
   },
   stackActivityNameDone: {
     color: '#FFFFFF',
-  },
-  visionCard: {
-    backgroundColor: '#0A0A0A',
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#1A1A1A',
-    marginBottom: 20,
-  },
-  visionLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    fontFamily: 'Inter-Black',
-    letterSpacing: 1.5,
-    color: '#555',
-    marginBottom: 10,
-  },
-  visionText: {
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Inter-Bold',
-    color: '#888',
-    lineHeight: 22,
   },
   ctaSection: { gap: 0 },
   encourageButton: {
