@@ -16,6 +16,7 @@ import { Eye, Zap, Check, X, Send, ExternalLink } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import ChallengeWall from './ChallengeWall';
 import { getDateForChallengeDay } from '@/lib/dateHelpers';
+import { computeCurrentStreak } from '@/lib/streakHelpers';
 
 interface Activity {
   id: string;
@@ -36,6 +37,7 @@ interface JourneyData {
   activities: Activity[];
   todayCompletedNames: string[];
   completionDates: string[];
+  realStreak: number;
 }
 
 interface Props {
@@ -117,6 +119,11 @@ export default function PublicJourneyPage({ username }: Props) {
         completionDates = (allCompletionsRes.data || []).map((c) => c.completion_date);
       }
 
+      let realStreak = 0;
+      if (goal?.id) {
+        realStreak = await computeCurrentStreak(goal.id);
+      }
+
       const displayName = settings
         ? `${settings.first_name || ''} ${settings.last_name || ''}`.trim()
         : profile.display_name;
@@ -134,22 +141,13 @@ export default function PublicJourneyPage({ username }: Props) {
         activities,
         todayCompletedNames,
         completionDates,
+        realStreak,
       });
     } catch {
       setNotFound(true);
     } finally {
       setLoading(false);
     }
-  };
-
-  const getStreakDisplay = () => {
-    const day = journey?.currentDay || 0;
-    if (day === 0) return 'Just getting started';
-    if (day < 7) return `${day} days in`;
-    if (day < 21) return `${day} days strong`;
-    if (day < 40) return `${day} days — on fire`;
-    if (day < 77) return `${day} days — unstoppable`;
-    return '77 days — COMPLETE!';
   };
 
   const getLastActiveInfo = (): { label: string; isActive: boolean } => {
@@ -208,7 +206,6 @@ export default function PublicJourneyPage({ username }: Props) {
     );
   }
 
-  const progressPercent = Math.min(((journey?.currentDay || 0) / 77) * 100, 100);
   const firstName = journey?.displayName.split(' ')[0] || 'They';
   const lastActiveInfo = getLastActiveInfo();
 
@@ -231,7 +228,6 @@ export default function PublicJourneyPage({ username }: Props) {
             </Text>
           </View>
           <Text style={styles.heroName}>{journey?.displayName}</Text>
-          <Text style={styles.heroGoal} numberOfLines={2}>{journey?.goalTitle}</Text>
           <View style={styles.activeTag}>
             <View style={[styles.activeDot, lastActiveInfo.isActive && styles.activeDotLive]} />
             <Text style={[styles.activeTagText, lastActiveInfo.isActive && styles.activeTagTextLive]}>
@@ -245,23 +241,13 @@ export default function PublicJourneyPage({ username }: Props) {
             colors={['rgba(204, 255, 0, 0.1)', 'rgba(204, 255, 0, 0.03)']}
             style={styles.dayCardInner}
           >
-            <View style={styles.dayCardTop}>
-              <View>
-                <Text style={styles.dayCardLabel}>CURRENT STREAK</Text>
-                <Text style={styles.dayCardStreak}>{getStreakDisplay()}</Text>
-              </View>
-              <View style={styles.dayBadge}>
-                <Text style={styles.dayNumber}>{journey?.currentDay}</Text>
-                <Text style={styles.dayLabel}>DAY</Text>
-              </View>
+            <View style={styles.streakHeroRow}>
+              <Zap size={40} color="#CCFF00" fill="#CCFF00" strokeWidth={2} />
+              <Text style={styles.streakNumber}>
+                {journey?.realStreak ?? 0}
+              </Text>
             </View>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${progressPercent}%` as any }]} />
-            </View>
-            <View style={styles.progressFooter}>
-              <Text style={styles.progressFooterText}>{journey?.currentDay} of 77 days</Text>
-              <Text style={styles.progressPercent}>{Math.round(progressPercent)}%</Text>
-            </View>
+            <Text style={styles.streakLabel}>DAY STREAK</Text>
           </LinearGradient>
         </View>
 
@@ -593,15 +579,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
   },
-  heroGoal: {
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Inter-Bold',
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 12,
-  },
   activeTag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -632,76 +609,29 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(204, 255, 0, 0.2)',
     marginBottom: 20,
   },
-  dayCardInner: { padding: 22 },
-  dayCardTop: {
+  dayCardInner: { padding: 22, alignItems: 'center' },
+  streakHeroRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
-  dayCardLabel: {
-    fontSize: 10,
+  streakNumber: {
+    fontSize: 80,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    letterSpacing: -2,
+    textAlign: 'center',
+    color: '#FFFFFF',
+  },
+  streakLabel: {
+    fontSize: 12,
     fontWeight: '800',
     fontFamily: 'Inter-Black',
     letterSpacing: 1.5,
     color: '#555',
-    marginBottom: 6,
-  },
-  dayCardStreak: {
-    fontSize: 20,
-    fontWeight: '900',
-    fontFamily: 'Inter-Black',
-    color: '#FFFFFF',
-  },
-  dayBadge: {
-    alignItems: 'center',
-    backgroundColor: '#000',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  dayNumber: {
-    fontSize: 30,
-    fontWeight: '900',
-    fontFamily: 'Inter-Black',
-    color: '#FFFFFF',
-  },
-  dayLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    fontFamily: 'Inter-Black',
-    color: '#ccff00',
-    letterSpacing: 1,
-  },
-  progressTrack: {
-    height: 8,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 10,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#ccff00',
-    borderRadius: 4,
-  },
-  progressFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  progressFooterText: {
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'Inter-Bold',
-    color: '#555',
-  },
-  progressPercent: {
-    fontSize: 12,
-    fontWeight: '700',
-    fontFamily: 'Inter-Bold',
-    color: '#ccff00',
+    marginTop: 2,
+    marginBottom: 4,
   },
   identitySection: {
     alignItems: 'center',

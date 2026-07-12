@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Platform,
   Animated,
-  useWindowDimensions,
 } from 'react-native';
 import Svg, { Rect, Defs, Filter, FeGaussianBlur } from 'react-native-svg';
 import { Star } from 'lucide-react-native';
@@ -307,11 +306,12 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, in
 }
 
 export default function ChallengeWall({ currentDay, isDayCompleted, isLight, onTilePress }: ChallengeWallProps) {
-  const { width: screenWidth } = useWindowDimensions();
+  const [containerWidth, setContainerWidth] = useState(0);
   const GRID_COLS = 7;
   const GRID_GAP = 6;
-  const GRID_PADDING = 48;
-  const tileSize = Math.floor((screenWidth - GRID_PADDING - (GRID_COLS - 1) * GRID_GAP) / GRID_COLS);
+  const tileSize = containerWidth > 0
+    ? Math.floor((containerWidth - (GRID_COLS - 1) * GRID_GAP) / GRID_COLS)
+    : 0;
 
   const days = Array.from({ length: TOTAL_CHALLENGE_DAYS }, (_, i) => i + 1);
 
@@ -323,8 +323,11 @@ export default function ChallengeWall({ currentDay, isDayCompleted, isLight, onT
 
   return (
     <>
-      <View style={styles.challengeGrid}>
-        {days.map((day) => {
+      <View
+        style={styles.challengeGrid}
+        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      >
+        {containerWidth > 0 && days.map((day) => {
           const completed = !!isDayCompleted(day);
           return (
             <DayTile
