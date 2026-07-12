@@ -351,17 +351,6 @@ export default function FriendsScreen() {
               onChangeText={setSearchUsername}
               autoCapitalize="none"
             />
-            <TouchableOpacity
-              style={styles.addButton}
-              disabled
-            >
-              <LinearGradient
-                colors={[colors.primary, colors.primaryDark]}
-                style={styles.addButtonGradient}
-              >
-                <UserPlus size={24} color="#000000" strokeWidth={2.5} />
-              </LinearGradient>
-            </TouchableOpacity>
           </View>
 
           {searching ? (
@@ -623,7 +612,6 @@ const styles = StyleSheet.create({
   },
   addFriendInputContainer: {
     flexDirection: 'row',
-    gap: 12,
   },
   addFriendInput: {
     flex: 1,
@@ -632,18 +620,6 @@ const styles = StyleSheet.create({
     padding: 18,
     fontSize: 17,
     fontWeight: '600',
-  },
-  addButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  addButtonGradient: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   searchLoadingRow: {
     flexDirection: 'row',
