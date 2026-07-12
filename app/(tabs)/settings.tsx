@@ -19,14 +19,13 @@ import {
   ImagePlus,
   LogOut,
   Share2,
-  Play,
   RefreshCw,
   Sparkles,
   Archive,
+  Eye,
 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import SignupSplashScreen from '@/components/SignupSplashScreen';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -42,7 +41,6 @@ import {
   DayEndTimePicker,
   ActionRow,
 } from '@/components/SettingsComponents';
-import GracePeriodModal from '@/components/GracePeriodModal';
 import {
   requestNotificationPermissions,
   scheduleDailyReminders,
@@ -71,6 +69,7 @@ export default function SettingsScreen() {
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [activeGoal, setActiveGoal] = useState<Goal | null>(null);
   const [challengeActionLoading, setChallengeActionLoading] = useState(false);
+  const [shareFullJourney, setShareFullJourney] = useState(true);
 
   useEffect(() => {
     loadSettings();
@@ -143,6 +142,7 @@ export default function SettingsScreen() {
         .eq('is_active', true)
         .maybeSingle();
       setActiveGoal(data);
+      setShareFullJourney(data?.share_full_journey ?? true);
     } catch {}
   };
 
@@ -272,6 +272,20 @@ export default function SettingsScreen() {
     saveSettings({ save_progress_photos: value });
   };
 
+  const handleShareFullJourneyToggle = async (value: boolean) => {
+    setShareFullJourney(value);
+    if (activeGoal) {
+      try {
+        await supabase
+          .from('goals')
+          .update({ share_full_journey: value })
+          .eq('id', activeGoal.id);
+      } catch (error) {
+        console.error('Error updating share_full_journey:', error);
+      }
+    }
+  };
+
   const uploadProfilePhoto = async (uri: string) => {
     if (!user) return;
     setUploading(true);
@@ -369,8 +383,6 @@ export default function SettingsScreen() {
   };
 
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
-  const [showSplashPreview, setShowSplashPreview] = useState(false);
-  const [showGracePeriodPreview, setShowGracePeriodPreview] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
 
   const handleSignOut = () => {
@@ -409,15 +421,6 @@ export default function SettingsScreen() {
 
   return (
     <>
-    {showSplashPreview && (
-      <SignupSplashScreen onComplete={() => setShowSplashPreview(false)} />
-    )}
-    <GracePeriodModal
-      visible={showGracePeriodPreview}
-      daysMissed={2}
-      onKeepGoing={() => setShowGracePeriodPreview(false)}
-      onStartOver={() => setShowGracePeriodPreview(false)}
-    />
     <Modal visible={showRulesModal} transparent animationType="fade" statusBarTranslucent>
       <View style={rulesModalStyles.overlay}>
         <View style={[rulesModalStyles.card, { backgroundColor: isDark ? colors.backgroundSecondary : '#FFFFFF', borderColor: isDark ? colors.border : '#E0E0DB' }]}>
@@ -557,6 +560,21 @@ export default function SettingsScreen() {
             />
           </GlassPanel>
 
+          <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>PRIVACY</Text>
+          <GlassPanel isDark={isDark} colors={colors}>
+            <ToggleRow
+              icon={<Eye size={18} color={colors.primary} strokeWidth={2} />}
+              title="Share Full Journey"
+              description="Watchers see your identity & daily inputs, not just your streak"
+              value={shareFullJourney}
+              onValueChange={handleShareFullJourneyToggle}
+              colors={colors}
+              isDark={isDark}
+              isFirst
+              isLast
+            />
+          </GlassPanel>
+
           <GlassPanel isDark={isDark} colors={colors}>
             <ActionRow
               icon={<Share2 size={18} color={colors.primary} strokeWidth={2} />}
@@ -565,20 +583,6 @@ export default function SettingsScreen() {
               colors={colors}
               isDark={isDark}
               isFirst
-            />
-            <ActionRow
-              icon={<Play size={18} color={colors.primary} strokeWidth={2} />}
-              title="Preview Splash Screen"
-              onPress={() => setShowSplashPreview(true)}
-              colors={colors}
-              isDark={isDark}
-            />
-            <ActionRow
-              icon={<Play size={18} color={colors.primary} strokeWidth={2} />}
-              title="Preview Grace Period Modal"
-              onPress={() => setShowGracePeriodPreview(true)}
-              colors={colors}
-              isDark={isDark}
               isLast
             />
           </GlassPanel>

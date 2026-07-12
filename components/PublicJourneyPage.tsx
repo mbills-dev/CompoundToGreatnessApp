@@ -39,6 +39,7 @@ interface JourneyData {
   completionDates: string[];
   realStreak: number;
   challengePhase: string;
+  shareFullJourney: boolean;
 }
 
 interface Props {
@@ -77,7 +78,7 @@ export default function PublicJourneyPage({ username }: Props) {
 
       const { data: goal } = await supabase
         .from('goals')
-        .select('id, title, identity_statement, current_challenge_day, last_completion_date, challenge_start_date, challenge_phase')
+        .select('id, title, identity_statement, current_challenge_day, last_completion_date, challenge_start_date, challenge_phase, share_full_journey')
         .eq('user_id', profile.id)
         .eq('is_active', true)
         .maybeSingle();
@@ -143,6 +144,7 @@ export default function PublicJourneyPage({ username }: Props) {
         completionDates,
         realStreak,
         challengePhase: goal?.challenge_phase || 'challenge',
+        shareFullJourney: goal?.share_full_journey ?? true,
       });
     } catch {
       setNotFound(true);
@@ -252,14 +254,14 @@ export default function PublicJourneyPage({ username }: Props) {
           </LinearGradient>
         </View>
 
-        {journey?.identityStatement ? (
+        {journey?.shareFullJourney && journey?.identityStatement ? (
           <View style={styles.identitySection}>
             <Text style={styles.becomingLabel}>BECOMING</Text>
             <Text style={styles.identityText}>"{journey.identityStatement}"</Text>
           </View>
         ) : null}
 
-        {journey && journey.activities.length > 0 ? (
+        {journey?.shareFullJourney && journey && journey.activities.length > 0 ? (
           <View style={styles.stackCard}>
             <Text style={styles.stackLabel}>DAILY SUCCESS STACK</Text>
             {journey.activities.map((activity) => {

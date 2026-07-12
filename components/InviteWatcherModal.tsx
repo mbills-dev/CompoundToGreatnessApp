@@ -110,6 +110,10 @@ export default function InviteWatcherModal({ visible, onClose, userId }: Props) 
                 </Text>
               </View>
 
+              <Text style={[styles.disclosureText, { color: colors.textTertiary }]}>
+                Your identity and daily inputs are visible to watchers by default — manage this in Settings.
+              </Text>
+
               <TouchableOpacity
                 style={styles.shareButton}
                 onPress={handleShare}
@@ -139,7 +143,7 @@ export default function InviteWatcherModal({ visible, onClose, userId }: Props) 
 
               <View style={[styles.infoBox, { backgroundColor: isDark ? '#0D0D0D' : '#FFFFFF', borderColor: isDark ? '#1A1A1A' : '#E0E0DB' }]}>
                 <Text style={[styles.infoText, { color: colors.textTertiary }]}>
-                  Watchers see your streak, identity, and daily progress. They can't see your personal settings or edit anything. Share freely.
+                  Watchers see your streak, identity, and daily progress by default. You can manage what they see in Settings → Privacy. They can't see your personal settings or edit anything.
                 </Text>
               </View>
             </>
@@ -244,6 +248,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   copyButtonText: { fontSize: 15, fontWeight: '700' },
+  disclosureText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 10,
+    marginBottom: 16,
+    lineHeight: 17,
+  },
   infoBox: {
     borderRadius: 12,
     padding: 16,

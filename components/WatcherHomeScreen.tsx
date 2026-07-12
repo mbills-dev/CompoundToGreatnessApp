@@ -12,6 +12,7 @@ import { Eye, Zap, Calendar, Target, LogOut, Star, Shield, Layers } from 'lucide
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
+import { getTodayDateString, toLocalDateString } from '@/lib/dateHelpers';
 
 interface WatchedUser {
   displayName: string;
@@ -22,6 +23,7 @@ interface WatchedUser {
   lastActive: string | null;
   completionDates: string[];
   compassVision: string;
+  shareFullJourney: boolean;
 }
 
 interface EarnedBadge {
@@ -78,7 +80,7 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           .maybeSingle(),
         supabase
           .from('goals')
-          .select('id, title, identity_statement, current_challenge_day, last_completion_date, compass_vision')
+          .select('id, title, identity_statement, current_challenge_day, last_completion_date, compass_vision, share_full_journey')
           .eq('user_id', watchedId)
           .eq('is_active', true)
           .maybeSingle(),
@@ -120,6 +122,7 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
         lastActive: goalRes.data?.last_completion_date || null,
         compassVision: goalRes.data?.compass_vision || '',
         completionDates: completionsRes.data?.map((c) => c.completion_date) || [],
+        shareFullJourney: goalRes.data?.share_full_journey ?? true,
       });
 
       setEarnedBadges((badgeRes.data as unknown as EarnedBadge[]) || []);
@@ -131,20 +134,10 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
     }
   };
 
-  const getStreakDisplay = () => {
-    const day = watched?.currentDay || 0;
-    if (day === 0) return 'Just getting started';
-    if (day < 7) return `${day} days in`;
-    if (day < 21) return `${day} days strong`;
-    if (day < 40) return `${day} days — on fire`;
-    if (day < 77) return `${day} days — unstoppable`;
-    return '77 days — COMPLETE';
-  };
-
   const getLastActiveLabel = () => {
     if (!watched?.lastActive) return 'Not yet started';
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const today = getTodayDateString();
+    const yesterday = toLocalDateString(new Date(Date.now() - 86400000));
     if (watched.lastActive === today) return 'Active today';
     if (watched.lastActive === yesterday) return 'Active yesterday';
     return `Last active ${watched.lastActive}`;
@@ -158,7 +151,6 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
     );
   }
 
-  const progressPercent = Math.min(((watched?.currentDay || 0) / 77) * 100, 100);
 
   return (
     <LinearGradient colors={['#000000', '#050505', '#000000']} style={styles.container}>
@@ -195,22 +187,18 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
               </View>
             </View>
 
-            {watched?.identityStatement ? (
+            {watched?.shareFullJourney && watched?.identityStatement ? (
               <View style={styles.identityCard}>
                 <Text style={styles.identityCardLabel}>THEIR IDENTITY</Text>
                 <Text style={styles.identityCardText}>"{watched.identityStatement}"</Text>
               </View>
             ) : null}
 
-            <View style={styles.progressSection}>
-              <View style={styles.progressHeader}>
-                <Text style={styles.progressTitle}>{getStreakDisplay()}</Text>
-                <Text style={styles.progressPercent}>{Math.round(progressPercent)}%</Text>
-              </View>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
-              </View>
+            <View style={styles.streakHeroRow}>
+              <Zap size={40} color="#CCFF00" fill="#CCFF00" strokeWidth={2} />
+              <Text style={styles.streakNumber}>{watched?.streak ?? 0}</Text>
             </View>
+            <Text style={styles.streakLabel}>DAY STREAK</Text>
           </LinearGradient>
         </View>
 
@@ -362,12 +350,29 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontStyle: 'italic',
   },
-  progressSection: { gap: 10 },
-  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  progressTitle: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
-  progressPercent: { fontSize: 14, fontWeight: '700', color: '#ccff00' },
-  progressTrack: { height: 8, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: '#ccff00', borderRadius: 4 },
+  streakHeroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  streakNumber: {
+    fontSize: 80,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    letterSpacing: -2,
+    textAlign: 'center',
+    color: '#FFFFFF',
+  },
+  streakLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 1.5,
+    color: '#555',
+    marginTop: 2,
+    marginBottom: 4,
+  },
   badgesSection: { marginBottom: 24 },
   sectionTitle: { fontSize: 18, fontWeight: '900', color: '#FFFFFF', marginBottom: 16 },
   badgeScroll: { gap: 14, paddingRight: 8 },
