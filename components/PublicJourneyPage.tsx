@@ -54,7 +54,7 @@ export default function PublicJourneyPage({ username }: Props) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('id, display_name, username')
-        .eq('username', username)
+        .ilike('username', username)
         .maybeSingle();
 
       if (!profile) {
@@ -561,6 +561,7 @@ const styles = StyleSheet.create({
   notFoundTitle: {
     fontSize: 28,
     fontWeight: '900',
+    fontFamily: 'Inter-Black',
     color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 12,
@@ -568,6 +569,7 @@ const styles = StyleSheet.create({
   notFoundSub: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     color: '#555',
     textAlign: 'center',
     marginBottom: 32,
@@ -598,6 +600,7 @@ const styles = StyleSheet.create({
   topBadgeText: {
     fontSize: 11,
     fontWeight: '800',
+    fontFamily: 'Inter-Black',
     letterSpacing: 2,
     color: '#ccff00',
   },
@@ -619,11 +622,13 @@ const styles = StyleSheet.create({
   avatarLetter: {
     fontSize: 32,
     fontWeight: '900',
+    fontFamily: 'Inter-Black',
     color: '#ccff00',
   },
   heroName: {
     fontSize: 32,
     fontWeight: '900',
+    fontFamily: 'Inter-Black',
     color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 8,
@@ -631,6 +636,7 @@ const styles = StyleSheet.create({
   heroGoal: {
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     color: '#666',
     textAlign: 'center',
     lineHeight: 22,
@@ -653,13 +659,14 @@ const styles = StyleSheet.create({
   activeTagText: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     color: '#555',
   },
   activeTagTextLive: {
     color: '#ccff00',
   },
   dayCard: {
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(204, 255, 0, 0.2)',
@@ -675,6 +682,7 @@ const styles = StyleSheet.create({
   dayCardLabel: {
     fontSize: 10,
     fontWeight: '800',
+    fontFamily: 'Inter-Black',
     letterSpacing: 1.5,
     color: '#555',
     marginBottom: 6,
@@ -682,6 +690,7 @@ const styles = StyleSheet.create({
   dayCardStreak: {
     fontSize: 20,
     fontWeight: '900',
+    fontFamily: 'Inter-Black',
     color: '#FFFFFF',
   },
   dayBadge: {
@@ -696,11 +705,13 @@ const styles = StyleSheet.create({
   dayNumber: {
     fontSize: 30,
     fontWeight: '900',
+    fontFamily: 'Inter-Black',
     color: '#FFFFFF',
   },
   dayLabel: {
     fontSize: 10,
     fontWeight: '800',
+    fontFamily: 'Inter-Black',
     color: '#ccff00',
     letterSpacing: 1,
   },
@@ -723,11 +734,13 @@ const styles = StyleSheet.create({
   progressFooterText: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     color: '#555',
   },
   progressPercent: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     color: '#ccff00',
   },
   identitySection: {
@@ -738,6 +751,7 @@ const styles = StyleSheet.create({
   becomingLabel: {
     fontSize: 10,
     fontWeight: '800',
+    fontFamily: 'Inter-Black',
     letterSpacing: 2,
     color: '#ccff00',
     marginBottom: 10,
@@ -745,6 +759,7 @@ const styles = StyleSheet.create({
   identityText: {
     fontSize: 18,
     fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     color: '#FFFFFF',
     textAlign: 'center',
     lineHeight: 28,
@@ -752,7 +767,7 @@ const styles = StyleSheet.create({
   },
   stackCard: {
     backgroundColor: '#0A0A0A',
-    borderRadius: 16,
+    borderRadius: 24,
     padding: 20,
     borderWidth: 1,
     borderColor: '#1A1A1A',
@@ -761,6 +776,7 @@ const styles = StyleSheet.create({
   stackLabel: {
     fontSize: 10,
     fontWeight: '800',
+    fontFamily: 'Inter-Black',
     letterSpacing: 2,
     color: '#ccff00',
     marginBottom: 16,
@@ -790,6 +806,7 @@ const styles = StyleSheet.create({
   stackActivityName: {
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     color: '#888',
     flex: 1,
   },
@@ -832,10 +849,12 @@ const styles = StyleSheet.create({
   milestoneDayNum: {
     fontSize: 18,
     fontWeight: '900',
+    fontFamily: 'Inter-Black',
   },
   milestoneDayLbl: {
     fontSize: 8,
     fontWeight: '800',
+    fontFamily: 'Inter-Black',
     letterSpacing: 1,
   },
   milestoneTextAchieved: { color: '#ccff00' },
@@ -843,7 +862,7 @@ const styles = StyleSheet.create({
   milestoneTextLocked: { color: '#2A2A2A' },
   visionCard: {
     backgroundColor: '#0A0A0A',
-    borderRadius: 16,
+    borderRadius: 24,
     padding: 20,
     borderWidth: 1,
     borderColor: '#1A1A1A',
@@ -852,6 +871,7 @@ const styles = StyleSheet.create({
   visionLabel: {
     fontSize: 10,
     fontWeight: '800',
+    fontFamily: 'Inter-Black',
     letterSpacing: 1.5,
     color: '#555',
     marginBottom: 10,
@@ -859,6 +879,7 @@ const styles = StyleSheet.create({
   visionText: {
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     color: '#888',
     lineHeight: 22,
   },
@@ -878,6 +899,7 @@ const styles = StyleSheet.create({
   encourageText: {
     fontSize: 17,
     fontWeight: '900',
+    fontFamily: 'Inter-Black',
     color: '#000000',
   },
   divider: {
@@ -894,6 +916,7 @@ const styles = StyleSheet.create({
   dividerText: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     color: '#444',
   },
   startOwnOutline: {
@@ -911,6 +934,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '800',
+    fontFamily: 'Inter-Black',
     color: '#FFFFFF',
     textAlign: 'center',
   },
@@ -928,11 +952,13 @@ const styles = StyleSheet.create({
   startOwnText: {
     fontSize: 17,
     fontWeight: '900',
+    fontFamily: 'Inter-Black',
     color: '#000000',
   },
   footerNote: {
     fontSize: 13,
     fontWeight: '500',
+    fontFamily: 'Inter-Bold',
     color: '#444',
     textAlign: 'center',
     lineHeight: 20,
@@ -968,6 +994,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 24,
     fontWeight: '900',
+    fontFamily: 'Inter-Black',
     color: '#FFFFFF',
   },
   modalClose: {
@@ -981,6 +1008,7 @@ const styles = StyleSheet.create({
   modalSub: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     color: '#666',
     lineHeight: 22,
     marginBottom: 24,
@@ -989,6 +1017,7 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 10,
     fontWeight: '800',
+    fontFamily: 'Inter-Black',
     letterSpacing: 1.5,
     color: '#555',
     marginBottom: 8,
@@ -1001,6 +1030,7 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     color: '#FFFFFF',
   },
   textArea: {
@@ -1010,6 +1040,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     color: '#EF4444',
     textAlign: 'center',
     marginBottom: 14,
@@ -1029,12 +1060,14 @@ const styles = StyleSheet.create({
   submitText: {
     fontSize: 16,
     fontWeight: '900',
+    fontFamily: 'Inter-Black',
     color: '#000000',
   },
   disabledButton: { opacity: 0.6 },
   legalText: {
     fontSize: 12,
     fontWeight: '500',
+    fontFamily: 'Inter-Bold',
     color: '#333',
     textAlign: 'center',
   },
@@ -1056,11 +1089,13 @@ const styles = StyleSheet.create({
   doneTitle: {
     fontSize: 28,
     fontWeight: '900',
+    fontFamily: 'Inter-Black',
     color: '#FFFFFF',
   },
   doneSub: {
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     color: '#666',
     textAlign: 'center',
     lineHeight: 22,
@@ -1075,6 +1110,7 @@ const styles = StyleSheet.create({
   doneCloseText: {
     fontSize: 15,
     fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     color: '#FFFFFF',
   },
 });
