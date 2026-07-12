@@ -35,6 +35,7 @@ import { isDateLocked, toLocalDateString, parseLocalDate, getDayNumberFromChalle
 import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import { resetChallenge } from '@/lib/resetHelpers';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
+import { checkAndAwardBadges } from '@/lib/badgeHelpers';
 import CoachCard from './CoachCard';
 import { useRacingBorder } from '@/contexts/RacingBorderContext';
 import { useCelebration } from '@/contexts/CelebrationContext';
@@ -594,6 +595,7 @@ export default function DailyDashboard({
 
         loadStreak();
         loadPerfectDays();
+        checkAndAwardBadges(goal.user_id || '', goal);
 
         triggerHaptics();
         triggerRacingBorder(() => {
