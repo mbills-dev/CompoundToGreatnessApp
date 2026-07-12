@@ -11,13 +11,15 @@ import {
   FlatList,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heart, UserPlus, Eye, Share2, Zap, Mail } from 'lucide-react-native';
+import { Heart, UserPlus, Eye, Share2, Zap } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
 import InviteWatcherModal from '@/components/InviteWatcherModal';
 import { getInboxItems, markInboxItemRead, type InboxItem } from '@/lib/inboxHelpers';
+import InboxItemCard from '@/components/InboxItemCard';
+import { useRouter } from 'expo-router';
 
 interface FriendWithStreak {
   id: string;
@@ -38,23 +40,10 @@ interface SearchResult {
   photo_url?: string | null;
 }
 
-function getRelativeTime(isoString: string): string {
-  const now = Date.now();
-  const then = new Date(isoString).getTime();
-  const diff = now - then;
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-  if (days > 0) return `${days}d ago`;
-  if (hours > 0) return `${hours}h ago`;
-  if (minutes > 0) return `${minutes}m ago`;
-  return 'just now';
-}
-
 export default function FriendsScreen() {
   const { colors, isDark } = useTheme();
   const { user, isSubscribed } = useAuth();
+  const router = useRouter();
   const [friends, setFriends] = useState<FriendWithStreak[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchUsername, setSearchUsername] = useState('');
@@ -422,51 +411,29 @@ export default function FriendsScreen() {
           <View style={styles.inboxSection}>
             <Text style={[styles.inboxLabel, { color: colors.textTertiary }]}>ENCOURAGEMENT</Text>
             <View style={styles.inboxList}>
-              {inboxItems.map((item) => {
-                const isUnread = !item.readAt;
-                return (
-                  <TouchableOpacity
-                    key={`${item.source}-${item.id}`}
-                    style={[
-                      styles.inboxCard,
-                      {
-                        backgroundColor: isUnread
-                          ? (isDark ? '#1A1A14' : '#F5F8E8')
-                          : colors.card,
-                        borderColor: isUnread ? 'rgba(204,255,0,0.25)' : colors.border,
-                      },
-                    ]}
-                    onPress={() => isUnread && handleMarkInboxRead(item)}
-                    activeOpacity={isUnread ? 0.7 : 1}
-                  >
-                    <View style={styles.inboxCardHeader}>
-                      <View style={styles.inboxSenderRow}>
-                        {item.source === 'friend' ? (
-                          <Heart size={14} color={colors.primary} strokeWidth={2.5} />
-                        ) : (
-                          <Mail size={14} color={colors.primary} strokeWidth={2.5} />
-                        )}
-                        <Text style={[styles.inboxSenderName, { color: colors.text }]} numberOfLines={1}>
-                          {item.senderName}
-                        </Text>
-                      </View>
-                      {isUnread && <View style={styles.unreadDot} />}
-                    </View>
-                    {item.emoji && (
-                      <Text style={styles.inboxEmoji}>{item.emoji}</Text>
-                    )}
-                    {item.message && (
-                      <Text style={[styles.inboxMessage, { color: colors.textSecondary }]} numberOfLines={3}>
-                        {item.message}
-                      </Text>
-                    )}
-                    <Text style={[styles.inboxTimestamp, { color: colors.textTertiary }]}>
-                      {getRelativeTime(item.createdAt)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+              {[...inboxItems]
+                .sort((a, b) => {
+                  const aUnread = a.readAt ? 0 : 1;
+                  const bUnread = b.readAt ? 0 : 1;
+                  if (aUnread !== bUnread) return bUnread - aUnread;
+                  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                })
+                .slice(0, 3)
+                .map((item) => (
+                  <InboxItemCard key={`${item.source}-${item.id}`} item={item} onPress={handleMarkInboxRead} />
+                ))}
             </View>
+            {inboxItems.length > 3 && (
+              <TouchableOpacity
+                style={styles.seeAllButton}
+                onPress={() => router.push('/inbox')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.seeAllText, { color: colors.primary }]}>
+                  See all ({inboxItems.length})
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -944,50 +911,15 @@ const styles = StyleSheet.create({
   inboxList: {
     gap: 10,
   },
-  inboxCard: {
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 16,
-    gap: 6,
+  seeAllButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    marginTop: 4,
   },
-  inboxCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  inboxSenderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
-  },
-  inboxSenderName: {
+  seeAllText: {
     fontSize: 14,
     fontWeight: '800',
     fontFamily: 'Inter-Black',
-    flexShrink: 1,
-  },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#CCFF00',
-    marginLeft: 8,
-  },
-  inboxEmoji: {
-    fontSize: 28,
-    marginTop: 2,
-  },
-  inboxMessage: {
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 20,
-    fontFamily: 'Inter-Regular',
-  },
-  inboxTimestamp: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-    fontFamily: 'Inter-Regular',
   },
 });
