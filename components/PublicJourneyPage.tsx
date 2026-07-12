@@ -35,7 +35,7 @@ interface JourneyData {
   lastCompletionDate: string | null;
   challengeStartDate: string | null;
   activities: Activity[];
-  todayCompletedNames: string[];
+  todayCompletedIds: string[];
   completionDates: string[];
   realStreak: number;
   challengePhase: string;
@@ -83,7 +83,7 @@ export default function PublicJourneyPage({ username }: Props) {
         .maybeSingle();
 
       let activities: Activity[] = [];
-      let todayCompletedNames: string[] = [];
+      let todayCompletedIds: string[] = [];
       let completionDates: string[] = [];
 
       if (goal?.id) {
@@ -112,7 +112,7 @@ export default function PublicJourneyPage({ username }: Props) {
         activities = actsRes.data || [];
 
         if (todayCompletionRes.data?.activities_completed) {
-          todayCompletedNames = Array.isArray(todayCompletionRes.data.activities_completed)
+          todayCompletedIds = Array.isArray(todayCompletionRes.data.activities_completed)
             ? todayCompletionRes.data.activities_completed
             : [];
         }
@@ -139,7 +139,7 @@ export default function PublicJourneyPage({ username }: Props) {
         lastCompletionDate: goal?.last_completion_date || null,
         challengeStartDate: goal?.challenge_start_date || null,
         activities,
-        todayCompletedNames,
+        todayCompletedIds,
         completionDates,
         realStreak,
         challengePhase: goal?.challenge_phase || 'challenge',
@@ -263,7 +263,7 @@ export default function PublicJourneyPage({ username }: Props) {
           <View style={styles.stackCard}>
             <Text style={styles.stackLabel}>DAILY SUCCESS STACK</Text>
             {journey.activities.map((activity) => {
-              const completed = journey.todayCompletedNames.includes(activity.activity_name);
+              const completed = journey.todayCompletedIds.includes(activity.id);
               return (
                 <View key={activity.id} style={styles.stackRow}>
                   <Text style={[styles.stackActivityName, completed && styles.stackActivityNameDone]}>
