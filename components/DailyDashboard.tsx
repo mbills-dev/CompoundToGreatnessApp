@@ -36,6 +36,7 @@ import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import { resetChallenge } from '@/lib/resetHelpers';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
 import { checkAndAwardBadges } from '@/lib/badgeHelpers';
+import { useAuth } from '@/contexts/AuthContext';
 import CoachCard from './CoachCard';
 import { useRacingBorder } from '@/contexts/RacingBorderContext';
 import { useCelebration } from '@/contexts/CelebrationContext';
@@ -188,6 +189,7 @@ export default function DailyDashboard({
 }: DailyDashboardProps) {
   const { colors, isDark } = useTheme();
   const { triggerRacingBorder } = useRacingBorder();
+  const { user } = useAuth();
   const router = useRouter();
   const scrollViewRef = useRef<ScrollView>(null);
   const celebrationSuppressed = useRef(false);
@@ -595,7 +597,13 @@ export default function DailyDashboard({
 
         loadStreak();
         loadPerfectDays();
-        checkAndAwardBadges(goal.user_id || '', goal);
+        if (user) {
+          try {
+            await checkAndAwardBadges(user.id, goal);
+          } catch (err) {
+            console.error('Badge check failed:', err);
+          }
+        }
 
         triggerHaptics();
         triggerRacingBorder(() => {
