@@ -56,7 +56,7 @@ export default function InviteWatcherModal({ visible, onClose, userId }: Props) 
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       return `${window.location.origin}/watch/${username}`;
     }
-    return `https://app.77daychallenge.com/watch/${username}`;
+    return `https://app.compoundtogreatness.com/watch/${username}`;
   };
 
   const handleCopy = async () => {
