@@ -298,11 +298,11 @@ export default function DailyDashboard({
     try {
       const { data, error } = await supabase
         .from('daily_completions')
-        .select('*')
+        .select('completion_date')
         .eq('goal_id', goal.id)
         .not('completed_at', 'is', null)
         .order('completion_date', { ascending: false })
-        .limit(30);
+        .limit(1000);
 
       if (error) throw error;
 
