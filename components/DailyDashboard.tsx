@@ -311,6 +311,11 @@ export default function DailyDashboard({
       const currentDate = new Date();
       currentDate.setHours(0, 0, 0, 0);
 
+      const todayStr = toLocalDateString(currentDate);
+      if (!sortedDates.includes(todayStr)) {
+        currentDate.setDate(currentDate.getDate() - 1);
+      }
+
       for (const dateString of sortedDates) {
         const date = parseLocalDate(dateString);
         const expectedDate = new Date(currentDate);
