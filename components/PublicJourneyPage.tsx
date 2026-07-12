@@ -32,6 +32,7 @@ interface JourneyData {
   goalTitle: string;
   compassVision: string;
   lastCompletionDate: string | null;
+  challengeStartDate: string | null;
   activities: Activity[];
   todayCompletedNames: string[];
   completionDates: string[];
@@ -73,7 +74,7 @@ export default function PublicJourneyPage({ username }: Props) {
 
       const { data: goal } = await supabase
         .from('goals')
-        .select('id, title, identity_statement, current_challenge_day, last_completion_date, compass_vision')
+        .select('id, title, identity_statement, current_challenge_day, last_completion_date, compass_vision, challenge_start_date')
         .eq('user_id', profile.id)
         .eq('is_active', true)
         .maybeSingle();
@@ -129,6 +130,7 @@ export default function PublicJourneyPage({ username }: Props) {
         goalTitle: goal?.title || 'their 77-day journey',
         compassVision: goal?.compass_vision || '',
         lastCompletionDate: goal?.last_completion_date || null,
+        challengeStartDate: goal?.challenge_start_date || null,
         activities,
         todayCompletedNames,
         completionDates,
@@ -170,7 +172,7 @@ export default function PublicJourneyPage({ username }: Props) {
   const isDayCompleted = (day: number): boolean => {
     if (!journey?.completionDates || journey.completionDates.length === 0) return false;
     if (!journey.goalId) return false;
-    const dateForDay = getDateForChallengeDay(journey.goalId, day);
+    const dateForDay = getDateForChallengeDay(journey.challengeStartDate, day);
     return journey.completionDates.includes(dateForDay);
   };
 
