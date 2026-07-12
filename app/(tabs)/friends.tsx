@@ -11,7 +11,7 @@ import {
   FlatList,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heart, UserPlus, Send, Eye, Share2 } from 'lucide-react-native';
+import { Heart, UserPlus, Eye, Share2, Zap } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,7 +47,6 @@ export default function FriendsScreen() {
   const [searching, setSearching] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<string | null>(null);
   const [encouragementMessage, setEncouragementMessage] = useState('');
-  const [watchingUsers, setWatchingUsers] = useState(0);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -155,12 +154,6 @@ export default function FriendsScreen() {
 
       setFriends(friendsData);
 
-      // Also update "watching you" count
-      const { data: myWatchers } = await supabase
-        .from('watchers')
-        .select('watcher_id')
-        .eq('watched_id', user.id);
-      setWatchingUsers(myWatchers?.length || 0);
     } catch (e: any) {
       setError(e.message || 'Failed to load friends');
     } finally {
@@ -319,14 +312,7 @@ export default function FriendsScreen() {
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View>
-              <Text style={[styles.title, { color: colors.text }]}>Your Circle</Text>
-            </View>
-            <View style={[styles.watchersBadge, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Eye size={20} color={colors.primary} strokeWidth={2.5} />
-              <View>
-                <Text style={[styles.watchersCount, { color: colors.text }]}>{watchingUsers}</Text>
-                <Text style={[styles.watchersLabel, { color: colors.textTertiary }]}>Watching You</Text>
-              </View>
+              <Text style={[styles.title, { color: colors.text }]}>Your Friends</Text>
             </View>
           </View>
 
@@ -400,7 +386,6 @@ export default function FriendsScreen() {
         ) : null}
 
         <View style={styles.content}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Friends</Text>
           <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
             {friends.length} people crushing their goals
           </Text>
@@ -446,9 +431,9 @@ export default function FriendsScreen() {
                       </View>
 
                       <View style={[styles.streakBadge, { backgroundColor: isDark ? '#000000' : '#1A1A1A' }]}>
-                        <Text style={styles.fireEmoji}>🔥</Text>
+                        <Zap size={20} color={colors.primary} fill={colors.primary} strokeWidth={2.5} />
                         <Text style={styles.streakNumber}>{friend.streak}</Text>
-                        <Text style={styles.streakLabel}>DAYS</Text>
+                        <Text style={styles.streakLabel}>DAY STREAK</Text>
                       </View>
                     </View>
 
@@ -506,16 +491,11 @@ export default function FriendsScreen() {
                             </LinearGradient>
                           </TouchableOpacity>
                           <TouchableOpacity
-                            style={styles.encourageButton}
+                            style={[styles.encourageButton, { backgroundColor: colors.backgroundSecondary, borderColor: 'rgba(204,255,0,0.3)', borderWidth: 1.5 }]}
                             onPress={() => setSelectedFriend(friend.id)}
                           >
-                            <LinearGradient
-                              colors={isDark ? ['#404040', '#2A2A2A'] : ['#1A1A1A', '#111111']}
-                              style={styles.encourageButtonGradient}
-                            >
-                              <Heart size={18} color="#FFFFFF" strokeWidth={2.5} />
-                              <Text style={styles.encourageButtonText}>Encourage</Text>
-                            </LinearGradient>
+                              <Heart size={18} color={colors.primary} strokeWidth={2.5} />
+                              <Text style={[styles.encourageButtonText, { color: colors.primary }]}>Encourage</Text>
                           </TouchableOpacity>
                         </View>
                       )}
@@ -586,25 +566,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 42,
     fontWeight: '900',
-  },
-  watchersBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
-    borderWidth: 2,
-  },
-  watchersCount: {
-    fontSize: 20,
-    fontWeight: '900',
-    lineHeight: 24,
-  },
-  watchersLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+    fontFamily: 'Inter-Black',
   },
   addFriendSection: {
     paddingHorizontal: 24,
@@ -690,14 +652,10 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
   },
-  sectionTitle: {
-    fontSize: 28,
-    fontWeight: '900',
-    marginBottom: 6,
-  },
   sectionSubtitle: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     marginBottom: 24,
   },
   friendsList: {
@@ -714,7 +672,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   friendCard: {
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: 'hidden',
   },
   friendCardGradient: {
@@ -738,6 +696,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#707070',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(204,255,0,0.3)',
   },
   avatarImage: {
     width: 60,
@@ -784,20 +744,19 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  fireEmoji: {
-    fontSize: 24,
+    borderColor: 'rgba(204,255,0,0.3)',
   },
   streakNumber: {
     fontSize: 24,
     fontWeight: '900',
+    fontFamily: 'Inter-Black',
     color: '#FFFFFF',
     marginTop: 4,
   },
   streakLabel: {
     fontSize: 10,
     fontWeight: '800',
+    fontFamily: 'Inter-Bold',
     color: '#fc433d',
     letterSpacing: 1,
     marginTop: 2,
@@ -824,13 +783,11 @@ const styles = StyleSheet.create({
   watchButtonText: {
     fontSize: 15,
     fontWeight: '800',
+    fontFamily: 'Inter-Bold',
   },
   encourageButton: {
     flex: 1,
     borderRadius: 12,
-    overflow: 'hidden',
-  },
-  encourageButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -840,7 +797,7 @@ const styles = StyleSheet.create({
   encourageButtonText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    fontFamily: 'Inter-Bold',
   },
   encouragementForm: {
     gap: 12,
