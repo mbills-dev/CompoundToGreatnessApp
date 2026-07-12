@@ -20,7 +20,7 @@ import Animated, {
   withSequence,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CircleCheck as CheckCircle, Circle, Flame, Award, TrendingUp, Check, Plus, Lock, Eye, X } from 'lucide-react-native';
+import { CircleCheck as CheckCircle, Circle, Flame, Award, TrendingUp, Check, Plus, Lock, Eye, X, Zap } from 'lucide-react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -777,25 +777,46 @@ export default function DailyDashboard({
                 </Text>
               </View>
             )}
-            <View style={styles.dateContainer}>
-              <Text style={[styles.date, { color: colors.text }]}>
-                DAY {displayDay}
-              </Text>
-              <Text style={[styles.dateLabel, { color: colors.textTertiary }]}>
-                {isKeepGoing ? goal.title?.toUpperCase() : '77-DAY CHALLENGE'}
-              </Text>
-            </View>
+            {isKeepGoing ? (
+              <View style={styles.dateContainer}>
+                <View style={styles.streakHeroRow}>
+                  <Zap size={40} color="#CCFF00" fill="#CCFF00" strokeWidth={2} />
+                  <Text style={[styles.date, { color: colors.text }]}>
+                    {streak}
+                  </Text>
+                </View>
+                <View style={styles.streakSubRow}>
+                  <Text style={[styles.dateLabel, { color: colors.textTertiary }]}>
+                    DAY STREAK
+                  </Text>
+                  {streak > 0 && streak >= bestStreak && (
+                    <View style={styles.recordPill}>
+                      <Text style={styles.recordPillText}>RECORD</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            ) : (
+              <View style={styles.dateContainer}>
+                <Text style={[styles.date, { color: colors.text }]}>
+                  DAY {displayDay}
+                </Text>
+                <Text style={[styles.dateLabel, { color: colors.textTertiary }]}>
+                  77-DAY CHALLENGE
+                </Text>
+              </View>
+            )}
 
             {isKeepGoing ? (
               <View style={styles.metricsGrid}>
                 <View style={styles.metricsRow}>
                   <View style={[styles.metricCard, { backgroundColor: colors.card, borderColor: isDark ? colors.border : colors.primary }]}>
-                    <Text style={[styles.metricValue, { color: colors.primary }]}>{streak}</Text>
-                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Current Streak</Text>
+                    <Text style={[styles.metricValue, { color: colors.primary }]}>{bestStreak}</Text>
+                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Best Streak</Text>
                   </View>
                   <View style={[styles.metricCard, { backgroundColor: colors.card, borderColor: isDark ? colors.border : colors.primary }]}>
-                    <Text style={[styles.metricValue, { color: colors.primary }]}>{phase2ThisMonth}</Text>
-                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>This Month</Text>
+                    <Text style={[styles.metricValue, { color: colors.primary }]}>{perfectDays}</Text>
+                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Days Stacked</Text>
                   </View>
                 </View>
               </View>
@@ -1017,6 +1038,33 @@ const styles = StyleSheet.create({
   dateContainer: {
     marginBottom: 20,
     alignItems: 'center',
+  },
+  streakHeroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  streakSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  recordPill: {
+    backgroundColor: '#CCFF00',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  recordPillText: {
+    color: '#000000',
+    fontFamily: 'Inter-Black',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
   dateLabel: {
     fontSize: 12,
