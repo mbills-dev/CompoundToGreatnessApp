@@ -8,9 +8,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Eye, Zap, Calendar, Target, LogOut } from 'lucide-react-native';
+import { Eye, Zap, Calendar, Target, LogOut, Star, Shield, Layers } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
+import { computeCurrentStreak } from '@/lib/streakHelpers';
 
 interface WatchedUser {
   displayName: string;
@@ -23,6 +24,17 @@ interface WatchedUser {
   compassVision: string;
 }
 
+interface EarnedBadge {
+  badge_key: string;
+  earned_at: string;
+  badges: {
+    title: string;
+    description: string;
+    icon: string;
+    color: string;
+  }[] | null;
+}
+
 interface Props {
   watcherId: string;
   watchedId: string;
@@ -30,11 +42,27 @@ interface Props {
   onStartOwn: () => void;
 }
 
+const badgeIconMap: Record<string, React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>> = {
+  star: Star,
+  shield: Shield,
+  layers: Layers,
+  zap: Zap,
+};
+
+function hexWithOpacity(hex: string, opacity: number): string {
+  const cleaned = hex.replace('#', '');
+  const r = parseInt(cleaned.substring(0, 2), 16);
+  const g = parseInt(cleaned.substring(2, 4), 16);
+  const b = parseInt(cleaned.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
 export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onStartOwn }: Props) {
   const { isDark } = useTheme();
   const [watched, setWatched] = useState<WatchedUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [watcherName, setWatcherName] = useState('');
+  const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>([]);
 
   useEffect(() => {
     loadData();
@@ -50,7 +78,7 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           .maybeSingle(),
         supabase
           .from('goals')
-          .select('title, identity_statement, current_challenge_day, last_completion_date, compass_vision')
+          .select('id, title, identity_statement, current_challenge_day, last_completion_date, compass_vision')
           .eq('user_id', watchedId)
           .eq('is_active', true)
           .maybeSingle(),
@@ -61,52 +89,46 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           .maybeSingle(),
       ]);
 
-      const completionsRes = await supabase
-        .from('daily_completions')
-        .select('completion_date')
-        .eq('goal_id', goalRes.data ? await getGoalId(watchedId) : '')
-        .order('completion_date', { ascending: false })
-        .limit(77);
+      const goalId = goalRes.data?.id || '';
+
+      const [completionsRes, badgeRes] = await Promise.all([
+        supabase
+          .from('daily_completions')
+          .select('completion_date')
+          .eq('goal_id', goalId)
+          .order('completion_date', { ascending: false })
+          .limit(77),
+        supabase
+          .from('user_badges')
+          .select('badge_key, earned_at, badges(title, description, icon, color)')
+          .eq('user_id', watchedId)
+          .order('earned_at', { ascending: true }),
+      ]);
 
       const displayName = settingsRes.data
         ? `${settingsRes.data.first_name || ''} ${settingsRes.data.last_name || ''}`.trim()
         : 'Your person';
+
+      const realStreak = goalId ? await computeCurrentStreak(goalId) : 0;
 
       setWatched({
         displayName: displayName || 'Your person',
         currentDay: goalRes.data?.current_challenge_day || 0,
         identityStatement: goalRes.data?.identity_statement || '',
         goalTitle: goalRes.data?.title || 'their journey',
-        streak: goalRes.data?.current_challenge_day || 0,
+        streak: realStreak,
         lastActive: goalRes.data?.last_completion_date || null,
         compassVision: goalRes.data?.compass_vision || '',
         completionDates: completionsRes.data?.map((c) => c.completion_date) || [],
       });
+
+      setEarnedBadges((badgeRes.data as unknown as EarnedBadge[]) || []);
 
       setWatcherName(watcherRes.data?.first_name || 'You');
     } catch {
     } finally {
       setLoading(false);
     }
-  };
-
-  const getGoalId = async (userId: string): Promise<string> => {
-    const { data } = await supabase
-      .from('goals')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .maybeSingle();
-    return data?.id || '';
-  };
-
-  const getMilestones = () => {
-    const milestones = [7, 21, 40, 77];
-    return milestones.map((m) => ({
-      day: m,
-      reached: (watched?.currentDay || 0) >= m,
-      current: watched?.currentDay === m,
-    }));
   };
 
   const getStreakDisplay = () => {
@@ -192,23 +214,26 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           </LinearGradient>
         </View>
 
-        <View style={styles.milestonesSection}>
-          <Text style={styles.sectionTitle}>Milestones</Text>
-          <View style={styles.milestoneRow}>
-            {getMilestones().map((m) => (
-              <View key={m.day} style={[styles.milestoneBadge, m.reached && styles.milestoneBadgeReached]}>
-                {m.reached ? (
-                  <Text style={styles.milestoneCheck}>✓</Text>
-                ) : null}
-                <Text style={[styles.milestoneDayNumber, m.reached && styles.milestoneTextReached]}>
-                  {m.day}
-                </Text>
-                <Text style={[styles.milestoneDayLabel, m.reached && styles.milestoneTextReached]}>
-                  DAY
-                </Text>
-              </View>
-            ))}
-          </View>
+        <View style={styles.badgesSection}>
+          <Text style={styles.sectionTitle}>Badges</Text>
+          {earnedBadges.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.badgeScroll}>
+              {earnedBadges.map((badge, index) => {
+                const Icon = (badge.badges?.[0]?.icon && badgeIconMap[badge.badges[0].icon]) || Star;
+                const badgeColor = badge.badges?.[0]?.color || '#ccff00';
+                return (
+                  <View key={`${badge.badge_key}-${index}`} style={styles.badgeItem}>
+                    <View style={[styles.badgeCircle, { backgroundColor: hexWithOpacity(badgeColor, 0.15), borderColor: hexWithOpacity(badgeColor, 0.3) }]}>
+                      <Icon size={22} color={badgeColor} strokeWidth={2} />
+                    </View>
+                    <Text style={styles.badgeCaption} numberOfLines={2}>{badge.badges?.[0]?.title || badge.badge_key}</Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          ) : (
+            <Text style={styles.badgesEmpty}>No badges earned yet</Text>
+          )}
         </View>
 
         {watched?.compassVision ? (
@@ -343,26 +368,20 @@ const styles = StyleSheet.create({
   progressPercent: { fontSize: 14, fontWeight: '700', color: '#ccff00' },
   progressTrack: { height: 8, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: '#ccff00', borderRadius: 4 },
-  milestonesSection: { marginBottom: 24 },
+  badgesSection: { marginBottom: 24 },
   sectionTitle: { fontSize: 18, fontWeight: '900', color: '#FFFFFF', marginBottom: 16 },
-  milestoneRow: { flexDirection: 'row', gap: 12 },
-  milestoneBadge: {
-    flex: 1,
+  badgeScroll: { gap: 14, paddingRight: 8 },
+  badgeItem: { alignItems: 'center', width: 76, gap: 8 },
+  badgeCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
-    paddingVertical: 16,
-    borderRadius: 14,
-    backgroundColor: '#0A0A0A',
-    borderWidth: 1,
-    borderColor: '#1A1A1A',
+    justifyContent: 'center',
+    borderWidth: 1.5,
   },
-  milestoneBadgeReached: {
-    backgroundColor: 'rgba(204, 255, 0, 0.1)',
-    borderColor: '#ccff00',
-  },
-  milestoneCheck: { fontSize: 14, color: '#ccff00', fontWeight: '900', marginBottom: 4 },
-  milestoneDayNumber: { fontSize: 20, fontWeight: '900', color: '#333' },
-  milestoneDayLabel: { fontSize: 9, fontWeight: '800', color: '#333', letterSpacing: 1 },
-  milestoneTextReached: { color: '#ccff00' },
+  badgeCaption: { fontSize: 11, fontWeight: '700', color: '#808080', textAlign: 'center', lineHeight: 14 },
+  badgesEmpty: { fontSize: 14, fontWeight: '600', color: '#555', fontStyle: 'italic' },
   visionSection: { marginBottom: 24 },
   visionCard: {
     backgroundColor: '#0A0A0A',
