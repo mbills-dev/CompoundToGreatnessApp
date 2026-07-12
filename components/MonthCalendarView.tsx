@@ -108,13 +108,6 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
     return { firstDay, daysInMonth };
   };
 
-  const getCompletedInMonth = () => {
-    const prefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-    return completions.filter((c) => c.completion_date.startsWith(prefix) && c.completed_at).length;
-  };
-
-  const getDaysInMonth = () => new Date(currentYear, currentMonth + 1, 0).getDate();
-
   const prevMonth = () => {
     if (currentMonth === 0) {
       setCurrentMonth(11);
@@ -212,8 +205,6 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
   };
 
   const { firstDay, daysInMonth } = getMonthDays();
-  const completedInMonth = getCompletedInMonth();
-  const totalInMonth = getDaysInMonth();
 
   const textMuted = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)';
   const borderColor = isDark ? 'rgba(255,255,255,0.08)' : '#E0E0DB';
@@ -260,26 +251,6 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
           >
             <ChevronRight size={28} color={canGoNext() ? colors.text : textMuted} strokeWidth={2.5} />
           </TouchableOpacity>
-        </View>
-
-        <View style={[styles.monthlySummary, { backgroundColor: isDark ? 'rgba(204,255,0,0.07)' : '#FFFFFF', borderColor: isDark ? 'rgba(204,255,0,0.15)' : '#E0E0DB' }]}>
-          <Text style={styles.monthlySummaryEyebrow}>
-            MONTHLY PROGRESS
-          </Text>
-          <Text style={[styles.monthlySummaryText, { color: colors.text }]}>
-            {MONTH_NAMES[currentMonth]} — {completedInMonth} of {totalInMonth} days
-          </Text>
-          <View style={[styles.monthlySummaryBar, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
-            <View
-              style={[
-                styles.monthlySummaryFill,
-                {
-                  backgroundColor: colors.primary,
-                  width: totalInMonth > 0 ? `${(completedInMonth / totalInMonth) * 100}%` : '0%',
-                },
-              ]}
-            />
-          </View>
         </View>
 
         <View style={styles.calendarGrid}>
@@ -479,35 +450,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 2,
     fontFamily: 'Inter-Bold',
-  },
-  monthlySummary: {
-    marginHorizontal: 24,
-    borderRadius: 24,
-    borderWidth: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    marginBottom: 24,
-    gap: 10,
-  },
-  monthlySummaryEyebrow: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 2,
-    color: '#ccff00',
-  },
-  monthlySummaryText: {
-    fontSize: 15,
-    fontWeight: '700',
-    fontFamily: 'Inter-Bold',
-  },
-  monthlySummaryBar: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  monthlySummaryFill: {
-    height: '100%',
-    borderRadius: 3,
   },
   calendarGrid: {
     paddingHorizontal: 16,
