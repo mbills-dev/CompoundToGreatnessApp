@@ -433,7 +433,7 @@ export default function FriendsScreen() {
                       <View style={[styles.streakBadge, { backgroundColor: isDark ? '#000000' : '#1A1A1A' }]}>
                         <Zap size={20} color={colors.primary} fill={colors.primary} strokeWidth={2.5} />
                         <Text style={styles.streakNumber}>{friend.streak}</Text>
-                        <Text style={styles.streakLabel}>DAY STREAK</Text>
+                        <Text style={[styles.streakLabel, { color: colors.primary }]}>DAY STREAK</Text>
                       </View>
                     </View>
 
@@ -483,7 +483,7 @@ export default function FriendsScreen() {
                                 size={18}
                                 color={friend.isWatching ? "#000000" : "#FFFFFF"}
                                 strokeWidth={2.5}
-                                fill={friend.isWatching ? "#000000" : "transparent"}
+                                fill="transparent"
                               />
                               <Text style={[styles.watchButtonText, { color: friend.isWatching ? "#000000" : "#FFFFFF" }]}>
                                 {friend.isWatching ? 'Watching' : 'Watch'}
@@ -757,9 +757,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     fontFamily: 'Inter-Bold',
-    color: '#fc433d',
     letterSpacing: 1,
     marginTop: 2,
+    textAlign: 'center',
+    marginRight: -1,
   },
   encouragementSection: {
     marginTop: 16,
