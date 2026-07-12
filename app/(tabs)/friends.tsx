@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,14 @@ import {
   ActivityIndicator,
   TextInput,
   Image,
+  FlatList,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Heart, UserPlus, Send, Eye, Share2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { computeCurrentStreak } from '@/lib/streakHelpers';
 import InviteWatcherModal from '@/components/InviteWatcherModal';
 
 interface FriendWithStreak {
@@ -22,135 +24,280 @@ interface FriendWithStreak {
   display_name: string;
   streak: number;
   goalTitle: string;
+  goalId: string | null;
   watchers: number;
   isWatching: boolean;
   photo_url?: string | null;
 }
 
-const MOCK_FRIENDS: FriendWithStreak[] = [
-  {
-    id: '1',
-    username: 'sarah_fit',
-    display_name: 'Sarah Johnson',
-    streak: 23,
-    goalTitle: 'Run a marathon in 6 months',
-    watchers: 12,
-    isWatching: true,
-  },
-  {
-    id: '2',
-    username: 'mike_builder',
-    display_name: 'Mike Chen',
-    streak: 45,
-    goalTitle: 'Build a $10K/month business',
-    watchers: 28,
-    isWatching: true,
-  },
-  {
-    id: '3',
-    username: 'emma_wellness',
-    display_name: 'Emma Davis',
-    streak: 12,
-    goalTitle: 'Lose 20 pounds in 3 months',
-    watchers: 8,
-    isWatching: false,
-  },
-  {
-    id: '4',
-    username: 'alex_achiever',
-    display_name: 'Alex Rivera',
-    streak: 67,
-    goalTitle: 'Write a 50,000 word novel',
-    watchers: 35,
-    isWatching: true,
-  },
-  {
-    id: '5',
-    username: 'jordan_strong',
-    display_name: 'Jordan Taylor',
-    streak: 8,
-    goalTitle: 'Master advanced yoga poses',
-    watchers: 15,
-    isWatching: false,
-  },
-];
+interface SearchResult {
+  id: string;
+  username: string;
+  display_name: string;
+  photo_url?: string | null;
+}
 
 export default function FriendsScreen() {
   const { colors, isDark } = useTheme();
   const { user, isSubscribed } = useAuth();
-  const [friends, setFriends] = useState<FriendWithStreak[]>(MOCK_FRIENDS);
-  const [loading, setLoading] = useState(false);
+  const [friends, setFriends] = useState<FriendWithStreak[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchUsername, setSearchUsername] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<string | null>(null);
   const [encouragementMessage, setEncouragementMessage] = useState('');
   const [watchingUsers, setWatchingUsers] = useState(0);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    loadFriends();
-  }, []);
-
-  const loadFriends = async () => {
+  const loadFriends = useCallback(async () => {
     if (!user) return;
+    setLoading(true);
+    setError(null);
     try {
-      const { data: watcherRows } = await supabase
+      // Fetch accepted friendships where current user is on either side
+      const { data: friendships, error: fErr } = await supabase
+        .from('friendships')
+        .select('user_id, friend_id, status')
+        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
+        .eq('status', 'accepted');
+
+      if (fErr) throw fErr;
+      if (!friendships || friendships.length === 0) {
+        setFriends([]);
+        setLoading(false);
+        return;
+      }
+
+      // Extract friend user IDs (the "other" person)
+      const friendIds = friendships.map((f) =>
+        f.user_id === user.id ? f.friend_id : f.user_id
+      );
+
+      // Fetch profiles for friends
+      const { data: profiles, error: pErr } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, photo_url')
+        .in('id', friendIds);
+
+      if (pErr) throw pErr;
+
+      // Fetch active goals for friends (to compute streak + show goal title)
+      const { data: goals, error: gErr } = await supabase
+        .from('goals')
+        .select('id, user_id, title, is_active')
+        .in('user_id', friendIds)
+        .eq('is_active', true);
+
+      if (gErr) throw gErr;
+
+      // Fetch watcher counts for each friend
+      const { data: watcherCounts, error: wErr } = await supabase
+        .from('watchers')
+        .select('watched_id')
+        .in('watched_id', friendIds);
+
+      if (wErr) throw wErr;
+
+      // Fetch whether current user is watching each friend
+      const { data: myWatching, error: mwErr } = await supabase
+        .from('watchers')
+        .select('watched_id')
+        .eq('watcher_id', user.id)
+        .in('watched_id', friendIds);
+
+      if (mwErr) throw mwErr;
+
+      const myWatchedIds = new Set((myWatching || []).map((w) => w.watched_id));
+      const watcherCountMap = new Map<string, number>();
+      (watcherCounts || []).forEach((w) => {
+        watcherCountMap.set(w.watched_id, (watcherCountMap.get(w.watched_id) || 0) + 1);
+      });
+
+      const goalMap = new Map<string, { id: string; title: string }>();
+      (goals || []).forEach((g) => {
+        if (!goalMap.has(g.user_id)) {
+          goalMap.set(g.user_id, { id: g.id, title: g.title });
+        }
+      });
+
+      // Compute streaks in parallel
+      const profileList = profiles || [];
+      const streakPromises = profileList.map(async (p) => {
+        const goal = goalMap.get(p.id);
+        if (goal) {
+          try {
+            return await computeCurrentStreak(goal.id);
+          } catch {
+            return 0;
+          }
+        }
+        return 0;
+      });
+      const streaks = await Promise.all(streakPromises);
+
+      const friendsData: FriendWithStreak[] = profileList.map((p, i) => {
+        const goal = goalMap.get(p.id);
+        return {
+          id: p.id,
+          username: p.username || '',
+          display_name: p.display_name || p.username || 'Unknown',
+          streak: streaks[i] || 0,
+          goalTitle: goal?.title || 'No active goal',
+          goalId: goal?.id || null,
+          watchers: watcherCountMap.get(p.id) || 0,
+          isWatching: myWatchedIds.has(p.id),
+          photo_url: p.photo_url || null,
+        };
+      });
+
+      setFriends(friendsData);
+
+      // Also update "watching you" count
+      const { data: myWatchers } = await supabase
         .from('watchers')
         .select('watcher_id')
         .eq('watched_id', user.id);
-      setWatchingUsers(watcherRows?.length || 0);
-    } catch {}
-    setLoading(false);
-  };
-
-  const calculateStreak = (completions: any[]) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    let streakCount = 0;
-    let currentDate = new Date(today);
-
-    for (let i = 0; i < 90; i++) {
-      const dateString = currentDate.toISOString().split('T')[0];
-      const completion = completions.find(
-        (c) => c.completion_date === dateString
-      );
-
-      if (completion && completion.completed_at) {
-        streakCount++;
-        currentDate.setDate(currentDate.getDate() - 1);
-      } else {
-        break;
-      }
+      setWatchingUsers(myWatchers?.length || 0);
+    } catch (e: any) {
+      setError(e.message || 'Failed to load friends');
+    } finally {
+      setLoading(false);
     }
+  }, [user]);
 
-    return streakCount;
+  useEffect(() => {
+    loadFriends();
+  }, [loadFriends]);
+
+  // Debounced search
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!searchUsername.trim()) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      if (!user) return;
+      try {
+        const { data, error: sErr } = await supabase
+          .from('profiles')
+          .select('id, username, display_name, photo_url')
+          .ilike('username', `%${searchUsername.trim()}%`)
+          .neq('id', user.id)
+          .limit(10);
+        if (sErr) throw sErr;
+        setSearchResults(data || []);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 350);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchUsername, user]);
+
+  const addFriend = async (friendId: string) => {
+    if (!user) return;
+    try {
+      // Check if friendship already exists
+      const { data: existing } = await supabase
+        .from('friendships')
+        .select('id, status')
+        .or(`and(user_id.eq.${user.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${user.id})`)
+        .maybeSingle();
+
+      if (existing) {
+        setError('Friend request already sent or you are already friends.');
+        return;
+      }
+
+      // Frictionless: create as accepted directly
+      const { error: insErr } = await supabase
+        .from('friendships')
+        .insert({
+          user_id: user.id,
+          friend_id: friendId,
+          status: 'accepted',
+        });
+      if (insErr) throw insErr;
+
+      setSearchUsername('');
+      setSearchResults([]);
+      await loadFriends();
+    } catch (e: any) {
+      setError(e.message || 'Failed to add friend');
+    }
   };
 
-  const toggleWatch = (friendId: string) => {
-    setFriends(prevFriends =>
-      prevFriends.map(friend =>
-        friend.id === friendId
-          ? { ...friend, isWatching: !friend.isWatching, watchers: friend.isWatching ? friend.watchers - 1 : friend.watchers + 1 }
-          : friend
+  const toggleWatch = async (friendId: string) => {
+    if (!user) return;
+    const isCurrentlyWatching = friends.find((f) => f.id === friendId)?.isWatching;
+    // Optimistic update
+    setFriends((prev) =>
+      prev.map((f) =>
+        f.id === friendId
+          ? {
+              ...f,
+              isWatching: !f.isWatching,
+              watchers: f.isWatching ? f.watchers - 1 : f.watchers + 1,
+            }
+          : f
       )
     );
+    try {
+      if (isCurrentlyWatching) {
+        const { error: delErr } = await supabase
+          .from('watchers')
+          .delete()
+          .eq('watcher_id', user.id)
+          .eq('watched_id', friendId);
+        if (delErr) throw delErr;
+      } else {
+        const { error: insErr } = await supabase
+          .from('watchers')
+          .insert({ watcher_id: user.id, watched_id: friendId });
+        if (insErr) throw insErr;
+      }
+    } catch (e: any) {
+      // Revert on failure
+      setFriends((prev) =>
+        prev.map((f) =>
+          f.id === friendId
+            ? {
+                ...f,
+                isWatching: isCurrentlyWatching ?? false,
+                watchers: isCurrentlyWatching ? f.watchers + 1 : f.watchers - 1,
+              }
+            : f
+        )
+      );
+      setError(e.message || 'Failed to toggle watch');
+    }
   };
 
-  const sendEncouragement = (friendId: string, emoji: string) => {
-    setSelectedFriend(null);
-    setEncouragementMessage('');
-    alert(`Sent ${emoji} to ${friends.find(f => f.id === friendId)?.display_name}!`);
-  };
-
-  const addFriend = () => {
-    if (!searchUsername.trim()) return;
-    alert(`In production, this would search for user: ${searchUsername}`);
-    setSearchUsername('');
-  };
-
-  const removeFriend = (friendId: string) => {
-    const friend = friends.find(f => f.id === friendId);
-    if (friend) {
-      alert(`Remove ${friend.display_name}? This feature will be available in production.`);
+  const sendEncouragement = async (friendId: string, emoji: string) => {
+    if (!user) return;
+    try {
+      const { error: insErr } = await supabase
+        .from('encouragements')
+        .insert({
+          from_user_id: user.id,
+          to_user_id: friendId,
+          emoji,
+          message: encouragementMessage.trim() || null,
+        });
+      if (insErr) throw insErr;
+      setSelectedFriend(null);
+      setEncouragementMessage('');
+    } catch (e: any) {
+      setError(e.message || 'Failed to send encouragement');
     }
   };
 
@@ -206,8 +353,7 @@ export default function FriendsScreen() {
             />
             <TouchableOpacity
               style={styles.addButton}
-              onPress={addFriend}
-              disabled={!searchUsername.trim()}
+              disabled
             >
               <LinearGradient
                 colors={[colors.primary, colors.primaryDark]}
@@ -217,7 +363,52 @@ export default function FriendsScreen() {
               </LinearGradient>
             </TouchableOpacity>
           </View>
+
+          {searching ? (
+            <View style={styles.searchLoadingRow}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={[styles.searchLoadingText, { color: colors.textTertiary }]}>Searching...</Text>
+            </View>
+          ) : searchResults.length > 0 ? (
+            <View style={[styles.searchResultsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {searchResults.map((result) => (
+                <TouchableOpacity
+                  key={result.id}
+                  style={styles.searchResultRow}
+                  onPress={() => addFriend(result.id)}
+                >
+                  {result.photo_url ? (
+                    <Image source={{ uri: result.photo_url }} style={styles.searchResultAvatar} />
+                  ) : (
+                    <View style={[styles.searchResultAvatar, styles.avatarPlaceholder]}>
+                      <Text style={styles.avatarText}>
+                        {(result.display_name || result.username || '?').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.searchResultInfo}>
+                    <Text style={[styles.searchResultName, { color: colors.text }]}>
+                      {result.display_name || 'Unknown'}
+                    </Text>
+                    <Text style={[styles.searchResultUsername, { color: colors.textTertiary }]}>
+                      @{result.username}
+                    </Text>
+                  </View>
+                  <UserPlus size={20} color={colors.primary} strokeWidth={2.5} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
         </View>
+
+        {error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity onPress={() => setError(null)}>
+              <Text style={[styles.errorDismiss, { color: colors.primary }]}>Dismiss</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         <View style={styles.content}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Friends</Text>
@@ -236,7 +427,7 @@ export default function FriendsScreen() {
               friends.map((friend) => (
                 <View key={friend.id} style={styles.friendCard}>
                   <LinearGradient
-                    colors={colors.cardGradient}
+                    colors={colors.cardGradient as [string, string, ...string[]]}
                     style={[styles.friendCardGradient, { backgroundColor: colors.card }]}
                   >
                     <View style={styles.friendHeader}>
@@ -453,6 +644,72 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  searchLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  searchLoadingText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  searchResultsContainer: {
+    marginTop: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  searchResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(128,128,128,0.15)',
+  },
+  searchResultAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  searchResultInfo: {
+    flex: 1,
+  },
+  searchResultName: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  searchResultUsername: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  errorContainer: {
+    marginHorizontal: 24,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(252,67,61,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(252,67,61,0.3)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fc433d',
+  },
+  errorDismiss: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   content: {
     padding: 24,
