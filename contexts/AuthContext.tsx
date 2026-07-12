@@ -14,7 +14,9 @@ interface AuthContextType {
   isNewSignup: boolean;
   isWatcher: boolean;
   watchedUserId: string | null;
+  needsUsername: boolean;
   clearNewSignup: () => void;
+  clearNeedsUsername: () => void;
   signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -32,6 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isNewSignup, setIsNewSignup] = useState(false);
   const [isWatcher, setIsWatcher] = useState(false);
   const [watchedUserId, setWatchedUserId] = useState<string | null>(null);
+  const [needsUsername, setNeedsUsername] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -40,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         checkSubscription(session.user.id);
         loadOnboardingState(session.user.id);
         checkWatcherStatus(session.user.id);
+        checkUsernameStatus(session.user.id);
       }
       setLoading(false);
     });
@@ -51,12 +55,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await checkSubscription(session.user.id);
           await loadOnboardingState(session.user.id);
           await checkWatcherStatus(session.user.id);
+          await checkUsernameStatus(session.user.id);
         })();
       } else {
         setIsSubscribed(false);
         setOnboardingCompleted(true);
         setIsWatcher(false);
         setWatchedUserId(null);
+        setNeedsUsername(false);
       }
     });
 
@@ -102,6 +108,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsWatcher(false);
       setWatchedUserId(null);
     }
+  };
+
+  const checkUsernameStatus = async (userId: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('username_set')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (!profile || !profile.username_set) {
+        setNeedsUsername(true);
+      } else {
+        setNeedsUsername(false);
+      }
+    } catch {
+      setNeedsUsername(false);
+    }
+  };
+
+  const clearNeedsUsername = () => {
+    setNeedsUsername(false);
   };
 
   const checkSubscription = async (userId: string) => {
@@ -171,6 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setOnboardingCompleted(true);
     setIsWatcher(false);
     setWatchedUserId(null);
+    setNeedsUsername(false);
   };
 
   return (
@@ -184,7 +213,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isNewSignup,
         isWatcher,
         watchedUserId,
+        needsUsername,
         clearNewSignup,
+        clearNeedsUsername,
         signUp,
         signIn,
         signOut,
@@ -206,7 +237,9 @@ const AUTH_DEFAULTS: AuthContextType = {
   isNewSignup: false,
   isWatcher: false,
   watchedUserId: null,
+  needsUsername: false,
   clearNewSignup: () => {},
+  clearNeedsUsername: () => {},
   signUp: async () => ({ error: null }),
   signIn: async () => ({ error: null }),
   signOut: async () => {},

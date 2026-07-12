@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { requestNotificationPermissions, scheduleDailyReminders } from '@/lib/notifications';
 import AuthScreen from '@/components/AuthScreen';
 import SignupSplashScreen from '@/components/SignupSplashScreen';
+import UsernamePicker from '@/components/UsernamePicker';
 import WatcherHomeScreen from '@/components/WatcherHomeScreen';
 
 function isWatchInviteUrl(): boolean {
@@ -23,7 +24,7 @@ SplashScreen.preventAutoHideAsync();
 
 function AppContent() {
   const { isDark, colors } = useTheme();
-  const { session, loading, isNewSignup, clearNewSignup, isWatcher, watchedUserId, user, signOut } = useAuth();
+  const { session, loading, isNewSignup, clearNewSignup, isWatcher, watchedUserId, user, signOut, needsUsername, clearNeedsUsername } = useAuth();
 
   useEffect(() => {
     if (session) {
@@ -74,6 +75,15 @@ function AppContent() {
     return (
       <>
         <SignupSplashScreen onComplete={clearNewSignup} />
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+      </>
+    );
+  }
+
+  if (session && !isWatcher && needsUsername && !onWatchRoute) {
+    return (
+      <>
+        <UsernamePicker onComplete={clearNeedsUsername} />
         <StatusBar style={isDark ? 'light' : 'dark'} />
       </>
     );
