@@ -42,8 +42,9 @@ interface EarnedBadge {
 interface Props {
   watcherId: string;
   watchedId: string;
-  onSignOut: () => void;
-  onStartOwn: () => void;
+  onSignOut?: () => void;
+  onStartOwn?: () => void;
+  hideAccountActions?: boolean;
 }
 
 const badgeIconMap: Record<string, React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>> = {
@@ -61,7 +62,7 @@ function hexWithOpacity(hex: string, opacity: number): string {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
-export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onStartOwn }: Props) {
+export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onStartOwn, hideAccountActions = false }: Props) {
   const { isDark } = useTheme();
   const [watched, setWatched] = useState<WatchedUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -168,9 +169,11 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
             <Text style={styles.headerLabel}>WATCHER MODE</Text>
             <Text style={styles.headerTitle}>You're Watching</Text>
           </View>
-          <TouchableOpacity style={styles.signOutButton} onPress={onSignOut}>
-            <LogOut size={18} color="#555" strokeWidth={2} />
-          </TouchableOpacity>
+          {!hideAccountActions && (
+            <TouchableOpacity style={styles.signOutButton} onPress={onSignOut}>
+              <LogOut size={18} color="#555" strokeWidth={2} />
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.heroCard}>
@@ -263,6 +266,7 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           </View>
         </View>
 
+        {!hideAccountActions && (
         <View style={styles.convertBanner}>
           <LinearGradient
             colors={['rgba(204, 255, 0, 0.12)', 'rgba(204, 255, 0, 0.04)']}
@@ -272,15 +276,18 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
             <Text style={styles.convertTitle}>
               {watched?.displayName.split(' ')[0]} is not stopping.{'\n'}Are you ready to start?
             </Text>
+          {!hideAccountActions && (
             <TouchableOpacity style={styles.convertButton} onPress={onStartOwn}>
               <LinearGradient colors={isDark ? ['#ccff00', '#aed900'] : ['#ccff00', '#ccff00']} style={styles.convertButtonGradient}>
                 <Text style={styles.convertButtonText}>Start My 77-Day Journey</Text>
                 <Zap size={18} color="#000000" strokeWidth={2.5} />
               </LinearGradient>
             </TouchableOpacity>
+          )}
             <Text style={styles.convertSub}>Join thousands building the life they actually want.</Text>
           </LinearGradient>
         </View>
+        )}
       </ScrollView>
     </LinearGradient>
   );

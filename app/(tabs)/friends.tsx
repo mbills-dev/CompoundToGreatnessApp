@@ -50,6 +50,7 @@ export default function FriendsScreen() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<string | null>(null);
+  const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
   const [encouragementMessage, setEncouragementMessage] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -319,6 +320,7 @@ export default function FriendsScreen() {
         });
       if (insErr) throw insErr;
       setSelectedFriend(null);
+      setSelectedEmoji(null);
       setEncouragementMessage('');
     } catch (e: any) {
       setError(e.message || 'Failed to send encouragement');
@@ -466,7 +468,11 @@ export default function FriendsScreen() {
                     style={[styles.friendCardGradient, { backgroundColor: colors.card }]}
                   >
                     <View style={styles.friendHeader}>
-                      <View style={styles.friendInfo}>
+                      <TouchableOpacity
+                        style={styles.friendInfo}
+                        activeOpacity={0.7}
+                        onPress={() => router.push(`/friend/${friend.id}`)}
+                      >
                         {friend.photo_url ? (
                           <Image source={{ uri: friend.photo_url }} style={styles.avatarImage} />
                         ) : (
@@ -489,7 +495,7 @@ export default function FriendsScreen() {
                             </Text>
                           </View>
                         </View>
-                      </View>
+                      </TouchableOpacity>
 
                       <View style={[styles.streakBadge, { backgroundColor: isDark ? '#000000' : '#1A1A1A' }]}>
                         <Zap size={20} color={colors.primary} fill={colors.primary} strokeWidth={2.5} />
@@ -513,22 +519,38 @@ export default function FriendsScreen() {
                             {['🔥', '💪', '👏', '⭐', '🎯', '🚀'].map((emoji) => (
                               <TouchableOpacity
                                 key={emoji}
-                                style={[styles.emojiButton, { backgroundColor: isDark ? '#1A1A1A' : '#1A1A1A', borderColor: isDark ? '#2A2A2A' : '#111111' }]}
-                                onPress={() => sendEncouragement(friend.id, emoji)}
+                                style={[
+                                  styles.emojiButton,
+                                  {
+                                    backgroundColor: isDark ? '#1A1A1A' : '#1A1A1A',
+                                    borderColor: selectedEmoji === emoji ? colors.primary : isDark ? '#2A2A2A' : '#111111',
+                                    borderWidth: selectedEmoji === emoji ? 2.5 : 2,
+                                  },
+                                ]}
+                                onPress={() => setSelectedEmoji(emoji === selectedEmoji ? null : emoji)}
                               >
                                 <Text style={styles.emojiButtonText}>{emoji}</Text>
                               </TouchableOpacity>
                             ))}
                           </View>
-                          <TouchableOpacity
-                            style={styles.cancelButton}
-                            onPress={() => {
-                              setSelectedFriend(null);
-                              setEncouragementMessage('');
-                            }}
-                          >
-                            <Text style={[styles.cancelButtonText, { color: colors.textTertiary }]}>Cancel</Text>
-                          </TouchableOpacity>
+                          <View style={styles.encouragementActions}>
+                            <TouchableOpacity
+                              style={styles.cancelButton}
+                              onPress={() => {
+                                setSelectedFriend(null);
+                                setSelectedEmoji(null);
+                                setEncouragementMessage('');
+                              }}
+                            >
+                              <Text style={[styles.cancelButtonText, { color: colors.textTertiary }]}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[styles.sendButton, { backgroundColor: colors.primary }]}
+                              onPress={() => sendEncouragement(friend.id, selectedEmoji ?? '')}
+                            >
+                              <Text style={styles.sendButtonText}>Send</Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
                       ) : (
                         <View style={styles.actionButtons}>
@@ -897,6 +919,24 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  encouragementActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  sendButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 14,
+  alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendButtonText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#000000',
   },
   inboxSection: {
     marginBottom: 24,
