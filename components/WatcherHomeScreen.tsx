@@ -252,7 +252,6 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
               )}
               <View style={styles.heroInfo}>
                 <Text style={[styles.heroName, { color: textPrimary }]}>{watched?.displayName}</Text>
-                <Text style={[styles.heroGoal, { color: textMuted }]} numberOfLines={2}>{watched?.goalTitle}</Text>
                 <Text style={styles.heroActive}>{getLastActiveLabel()}</Text>
               </View>
             </View>
@@ -269,6 +268,7 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
             <View style={styles.streakHeroRow}>
               <Zap size={40} color="#CCFF00" fill="#CCFF00" strokeWidth={2} />
               <Text style={[styles.streakNumber, { color: textPrimary }]}>{watched?.streak ?? 0}</Text>
+              <View style={styles.streakIconSpacer} />
             </View>
             <Text style={[styles.streakLabel, { color: textTertiary }]}>DAY STREAK</Text>
           </LinearGradient>
@@ -502,6 +502,10 @@ const styles = StyleSheet.create({
     color: '#555',
     marginTop: 2,
     marginBottom: 4,
+    textAlign: 'center',
+  },
+  streakIconSpacer: {
+    width: 40,
   },
   badgesSection: { marginBottom: 24 },
   sectionTitle: { fontSize: 18, fontWeight: '900', color: '#FFFFFF', marginBottom: 16 },
