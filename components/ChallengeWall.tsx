@@ -121,7 +121,7 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, in
     if (isDay77Completed) return '#FFFFFF';
     if (isDay77Locked) return '#FF4400';
     if (completed) return '#1A1A1A';
-    if (isCurrent) return isLight ? 'rgba(0,0,0,0.5)' : 'rgba(204,255,0,0.5)';
+    if (isCurrent) return 'rgba(204,255,0,0.5)';
     if (isUpcomingMilestone) return '#CCFF00';
     return 'rgba(255,255,255,0.18)';
   };

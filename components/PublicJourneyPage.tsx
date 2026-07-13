@@ -15,6 +15,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, Zap, Check, X, Send, ExternalLink } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/contexts/ThemeContext';
 import ChallengeWall from './ChallengeWall';
 import MonthWall from './MonthWall';
 import { getDateForChallengeDay, getTodayDateString, toLocalDateString } from '@/lib/dateHelpers';
@@ -49,6 +50,7 @@ interface Props {
 }
 
 export default function PublicJourneyPage({ username }: Props) {
+  const { colors, isDark } = useTheme();
   const [journey, setJourney] = useState<JourneyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -180,9 +182,17 @@ export default function PublicJourneyPage({ username }: Props) {
     return journey.completionDates.includes(dateForDay);
   };
 
+  const bg = isDark ? '#000000' : colors.background;
+  const cardBg = isDark ? '#0A0A0A' : colors.card;
+  const secondaryBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
+  const textPrimary = isDark ? '#FFFFFF' : colors.text;
+  const textSecondary = isDark ? '#555' : colors.textSecondary;
+  const textTertiary = isDark ? '#444' : colors.textTertiary;
+  const borderColor = isDark ? '#1A1A1A' : colors.border;
+
   if (loading) {
     return (
-      <View style={styles.fullCenter}>
+      <View style={[styles.fullCenter, { backgroundColor: bg }]}>
         <ActivityIndicator size="large" color="#ccff00" />
       </View>
     );
@@ -190,9 +200,9 @@ export default function PublicJourneyPage({ username }: Props) {
 
   if (notFound) {
     return (
-      <View style={styles.fullCenter}>
-        <Text style={styles.notFoundTitle}>Journey not found</Text>
-        <Text style={styles.notFoundSub}>
+      <View style={[styles.fullCenter, { backgroundColor: bg }]}>
+        <Text style={[styles.notFoundTitle, { color: textPrimary }]}>Journey not found</Text>
+        <Text style={[styles.notFoundSub, { color: textSecondary }]}>
           This link may have expired or the username doesn't exist.
         </Text>
         <TouchableOpacity
@@ -216,7 +226,7 @@ export default function PublicJourneyPage({ username }: Props) {
   const lastActiveInfo = getLastActiveInfo();
 
   return (
-    <View style={styles.outerContainer}>
+    <View style={[styles.outerContainer, { backgroundColor: bg }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -237,45 +247,45 @@ export default function PublicJourneyPage({ username }: Props) {
               </Text>
             </View>
           )}
-          <Text style={styles.heroName}>{journey?.displayName}</Text>
+          <Text style={[styles.heroName, { color: textPrimary }]}>{journey?.displayName}</Text>
           <View style={styles.activeTag}>
-            <View style={[styles.activeDot, lastActiveInfo.isActive && styles.activeDotLive]} />
-            <Text style={[styles.activeTagText, lastActiveInfo.isActive && styles.activeTagTextLive]}>
+            <View style={[styles.activeDot, lastActiveInfo.isActive && styles.activeDotLive, !lastActiveInfo.isActive && { backgroundColor: isDark ? '#444' : colors.border }]} />
+            <Text style={[styles.activeTagText, { color: textSecondary }, lastActiveInfo.isActive && styles.activeTagTextLive]}>
               {lastActiveInfo.label}
             </Text>
           </View>
         </View>
 
-        <View style={styles.dayCard}>
+        <View style={[styles.dayCard, { borderColor: 'rgba(204, 255, 0, 0.2)' }]}>
           <LinearGradient
             colors={['rgba(204, 255, 0, 0.1)', 'rgba(204, 255, 0, 0.03)']}
             style={styles.dayCardInner}
           >
             <View style={styles.streakHeroRow}>
               <Zap size={40} color="#CCFF00" fill="#CCFF00" strokeWidth={2} />
-              <Text style={styles.streakNumber}>
+              <Text style={[styles.streakNumber, { color: textPrimary }]}>
                 {journey?.realStreak ?? 0}
               </Text>
             </View>
-            <Text style={styles.streakLabel}>DAY STREAK</Text>
+            <Text style={[styles.streakLabel, { color: textSecondary }]}>DAY STREAK</Text>
           </LinearGradient>
         </View>
 
         {journey?.shareFullJourney && journey?.identityStatement ? (
           <View style={styles.identitySection}>
             <Text style={styles.becomingLabel}>BECOMING</Text>
-            <Text style={styles.identityText}>"{journey.identityStatement}"</Text>
+            <Text style={[styles.identityText, { color: textPrimary }]}>"{journey.identityStatement}"</Text>
           </View>
         ) : null}
 
         {journey?.shareFullJourney && journey && journey.activities.length > 0 ? (
-          <View style={styles.stackCard}>
+          <View style={[styles.stackCard, { backgroundColor: cardBg, borderColor }]}>
             <Text style={styles.stackLabel}>DAILY SUCCESS STACK</Text>
             {journey.activities.map((activity) => {
               const completed = journey.todayCompletedIds.includes(activity.id);
               return (
                 <View key={activity.id} style={styles.stackRow}>
-                  <Text style={[styles.stackActivityName, completed && styles.stackActivityNameDone]}>
+                  <Text style={[styles.stackActivityName, { color: textTertiary }, completed && { color: textPrimary }]}>
                     {activity.activity_name}
                   </Text>
                   <View style={styles.checkmarkContainer}>
@@ -284,7 +294,7 @@ export default function PublicJourneyPage({ username }: Props) {
                         <Check size={24} color="#000000" strokeWidth={3} />
                       </View>
                     ) : (
-                      <View style={styles.uncheckedCircleInner} />
+                      <View style={[styles.uncheckedCircleInner, { borderColor }]} />
                     )}
                   </View>
                 </View>
@@ -294,16 +304,14 @@ export default function PublicJourneyPage({ username }: Props) {
         ) : null}
 
         {journey?.challengePhase === 'keep_going' ? (
-          <MonthWall goalId={journey.goalId} isLight={false} />
+          <MonthWall goalId={journey.goalId} isLight={!isDark} />
         ) : (
           <ChallengeWall
             currentDay={journey?.currentDay || 0}
             isDayCompleted={isDayCompleted}
-            isLight={false}
+            isLight={!isDark}
           />
         )}
-
-
 
         <View style={styles.ctaSection}>
           <TouchableOpacity
@@ -317,13 +325,13 @@ export default function PublicJourneyPage({ username }: Props) {
           </TouchableOpacity>
 
           <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
+            <View style={[styles.dividerLine, { backgroundColor: borderColor }]} />
+            <Text style={[styles.dividerText, { color: textTertiary }]}>or</Text>
+            <View style={[styles.dividerLine, { backgroundColor: borderColor }]} />
           </View>
 
           <TouchableOpacity
-            style={styles.startOwnOutline}
+            style={[styles.startOwnOutline, { borderColor }]}
             onPress={() => {
               if (Platform.OS === 'web' && typeof window !== 'undefined') {
                 window.open('https://apps.apple.com/app/your-app-id', '_blank');
@@ -331,11 +339,11 @@ export default function PublicJourneyPage({ username }: Props) {
             }}
           >
             <Zap size={20} color="#ccff00" strokeWidth={2.5} />
-            <Text style={styles.startOwnOutlineText}>Start My Own 77-Day Journey</Text>
-            <ExternalLink size={16} color="#555" strokeWidth={2} />
+            <Text style={[styles.startOwnOutlineText, { color: textPrimary }]}>Start My Own 77-Day Journey</Text>
+            <ExternalLink size={16} color={textTertiary} strokeWidth={2} />
           </TouchableOpacity>
 
-          <Text style={styles.footerNote}>
+          <Text style={[styles.footerNote, { color: textTertiary }]}>
             {firstName} is building who they're becoming — one day at a time. Inspired? Start your own 77-day journey.
           </Text>
         </View>
@@ -359,6 +367,7 @@ interface EncourageModalProps {
 }
 
 function EncourageModal({ visible, onClose, watchedUserId, watchedName }: EncourageModalProps) {
+  const { colors, isDark } = useTheme();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
@@ -403,21 +412,31 @@ function EncourageModal({ visible, onClose, watchedUserId, watchedName }: Encour
     onClose();
   };
 
+  const sheetBg = isDark ? '#0A0A0A' : colors.card;
+  const borderColor = isDark ? '#1A1A1A' : colors.border;
+  const textPrimary = isDark ? '#FFFFFF' : colors.text;
+  const textSecondary = isDark ? '#555' : colors.textSecondary;
+  const textTertiary = isDark ? '#444' : colors.textTertiary;
+  const inputBg = isDark ? '#111' : colors.backgroundSecondary;
+  const dragBg = isDark ? '#2A2A2A' : colors.border;
+  const closeBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
+  const doneCloseBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
+
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="pageSheet">
       <KeyboardAvoidingView
         style={styles.modalOverlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.modalSheet}>
-          <View style={styles.dragHandle} />
+        <View style={[styles.modalSheet, { backgroundColor: sheetBg, borderColor }]}>
+          <View style={[styles.dragHandle, { backgroundColor: dragBg }]} />
 
           <View style={styles.modalTopRow}>
-            <Text style={styles.modalTitle}>
+            <Text style={[styles.modalTitle, { color: textPrimary }]}>
               {done ? 'Sent!' : `Encourage ${watchedName}`}
             </Text>
-            <TouchableOpacity onPress={handleClose} style={styles.modalClose}>
-              <X size={20} color="#555" strokeWidth={2.5} />
+            <TouchableOpacity onPress={handleClose} style={[styles.modalClose, { backgroundColor: closeBg }]}>
+              <X size={20} color={textSecondary} strokeWidth={2.5} />
             </TouchableOpacity>
           </View>
 
@@ -426,27 +445,27 @@ function EncourageModal({ visible, onClose, watchedUserId, watchedName }: Encour
               <View style={styles.doneCircle}>
                 <Check size={36} color="#ccff00" strokeWidth={2.5} />
               </View>
-              <Text style={styles.doneTitle}>Encouragement Sent!</Text>
-              <Text style={styles.doneSub}>
+              <Text style={[styles.doneTitle, { color: textPrimary }]}>Encouragement Sent!</Text>
+              <Text style={[styles.doneSub, { color: textSecondary }]}>
                 {watchedName} will see your support. Every bit of accountability matters.
               </Text>
-              <TouchableOpacity style={styles.doneCloseButton} onPress={handleClose}>
-                <Text style={styles.doneCloseText}>Close</Text>
+              <TouchableOpacity style={[styles.doneCloseButton, { backgroundColor: doneCloseBg }]} onPress={handleClose}>
+                <Text style={[styles.doneCloseText, { color: textPrimary }]}>Close</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <>
-              <Text style={styles.modalSub}>
+              <Text style={[styles.modalSub, { color: textSecondary }]}>
                 Leave your name and email to send {watchedName} a boost — and we'll keep you
                 updated on their progress.
               </Text>
 
               <View style={styles.formGroup}>
-                <Text style={styles.fieldLabel}>YOUR NAME</Text>
+                <Text style={[styles.fieldLabel, { color: textSecondary }]}>YOUR NAME</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: inputBg, borderColor, color: textPrimary }]}
                   placeholder="First and last name"
-                  placeholderTextColor="#444"
+                  placeholderTextColor={textTertiary}
                   value={name}
                   onChangeText={setName}
                   autoCapitalize="words"
@@ -454,11 +473,11 @@ function EncourageModal({ visible, onClose, watchedUserId, watchedName }: Encour
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.fieldLabel}>EMAIL ADDRESS</Text>
+                <Text style={[styles.fieldLabel, { color: textSecondary }]}>EMAIL ADDRESS</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: inputBg, borderColor, color: textPrimary }]}
                   placeholder="you@example.com"
-                  placeholderTextColor="#444"
+                  placeholderTextColor={textTertiary}
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
@@ -467,11 +486,11 @@ function EncourageModal({ visible, onClose, watchedUserId, watchedName }: Encour
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.fieldLabel}>MESSAGE (OPTIONAL)</Text>
+                <Text style={[styles.fieldLabel, { color: textSecondary }]}>MESSAGE (OPTIONAL)</Text>
                 <TextInput
-                  style={[styles.input, styles.textArea]}
+                  style={[styles.input, styles.textArea, { backgroundColor: inputBg, borderColor, color: textPrimary }]}
                   placeholder={`"Keep going, ${watchedName}! You've got this."`}
-                  placeholderTextColor="#444"
+                  placeholderTextColor={textTertiary}
                   value={message}
                   onChangeText={setMessage}
                   multiline
@@ -498,7 +517,7 @@ function EncourageModal({ visible, onClose, watchedUserId, watchedName }: Encour
                 </LinearGradient>
               </TouchableOpacity>
 
-              <Text style={styles.legalText}>No spam, ever. Just updates on this journey.</Text>
+              <Text style={[styles.legalText, { color: textTertiary }]}>No spam, ever. Just updates on this journey.</Text>
             </>
           )}
         </View>
@@ -510,11 +529,9 @@ function EncourageModal({ visible, onClose, watchedUserId, watchedName }: Encour
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   fullCenter: {
     flex: 1,
-    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
@@ -523,7 +540,6 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
-    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 12,
   },
@@ -531,7 +547,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Inter-Bold',
-    color: '#555',
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 24,
@@ -590,7 +605,6 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
-    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -603,7 +617,6 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: '#444',
   },
   activeDotLive: {
     backgroundColor: '#ccff00',
@@ -612,7 +625,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     fontFamily: 'Inter-Bold',
-    color: '#555',
   },
   activeTagTextLive: {
     color: '#ccff00',
@@ -621,7 +633,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(204, 255, 0, 0.2)',
     marginBottom: 20,
   },
   dayCardInner: { padding: 22, alignItems: 'center' },
@@ -637,14 +648,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Black',
     letterSpacing: -2,
     textAlign: 'center',
-    color: '#FFFFFF',
   },
   streakLabel: {
     fontSize: 12,
     fontWeight: '800',
     fontFamily: 'Inter-Black',
     letterSpacing: 1.5,
-    color: '#555',
     marginTop: 2,
     marginBottom: 4,
   },
@@ -665,17 +674,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     fontFamily: 'Inter-Bold',
-    color: '#FFFFFF',
     textAlign: 'center',
     lineHeight: 28,
     fontStyle: 'italic',
   },
   stackCard: {
-    backgroundColor: '#0A0A0A',
     borderRadius: 24,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#1A1A1A',
     marginBottom: 20,
   },
   stackLabel: {
@@ -713,18 +719,13 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: '#333',
   },
   stackActivityName: {
     fontSize: 16,
     fontWeight: '700',
     fontFamily: 'Inter-Bold',
-    color: '#666',
     flex: 1,
     paddingRight: 12,
-  },
-  stackActivityNameDone: {
-    color: '#FFFFFF',
   },
   ctaSection: { gap: 0 },
   encourageButton: {
@@ -754,13 +755,11 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#1A1A1A',
   },
   dividerText: {
     fontSize: 13,
     fontWeight: '600',
     fontFamily: 'Inter-Bold',
-    color: '#444',
   },
   startOwnOutline: {
     flexDirection: 'row',
@@ -770,7 +769,6 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: '#1A1A1A',
     marginBottom: 24,
   },
   startOwnOutlineText: {
@@ -778,7 +776,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     fontFamily: 'Inter-Black',
-    color: '#FFFFFF',
     textAlign: 'center',
   },
   startOwnButton: {
@@ -802,7 +799,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     fontFamily: 'Inter-Bold',
-    color: '#444',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -812,18 +808,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.7)',
   },
   modalSheet: {
-    backgroundColor: '#0A0A0A',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 28,
     paddingBottom: 48,
     borderTopWidth: 1,
-    borderColor: '#1A1A1A',
   },
   dragHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#2A2A2A',
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 24,
@@ -838,13 +831,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
-    color: '#FFFFFF',
   },
   modalClose: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1A1A1A',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -852,7 +843,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Inter-Bold',
-    color: '#666',
     lineHeight: 22,
     marginBottom: 24,
   },
@@ -862,19 +852,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontFamily: 'Inter-Black',
     letterSpacing: 1.5,
-    color: '#555',
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#111',
     borderWidth: 1.5,
-    borderColor: '#1A1A1A',
     borderRadius: 12,
     padding: 16,
     fontSize: 15,
     fontWeight: '600',
     fontFamily: 'Inter-Bold',
-    color: '#FFFFFF',
   },
   textArea: {
     minHeight: 80,
@@ -911,7 +897,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     fontFamily: 'Inter-Bold',
-    color: '#333',
     textAlign: 'center',
   },
   doneState: {
@@ -933,13 +918,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
-    color: '#FFFFFF',
   },
   doneSub: {
     fontSize: 15,
     fontWeight: '600',
     fontFamily: 'Inter-Bold',
-    color: '#666',
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -948,12 +931,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#1A1A1A',
   },
   doneCloseText: {
     fontSize: 15,
     fontWeight: '700',
     fontFamily: 'Inter-Bold',
-    color: '#FFFFFF',
   },
 });
