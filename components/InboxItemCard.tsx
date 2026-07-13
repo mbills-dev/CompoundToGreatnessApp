@@ -106,12 +106,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     lineHeight: 20,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'Inter-Bold',
   },
   inboxTimestamp: {
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'Inter-Bold',
   },
 });

@@ -33,7 +33,9 @@ export async function getInboxItems(userId: string): Promise<InboxItem[]> {
     console.error('getInboxItems journey_leads query failed:', leadsRes.error);
   }
 
-  const friendItems: InboxItem[] = (encouragementsRes.data || []).map((row: any) => ({
+  const friendItems: InboxItem[] = (encouragementsRes.data || [])
+    .filter((row: any) => row.message !== null)
+    .map((row: any) => ({
     id: row.id,
     source: 'friend' as const,
     senderName: row.profiles?.display_name || 'Someone',
@@ -64,6 +66,7 @@ export async function getUnreadInboxCount(userId: string): Promise<number> {
       .from('encouragements')
       .select('id', { count: 'exact', head: true })
       .eq('to_user_id', userId)
+      .not('message', 'is', null)
       .is('read_at', null),
     supabase
       .from('journey_leads')
