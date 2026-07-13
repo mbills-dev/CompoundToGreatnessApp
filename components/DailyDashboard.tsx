@@ -40,6 +40,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import CoachCard from './CoachCard';
 import { useRacingBorder } from '@/contexts/RacingBorderContext';
 import { useCelebration } from '@/contexts/CelebrationContext';
+import { checkForNewReactions, markReactionsRead, ReactionGroup } from '@/lib/reactionHelpers';
+import ReactionBurst from './ReactionBurst';
 
 let Haptics: any = null;
 if (Platform.OS !== 'web') {
@@ -211,6 +213,9 @@ export default function DailyDashboard({
     targetIndex: null,
   });
   const [confettiCompleted, setConfettiCompleted] = useState(false);
+  const [reactionBursts, setReactionBursts] = useState<ReactionGroup[]>([]);
+  const [currentBurstIdx, setCurrentBurstIdx] = useState(0);
+  const reactionsCheckedRef = useRef(false);
   const { celebrationOpen, openCelebration, closeCelebration } = useCelebration();
   const [watcherCount, setWatcherCount] = useState(0);
   const [perfectDays, setPerfectDays] = useState(0);
@@ -261,6 +266,16 @@ export default function DailyDashboard({
         !goal.celebration_seen;
       if (celebrationPending && !celebrationOpen && !celebrationSuppressed.current) {
         openCelebration();
+      }
+
+      if (user?.id && !reactionsCheckedRef.current) {
+        reactionsCheckedRef.current = true;
+        checkForNewReactions(user.id).then((groups) => {
+          if (groups.length > 0) {
+            setReactionBursts(groups);
+            setCurrentBurstIdx(0);
+          }
+        }).catch(() => {});
       }
     }, [goal.challenge_phase, goal.current_challenge_day, goal.celebration_seen])
   );
@@ -958,6 +973,26 @@ export default function DailyDashboard({
           </View>
         </LinearGradient>
       </ScrollView>
+
+      {reactionBursts.length > 0 && currentBurstIdx < reactionBursts.length && (
+        <ReactionBurst
+          key={currentBurstIdx}
+          emoji={reactionBursts[currentBurstIdx].emoji}
+          count={reactionBursts[currentBurstIdx].count}
+          onComplete={() => {
+            const nextIdx = currentBurstIdx + 1;
+            if (nextIdx < reactionBursts.length) {
+              setCurrentBurstIdx(nextIdx);
+            } else {
+              setReactionBursts([]);
+              setCurrentBurstIdx(0);
+              if (user?.id) {
+                markReactionsRead(user.id).catch(() => {});
+              }
+            }
+          }}
+        />
+      )}
 
 
       {celebrationOpen && (

@@ -9,6 +9,7 @@ import {
   TextInput,
   Image,
   FlatList,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Heart, UserPlus, Eye, Share2, Zap } from 'lucide-react-native';
@@ -20,6 +21,7 @@ import InviteWatcherModal from '@/components/InviteWatcherModal';
 import { getInboxItems, markInboxItemRead, type InboxItem } from '@/lib/inboxHelpers';
 import InboxItemCard from '@/components/InboxItemCard';
 import { useRouter } from 'expo-router';
+import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming, Easing } from 'react-native-reanimated';
 
 interface FriendWithStreak {
   id: string;
@@ -327,6 +329,23 @@ export default function FriendsScreen() {
     }
   };
 
+  const sendQuickReact = async (friendId: string, emoji: string) => {
+    if (!user) return;
+    try {
+      const { error: insErr } = await supabase
+        .from('encouragements')
+        .insert({
+          from_user_id: user.id,
+          to_user_id: friendId,
+          emoji,
+          message: null,
+        });
+      if (insErr) throw insErr;
+    } catch (e: any) {
+      setError(e.message || 'Failed to send reaction');
+    }
+  };
+
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
@@ -554,6 +573,8 @@ export default function FriendsScreen() {
                         </View>
                       ) : (
                         <View style={styles.actionButtons}>
+                          <QuickReactRow friendId={friend.id} onReact={sendQuickReact} />
+                          <View style={styles.mainActionButtons}>
                           <TouchableOpacity
                             style={styles.watchButton}
                             onPress={() => toggleWatch(friend.id)}
@@ -580,6 +601,7 @@ export default function FriendsScreen() {
                               <Heart size={18} color={colors.primary} strokeWidth={2.5} />
                               <Text style={[styles.encourageButtonText, { color: colors.primary }]}>Encourage</Text>
                           </TouchableOpacity>
+                          </View>
                         </View>
                       )}
                     </View>
@@ -600,6 +622,53 @@ export default function FriendsScreen() {
       />
     ) : null}
   </>
+  );
+}
+
+const QUICK_EMOJIS = ['🔥', '💪', '👏', '🚀'];
+
+function QuickReactButton({ emoji, onPress }: { emoji: string; onPress: () => void }) {
+  const [pulsing, setPulsing] = useState(false);
+  const scale = useSharedValue(1);
+
+  const handlePress = () => {
+    setPulsing(true);
+    scale.value = withSequence(
+      withTiming(1.4, { duration: 100, easing: Easing.out(Easing.ease) }),
+      withTiming(1, { duration: 200, easing: Easing.inOut(Easing.ease) }),
+    );
+    setTimeout(() => setPulsing(false), 300);
+    onPress();
+  };
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulsing ? scale.value : 1 }],
+  }));
+
+  return (
+    <TouchableOpacity
+      style={styles.quickReactButton}
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
+      <Animated.Text style={[styles.quickReactEmoji, animatedStyle]}>
+        {emoji}
+      </Animated.Text>
+    </TouchableOpacity>
+  );
+}
+
+function QuickReactRow({ friendId, onReact }: { friendId: string; onReact: (friendId: string, emoji: string) => void }) {
+  return (
+    <View style={styles.quickReactRow}>
+      {QUICK_EMOJIS.map((emoji) => (
+        <QuickReactButton
+          key={emoji}
+          emoji={emoji}
+          onPress={() => onReact(friendId, emoji)}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -849,8 +918,30 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   actionButtons: {
+    flexDirection: 'column',
+    gap: 10,
+  },
+  mainActionButtons: {
     flexDirection: 'row',
     gap: 12,
+  },
+  quickReactRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  quickReactButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(204, 255, 0, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(204, 255, 0, 0.15)',
+  },
+  quickReactEmoji: {
+    fontSize: 22,
   },
   watchButton: {
     flex: 1,
