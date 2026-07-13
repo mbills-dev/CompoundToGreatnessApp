@@ -9,7 +9,7 @@ import {
   Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Eye, Zap, Calendar, Target, LogOut, Star, Shield, Layers } from 'lucide-react-native';
+import { Eye, Zap, Calendar, Target, LogOut, Star, Shield, Layers, Flame } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
@@ -21,11 +21,13 @@ interface WatchedUser {
   identityStatement: string;
   goalTitle: string;
   streak: number;
+  bestStreak: number;
+  lifetimeDays: number;
   lastActive: string | null;
   completionDates: string[];
-  compassVision: string;
   shareFullJourney: boolean;
   photoUrl: string | null;
+  watcherCount: number;
 }
 
 interface EarnedBadge {
@@ -68,6 +70,7 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
   const [loading, setLoading] = useState(true);
   const [watcherName, setWatcherName] = useState('');
   const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>([]);
+  const [watcherCount, setWatcherCount] = useState(0);
 
   useEffect(() => {
     loadData();
@@ -83,7 +86,7 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           .maybeSingle(),
         supabase
           .from('goals')
-          .select('id, title, identity_statement, current_challenge_day, last_completion_date, compass_vision, share_full_journey')
+          .select('id, title, identity_statement, current_challenge_day, last_completion_date, share_full_journey, best_streak')
           .eq('user_id', watchedId)
           .eq('is_active', true)
           .maybeSingle(),
@@ -94,14 +97,22 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           .maybeSingle(),
         supabase
           .from('profiles')
-          .select('photo_url')
+          .select('display_name, photo_url')
           .eq('id', watchedId)
           .maybeSingle(),
       ]);
 
+      const [watchersCountRes] = await Promise.all([
+        supabase
+          .from('watchers')
+          .select('*', { count: 'exact', head: true })
+          .eq('watched_id', watchedId),
+      ]);
+      setWatcherCount(watchersCountRes.count || 0);
+
       const goalId = goalRes.data?.id || '';
 
-      const [completionsRes, badgeRes] = await Promise.all([
+      const [completionsRes, badgeRes, lifetimeRes] = await Promise.all([
         supabase
           .from('daily_completions')
           .select('completion_date')
@@ -113,11 +124,16 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           .select('badge_key, earned_at, badges(title, description, icon, color)')
           .eq('user_id', watchedId)
           .order('earned_at', { ascending: true }),
+        supabase
+          .from('daily_completions')
+          .select('*', { count: 'exact', head: true })
+          .eq('goal_id', goalId)
+          .not('completed_at', 'is', null),
       ]);
 
-      const displayName = settingsRes.data
-        ? `${settingsRes.data.first_name || ''} ${settingsRes.data.last_name || ''}`.trim()
-        : 'Your person';
+      const displayName = profileRes.data?.display_name
+        || (settingsRes.data ? `${settingsRes.data.first_name || ''} ${settingsRes.data.last_name || ''}`.trim() : null)
+        || 'Your person';
 
       const realStreak = goalId ? await computeCurrentStreak(goalId) : 0;
 
@@ -127,11 +143,13 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
         identityStatement: goalRes.data?.identity_statement || '',
         goalTitle: goalRes.data?.title || 'their journey',
         streak: realStreak,
+        bestStreak: goalRes.data?.best_streak || 0,
+        lifetimeDays: lifetimeRes.count || 0,
         lastActive: goalRes.data?.last_completion_date || null,
-        compassVision: goalRes.data?.compass_vision || '',
         completionDates: completionsRes.data?.map((c) => c.completion_date) || [],
         shareFullJourney: goalRes.data?.share_full_journey ?? true,
         photoUrl: profileRes.data?.photo_url || null,
+        watcherCount: watchersCountRes.count || 0,
       });
 
       setEarnedBadges((badgeRes.data as unknown as EarnedBadge[]) || []);
@@ -196,10 +214,6 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
                 <Text style={styles.heroGoal} numberOfLines={2}>{watched?.goalTitle}</Text>
                 <Text style={styles.heroActive}>{getLastActiveLabel()}</Text>
               </View>
-              <View style={styles.dayCountBadge}>
-                <Text style={styles.dayCountNumber}>{watched?.currentDay}</Text>
-                <Text style={styles.dayCountLabel}>DAYS</Text>
-              </View>
             </View>
 
             {watched?.shareFullJourney && watched?.identityStatement ? (
@@ -239,31 +253,24 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           )}
         </View>
 
-        {watched?.compassVision ? (
-          <View style={styles.visionSection}>
-            <View style={styles.visionCard}>
-              <Text style={styles.visionLabel}>THEIR VISION</Text>
-              <Text style={styles.visionText}>{watched.compassVision}</Text>
-            </View>
-          </View>
-        ) : null}
-
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
+            <Flame size={20} color="#ccff00" strokeWidth={2} />
+            <Text style={styles.statNumber}>{watched?.bestStreak ?? 0}</Text>
+            <Text style={styles.statLabel}>Best Streak</Text>
+          </View>
+          <View style={styles.statCard}>
             <Calendar size={20} color="#ccff00" strokeWidth={2} />
-            <Text style={styles.statNumber}>{watched?.completionDates.length || 0}</Text>
-            <Text style={styles.statLabel}>Days Completed</Text>
+            <Text style={styles.statNumber}>{watched?.lifetimeDays ?? 0}</Text>
+            <Text style={styles.statLabel}>Lifetime Days</Text>
           </View>
-          <View style={styles.statCard}>
-            <Target size={20} color="#ccff00" strokeWidth={2} />
-            <Text style={styles.statNumber}>{77 - (watched?.currentDay || 0)}</Text>
-            <Text style={styles.statLabel}>Days Remaining</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Eye size={20} color="#ccff00" strokeWidth={2} />
-            <Text style={styles.statNumber}>1</Text>
-            <Text style={styles.statLabel}>Watching</Text>
-          </View>
+        </View>
+
+        <View style={styles.watcherPill}>
+          <Eye size={16} color="#ccff00" strokeWidth={2.5} />
+          <Text style={styles.watcherPillText}>
+            {watcherCount} {watcherCount === 1 ? 'person watching' : 'people watching'}
+          </Text>
         </View>
 
         {!hideAccountActions && (
@@ -336,17 +343,7 @@ const styles = StyleSheet.create({
   heroName: { fontSize: 20, fontWeight: '900', color: '#FFFFFF', marginBottom: 4 },
   heroGoal: { fontSize: 13, fontWeight: '600', color: '#808080', lineHeight: 18, marginBottom: 6 },
   heroActive: { fontSize: 12, fontWeight: '600', color: '#ccff00' },
-  dayCountBadge: {
-    alignItems: 'center',
-    backgroundColor: '#000',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  dayCountNumber: { fontSize: 28, fontWeight: '900', color: '#FFFFFF' },
-  dayCountLabel: { fontSize: 10, fontWeight: '800', color: '#ccff00', letterSpacing: 1 },
+
   identityCard: {
     backgroundColor: 'rgba(0,0,0,0.4)',
     borderRadius: 14,
@@ -406,17 +403,21 @@ const styles = StyleSheet.create({
   },
   badgeCaption: { fontSize: 11, fontWeight: '700', color: '#808080', textAlign: 'center', lineHeight: 14 },
   badgesEmpty: { fontSize: 14, fontWeight: '600', color: '#555', fontStyle: 'italic' },
-  visionSection: { marginBottom: 24 },
-  visionCard: {
+  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  watcherPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'center',
     backgroundColor: '#0A0A0A',
-    borderRadius: 16,
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#1A1A1A',
+    marginBottom: 28,
   },
-  visionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5, color: '#555', marginBottom: 10 },
-  visionText: { fontSize: 15, fontWeight: '600', color: '#B0B0B0', lineHeight: 22 },
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 28 },
+  watcherPillText: { fontSize: 13, fontWeight: '700', color: '#808080' },
   statCard: {
     flex: 1,
     backgroundColor: '#0A0A0A',

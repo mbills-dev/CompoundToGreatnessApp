@@ -450,7 +450,7 @@ export default function FriendsScreen() {
 
         <View style={styles.content}>
           <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-            {friends.length} people crushing their goals
+            {friends.length} {friends.length === 1 ? 'person' : 'people'} crushing their goals
           </Text>
 
           <View style={styles.friendsList}>

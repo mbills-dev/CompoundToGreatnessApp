@@ -62,6 +62,9 @@ export default function FriendDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
   },
   header: {
     flexDirection: 'row',
