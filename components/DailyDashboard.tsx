@@ -959,7 +959,7 @@ export default function DailyDashboard({
                 <TextInput
                   style={[styles.addActivityInput, { backgroundColor: isDark ? '#1A1A1A' : colors.backgroundSecondary }]}
                   placeholder="Add a new input"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  placeholderTextColor={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'}
                   value={newActivityName}
                   onChangeText={setNewActivityName}
                   onSubmitEditing={addActivity}
