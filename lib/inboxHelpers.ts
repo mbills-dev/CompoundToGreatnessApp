@@ -15,7 +15,7 @@ export async function getInboxItems(userId: string): Promise<InboxItem[]> {
     supabase
       .from('encouragements')
       .select(
-        'id, from_user_id, message, emoji, created_at, read_at, profiles(display_name)',
+        'id, from_user_id, message, emoji, created_at, read_at, profiles!encouragements_from_user_id_fkey(display_name)',
       )
       .eq('to_user_id', userId)
       .order('created_at', { ascending: false }),
@@ -25,6 +25,13 @@ export async function getInboxItems(userId: string): Promise<InboxItem[]> {
       .eq('watched_user_id', userId)
       .order('created_at', { ascending: false }),
   ]);
+
+  if (encouragementsRes.error) {
+    console.error('getInboxItems encouragements query failed:', encouragementsRes.error);
+  }
+  if (leadsRes.error) {
+    console.error('getInboxItems journey_leads query failed:', leadsRes.error);
+  }
 
   const friendItems: InboxItem[] = (encouragementsRes.data || []).map((row: any) => ({
     id: row.id,
