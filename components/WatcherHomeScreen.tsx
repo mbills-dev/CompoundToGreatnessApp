@@ -65,7 +65,14 @@ function hexWithOpacity(hex: string, opacity: number): string {
 }
 
 export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onStartOwn, hideAccountActions = false }: Props) {
-  const { isDark } = useTheme();
+  const { colors, isDark } = useTheme();
+  const rootGradient: [string, string, string] = isDark ? ['#000000', '#050505', '#000000'] : [colors.background, colors.background, colors.background];
+  const cardBg = isDark ? '#0A0A0A' : colors.card;
+  const secondaryBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
+  const textPrimary = isDark ? '#FFFFFF' : colors.text;
+  const textTertiary = isDark ? '#555' : colors.textTertiary;
+  const textMuted = isDark ? '#808080' : colors.textSecondary;
+  const borderColor = isDark ? '#1A1A1A' : colors.border;
   const [watched, setWatched] = useState<WatchedUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [watcherName, setWatcherName] = useState('');
@@ -172,24 +179,23 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={[styles.center, { backgroundColor: isDark ? '#000' : colors.background }]}>
         <ActivityIndicator size="large" color="#ccff00" />
       </View>
     );
   }
 
-
   return (
-    <LinearGradient colors={['#000000', '#050505', '#000000']} style={styles.container}>
+    <LinearGradient colors={rootGradient} style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <View style={styles.header}>
           <View>
             <Text style={styles.headerLabel}>WATCHER MODE</Text>
-            <Text style={styles.headerTitle}>You're Watching</Text>
+            <Text style={[styles.headerTitle, { color: textPrimary }]}>You're Watching</Text>
           </View>
           {!hideAccountActions && (
-            <TouchableOpacity style={styles.signOutButton} onPress={onSignOut}>
-              <LogOut size={18} color="#555" strokeWidth={2} />
+            <TouchableOpacity style={[styles.signOutButton, { backgroundColor: cardBg, borderColor }]} onPress={onSignOut}>
+              <LogOut size={18} color={textTertiary} strokeWidth={2} />
             </TouchableOpacity>
           )}
         </View>
@@ -210,8 +216,8 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
                 </View>
               )}
               <View style={styles.heroInfo}>
-                <Text style={styles.heroName}>{watched?.displayName}</Text>
-                <Text style={styles.heroGoal} numberOfLines={2}>{watched?.goalTitle}</Text>
+                <Text style={[styles.heroName, { color: textPrimary }]}>{watched?.displayName}</Text>
+                <Text style={[styles.heroGoal, { color: textMuted }]} numberOfLines={2}>{watched?.goalTitle}</Text>
                 <Text style={styles.heroActive}>{getLastActiveLabel()}</Text>
               </View>
             </View>
@@ -219,20 +225,20 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
             {watched?.shareFullJourney && watched?.identityStatement ? (
               <View style={styles.identityCard}>
                 <Text style={styles.identityCardLabel}>THEIR IDENTITY</Text>
-                <Text style={styles.identityCardText}>"{watched.identityStatement}"</Text>
+                <Text style={[styles.identityCardText, { color: textPrimary }]}>"{watched.identityStatement}"</Text>
               </View>
             ) : null}
 
             <View style={styles.streakHeroRow}>
               <Zap size={40} color="#CCFF00" fill="#CCFF00" strokeWidth={2} />
-              <Text style={styles.streakNumber}>{watched?.streak ?? 0}</Text>
+              <Text style={[styles.streakNumber, { color: textPrimary }]}>{watched?.streak ?? 0}</Text>
             </View>
-            <Text style={styles.streakLabel}>DAY STREAK</Text>
+            <Text style={[styles.streakLabel, { color: textTertiary }]}>DAY STREAK</Text>
           </LinearGradient>
         </View>
 
         <View style={styles.badgesSection}>
-          <Text style={styles.sectionTitle}>Badges</Text>
+          <Text style={[styles.sectionTitle, { color: textPrimary }]}>Badges</Text>
           {earnedBadges.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.badgeScroll}>
               {earnedBadges.map((badge, index) => {
@@ -243,32 +249,32 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
                     <View style={[styles.badgeCircle, { backgroundColor: hexWithOpacity(badgeColor, 0.15), borderColor: hexWithOpacity(badgeColor, 0.3) }]}>
                       <Icon size={22} color={badgeColor} strokeWidth={2} />
                     </View>
-                    <Text style={styles.badgeCaption} numberOfLines={2}>{badge.badges?.[0]?.title || badge.badge_key}</Text>
+                    <Text style={[styles.badgeCaption, { color: textMuted }]} numberOfLines={2}>{badge.badges?.[0]?.title || badge.badge_key}</Text>
                   </View>
                 );
               })}
             </ScrollView>
           ) : (
-            <Text style={styles.badgesEmpty}>No badges earned yet</Text>
+            <Text style={[styles.badgesEmpty, { color: textTertiary }]}>No badges earned yet</Text>
           )}
         </View>
 
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
+          <View style={[styles.statCard, { backgroundColor: cardBg, borderColor }]}>
             <Flame size={20} color="#ccff00" strokeWidth={2} />
-            <Text style={styles.statNumber}>{watched?.bestStreak ?? 0}</Text>
-            <Text style={styles.statLabel}>Best Streak</Text>
+            <Text style={[styles.statNumber, { color: textPrimary }]}>{watched?.bestStreak ?? 0}</Text>
+            <Text style={[styles.statLabel, { color: textTertiary }]}>Best Streak</Text>
           </View>
-          <View style={styles.statCard}>
+          <View style={[styles.statCard, { backgroundColor: cardBg, borderColor }]}>
             <Calendar size={20} color="#ccff00" strokeWidth={2} />
-            <Text style={styles.statNumber}>{watched?.lifetimeDays ?? 0}</Text>
-            <Text style={styles.statLabel}>Lifetime Days</Text>
+            <Text style={[styles.statNumber, { color: textPrimary }]}>{watched?.lifetimeDays ?? 0}</Text>
+            <Text style={[styles.statLabel, { color: textTertiary }]}>Lifetime Days</Text>
           </View>
         </View>
 
-        <View style={styles.watcherPill}>
+        <View style={[styles.watcherPill, { backgroundColor: cardBg, borderColor }]}>
           <Eye size={16} color="#ccff00" strokeWidth={2.5} />
-          <Text style={styles.watcherPillText}>
+          <Text style={[styles.watcherPillText, { color: textMuted }]}>
             {watcherCount} {watcherCount === 1 ? 'person watching' : 'people watching'}
           </Text>
         </View>
@@ -280,18 +286,18 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
             style={styles.convertBannerInner}
           >
             <Zap size={28} color="#ccff00" strokeWidth={2} />
-            <Text style={styles.convertTitle}>
+            <Text style={[styles.convertTitle, { color: textPrimary }]}>
               {watched?.displayName.split(' ')[0]} is not stopping.{'\n'}Are you ready to start?
             </Text>
           {!hideAccountActions && (
             <TouchableOpacity style={styles.convertButton} onPress={onStartOwn}>
-              <LinearGradient colors={isDark ? ['#ccff00', '#aed900'] : ['#ccff00', '#ccff00']} style={styles.convertButtonGradient}>
+              <LinearGradient colors={['#ccff00', '#aed900']} style={styles.convertButtonGradient}>
                 <Text style={styles.convertButtonText}>Start My 77-Day Journey</Text>
                 <Zap size={18} color="#000000" strokeWidth={2.5} />
               </LinearGradient>
             </TouchableOpacity>
           )}
-            <Text style={styles.convertSub}>Join thousands building the life they actually want.</Text>
+            <Text style={[styles.convertSub, { color: textTertiary }]}>Join thousands building the life they actually want.</Text>
           </LinearGradient>
         </View>
         )}

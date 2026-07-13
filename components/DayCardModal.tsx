@@ -16,6 +16,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, X, Share2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Goal, DailyActivity, DailyCompletion, ProgressPhoto } from '@/types/database';
 import { MILESTONE_DATA, isMilestoneDay } from '@/constants/milestones';
 import { getDateForChallengeDay } from '@/lib/dateHelpers';
@@ -46,6 +47,13 @@ function formatDate(dateStr: string): string {
 }
 
 export default function DayCardModal({ visible, day, goal, tileLayout, onClose }: DayCardModalProps) {
+  const { colors, isDark } = useTheme();
+  const cardBg = isDark ? '#000000' : colors.background;
+  const headerBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
+  const evidenceBg = isDark ? '#111111' : colors.backgroundSecondary;
+  const placeholderBg = isDark ? '#111111' : colors.backgroundSecondary;
+  const shareSheetBg = isDark ? '#1A1A1A' : colors.card;
+  const textPrimary = isDark ? '#FFFFFF' : colors.text;
   const [activities, setActivities] = useState<DailyActivity[]>([]);
   const [completion, setCompletion] = useState<DailyCompletion | null>(null);
   const [evidenceContent, setEvidenceContent] = useState<string | null>(null);
@@ -288,6 +296,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
           styles.card,
           {
             transform: [{ translateY }, { scale }],
+            backgroundColor: cardBg,
           },
         ]}
         pointerEvents={visible ? 'auto' : 'none'}
@@ -295,9 +304,9 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
         <Animated.View style={[styles.cardContent, { opacity: contentOpacity }]}>
 
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} bounces>
-            <View style={styles.header}>
+            <View style={[styles.header, { backgroundColor: headerBg }]}>
               <View style={styles.headerLeft}>
-                <Text style={styles.dayNumber}>DAY {day}</Text>
+                <Text style={[styles.dayNumber, { color: textPrimary }]}>DAY {day}</Text>
                 <Text style={styles.challengeLabel}>77-DAY CHALLENGE</Text>
               </View>
               <View style={styles.headerRight}>
@@ -351,7 +360,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
                 <View style={styles.section}>
                   <Text style={styles.sectionLabel}>EVIDENCE LOG</Text>
                   {evidenceContent ? (
-                    <View style={styles.evidenceBox}>
+                    <View style={[styles.evidenceBox, { backgroundColor: evidenceBg }]}>
                       <Text style={styles.evidenceText}>"{evidenceContent}"</Text>
                     </View>
                   ) : (
@@ -375,7 +384,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
                     </View>
                   ) : (
                     <TouchableOpacity
-                      style={styles.photoPlaceholder}
+                      style={[styles.photoPlaceholder, { backgroundColor: placeholderBg }]}
                       onPress={handlePickPhoto}
                       disabled={uploadingPhoto}
                     >
@@ -398,7 +407,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
         {showShareSheet && (
           <View style={styles.shareSheetOverlay}>
             <TouchableOpacity style={styles.shareSheetDismiss} onPress={() => setShowShareSheet(false)} />
-            <View style={styles.shareSheet}>
+            <View style={[styles.shareSheet, { backgroundColor: shareSheetBg }]}>
               <View style={styles.shareSheetHandle} />
               <TouchableOpacity style={styles.shareOption} onPress={handleShareWithWatchers}>
                 <Text style={styles.shareOptionText}>Share with my watchers</Text>

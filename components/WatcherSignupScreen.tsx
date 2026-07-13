@@ -32,7 +32,17 @@ interface Props {
 }
 
 export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStartOwn }: Props) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const bg = isDark ? '#000000' : colors.background;
+  const cardBg = isDark ? '#0A0A0A' : colors.card;
+  const secondaryBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
+  const textPrimary = isDark ? '#FFFFFF' : colors.text;
+  const textSecondary = isDark ? '#808080' : colors.textSecondary;
+  const textTertiary = isDark ? '#555' : colors.textTertiary;
+  const textMuted = isDark ? '#444' : colors.textTertiary;
+  const borderColor = isDark ? '#1A1A1A' : colors.border;
+  const rootGradientPreview: [string, string, string] = isDark ? ['#000000', '#0A0A0A', '#000000'] : [colors.background, colors.background, colors.background];
+  const rootGradientSignup: [string, string] = isDark ? ['#000000', '#0A0A0A'] : [colors.background, colors.background];
   const [inviter, setInviter] = useState<InviterInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<'preview' | 'signup'>('preview');
@@ -168,7 +178,7 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
 
   if (loading) {
     return (
-      <View style={[styles.center, { backgroundColor: '#000000' }]}>
+      <View style={[styles.center, { backgroundColor: bg }]}>
         <ActivityIndicator size="large" color="#ccff00" />
       </View>
     );
@@ -176,9 +186,9 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
 
   if (notFound) {
     return (
-      <View style={[styles.center, { backgroundColor: '#000000' }]}>
-        <Text style={styles.notFoundTitle}>Invite Not Found</Text>
-        <Text style={styles.notFoundSub}>This invite link may have expired or is invalid.</Text>
+      <View style={[styles.center, { backgroundColor: bg }]}>
+        <Text style={[styles.notFoundTitle, { color: textPrimary }]}>Invite Not Found</Text>
+        <Text style={[styles.notFoundSub, { color: textSecondary }]}>This invite link may have expired or is invalid.</Text>
         <TouchableOpacity style={styles.startOwnButton} onPress={onStartOwn}>
           <Text style={styles.startOwnButtonText}>Start My Own Journey</Text>
         </TouchableOpacity>
@@ -188,7 +198,7 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
 
   if (step === 'preview') {
     return (
-      <LinearGradient colors={['#000000', '#0A0A0A', '#000000']} style={styles.container}>
+      <LinearGradient colors={rootGradientPreview} style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.eyeHeader}>
             <View style={styles.eyeCircle}>
@@ -197,35 +207,35 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
           </View>
 
           <Text style={styles.inviteLabel}>YOU'VE BEEN INVITED</Text>
-          <Text style={styles.inviteHeadline}>
+          <Text style={[styles.inviteHeadline, { color: textPrimary }]}>
             Watch {inviter?.displayName.split(' ')[0]}'s Journey
           </Text>
 
-          <View style={[styles.journeyCard, { backgroundColor: colors.backgroundSecondary }]}>
+          <View style={[styles.journeyCard, { backgroundColor: secondaryBg }]}>
             <View style={styles.journeyCardHeader}>
-              <View style={styles.avatarCircle}>
+              <View style={[styles.avatarCircle, { backgroundColor: isDark ? '#1A1A1A' : colors.backgroundSecondary }]}>
                 <Text style={styles.avatarLetter}>
                   {inviter?.displayName.charAt(0).toUpperCase()}
                 </Text>
               </View>
               <View style={styles.journeyCardInfo}>
-                <Text style={styles.journeyName}>{inviter?.displayName}</Text>
-                <Text style={styles.journeyGoal} numberOfLines={1}>{inviter?.goalTitle}</Text>
+                <Text style={[styles.journeyName, { color: textPrimary }]}>{inviter?.displayName}</Text>
+                <Text style={[styles.journeyGoal, { color: textSecondary }]} numberOfLines={1}>{inviter?.goalTitle}</Text>
               </View>
-              <View style={styles.dayBadge}>
-                <Text style={styles.dayNumber}>{inviter?.currentDay}</Text>
+              <View style={[styles.dayBadge, { backgroundColor: isDark ? '#000000' : colors.background, borderColor }]}>
+                <Text style={[styles.dayNumber, { color: textPrimary }]}>{inviter?.currentDay}</Text>
                 <Text style={styles.dayLabel}>DAY</Text>
               </View>
             </View>
 
             {inviter?.identityStatement ? (
               <View style={styles.identityBox}>
-                <Text style={styles.identityQuote}>"{inviter.identityStatement}"</Text>
+                <Text style={[styles.identityQuote, { color: textPrimary }]}>"{inviter.identityStatement}"</Text>
               </View>
             ) : null}
 
             <View style={styles.progressBarContainer}>
-              <View style={styles.progressBarTrack}>
+              <View style={[styles.progressBarTrack, { backgroundColor: borderColor }]}>
                 <View
                   style={[
                     styles.progressBarFill,
@@ -233,13 +243,13 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
                   ]}
                 />
               </View>
-              <Text style={styles.progressLabel}>
+              <Text style={[styles.progressLabel, { color: textTertiary }]}>
                 {inviter?.currentDay} of 77 days
               </Text>
             </View>
           </View>
 
-          <Text style={styles.watchDescription}>
+          <Text style={[styles.watchDescription, { color: textSecondary }]}>
             Watch their progress for free. See their daily streaks, identity, and milestones as they happen.
           </Text>
 
@@ -252,17 +262,17 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
           </TouchableOpacity>
 
           <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
+            <View style={[styles.dividerLine, { backgroundColor: borderColor }]} />
+            <Text style={[styles.dividerText, { color: textTertiary }]}>or</Text>
+            <View style={[styles.dividerLine, { backgroundColor: borderColor }]} />
           </View>
 
-          <TouchableOpacity style={styles.startOwnOutlineButton} onPress={onStartOwn}>
+          <TouchableOpacity style={[styles.startOwnOutlineButton, { borderColor }]} onPress={onStartOwn}>
             <Zap size={20} color="#ccff00" strokeWidth={2.5} />
-            <Text style={styles.startOwnOutlineText}>Start My Own 77-Day Journey</Text>
+            <Text style={[styles.startOwnOutlineText, { color: textPrimary }]}>Start My Own 77-Day Journey</Text>
           </TouchableOpacity>
 
-          <Text style={styles.footer}>
+          <Text style={[styles.footer, { color: textMuted }]}>
             Inspired by what you see? You can always upgrade and start your own challenge later.
           </Text>
         </ScrollView>
@@ -272,30 +282,30 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#000000' }}
+      style={{ flex: 1, backgroundColor: bg }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <LinearGradient colors={['#000000', '#0A0A0A']} style={styles.container}>
+      <LinearGradient colors={rootGradientSignup} style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <TouchableOpacity onPress={() => setStep('preview')} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Back</Text>
+            <Text style={[styles.backButtonText, { color: textSecondary }]}>← Back</Text>
           </TouchableOpacity>
 
           <View style={styles.eyeCircle}>
             <Eye size={32} color="#ccff00" strokeWidth={2} />
           </View>
 
-          <Text style={styles.signupTitle}>Create Your Watcher Account</Text>
-          <Text style={styles.signupSubtitle}>
+          <Text style={[styles.signupTitle, { color: textPrimary }]}>Create Your Watcher Account</Text>
+          <Text style={[styles.signupSubtitle, { color: textSecondary }]}>
             Just your name and email — no subscription needed to watch.
           </Text>
 
           <View style={styles.formGroup}>
-            <Text style={styles.fieldLabel}>YOUR NAME</Text>
+            <Text style={[styles.fieldLabel, { color: textTertiary }]}>YOUR NAME</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: cardBg, borderColor, color: textPrimary }]}
               placeholder="First and last name"
-              placeholderTextColor="#555"
+              placeholderTextColor={textTertiary}
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
@@ -303,11 +313,11 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.fieldLabel}>EMAIL ADDRESS</Text>
+            <Text style={[styles.fieldLabel, { color: textTertiary }]}>EMAIL ADDRESS</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: cardBg, borderColor, color: textPrimary }]}
               placeholder="you@example.com"
-              placeholderTextColor="#555"
+              placeholderTextColor={textTertiary}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -334,7 +344,7 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
             </LinearGradient>
           </TouchableOpacity>
 
-          <Text style={styles.legalText}>
+          <Text style={[styles.legalText, { color: textMuted }]}>
             By continuing, you agree to receive updates about this journey. No spam, ever.
           </Text>
         </ScrollView>
