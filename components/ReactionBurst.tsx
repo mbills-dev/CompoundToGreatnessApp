@@ -1,12 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withDelay,
-  Easing,
-} from 'react-native-reanimated';
+import { Animated, StyleSheet, View } from 'react-native';
 
 function randomBetween(min: number, max: number) {
   return min + Math.random() * (max - min);
@@ -26,54 +19,70 @@ interface ParticleConfig {
 }
 
 function ReactionParticle({ cfg, onDone }: { cfg: ParticleConfig; onDone?: () => void }) {
-  const translateX = useSharedValue(cfg.startX);
-  const translateY = useSharedValue(cfg.startY);
-  const rotate = useSharedValue(0);
-  const opacity = useSharedValue(0);
-  const scale = useSharedValue(cfg.scale);
+  const translateX = useRef(new Animated.Value(cfg.startX)).current;
+  const translateY = useRef(new Animated.Value(cfg.startY)).current;
+  const rotate = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(cfg.scale)).current;
 
   useEffect(() => {
-    opacity.value = withDelay(
-      cfg.delay,
-      withTiming(1, { duration: 150, easing: Easing.out(Easing.ease) }),
-    );
+    const animations: Animated.CompositeAnimation[] = [];
 
-    translateX.value = withDelay(
-      cfg.delay,
-      withTiming(cfg.startX + cfg.driftX, {
-        duration: cfg.duration,
-        easing: Easing.bezier(0.25, 0.0, 0.5, 1.0),
+    animations.push(
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 150,
+        delay: cfg.delay,
+        useNativeDriver: true,
       }),
     );
 
-    translateY.value = withDelay(
-      cfg.delay,
-      withTiming(cfg.startY + cfg.driftY, {
+    animations.push(
+      Animated.timing(translateX, {
+        toValue: cfg.startX + cfg.driftX,
         duration: cfg.duration,
-        easing: Easing.bezier(0.33, 0.0, 0.67, 1.0),
+        delay: cfg.delay,
+        useNativeDriver: true,
       }),
     );
 
-    rotate.value = withDelay(
-      cfg.delay,
-      withTiming(cfg.rotationDir * cfg.rotation, {
+    animations.push(
+      Animated.timing(translateY, {
+        toValue: cfg.startY + cfg.driftY,
         duration: cfg.duration,
-        easing: Easing.linear,
+        delay: cfg.delay,
+        useNativeDriver: true,
       }),
     );
 
-    opacity.value = withDelay(
-      cfg.delay + 150,
-      withTiming(0, {
+    animations.push(
+      Animated.timing(rotate, {
+        toValue: cfg.rotationDir * cfg.rotation,
+        duration: cfg.duration,
+        delay: cfg.delay,
+        useNativeDriver: true,
+      }),
+    );
+
+    animations.push(
+      Animated.timing(opacity, {
+        toValue: 0,
         duration: cfg.duration - 150,
-        easing: Easing.in(Easing.ease),
+        delay: cfg.delay + 150,
+        useNativeDriver: true,
       }),
     );
 
-    scale.value = withDelay(
-      cfg.delay,
-      withTiming(cfg.scale * 1.3, { duration: cfg.duration, easing: Easing.out(Easing.ease) }),
+    animations.push(
+      Animated.timing(scale, {
+        toValue: cfg.scale * 1.3,
+        duration: cfg.duration,
+        delay: cfg.delay,
+        useNativeDriver: true,
+      }),
     );
+
+    Animated.parallel(animations).start();
 
     if (onDone) {
       const total = cfg.delay + cfg.duration;
@@ -82,18 +91,22 @@ function ReactionParticle({ cfg, onDone }: { cfg: ParticleConfig; onDone?: () =>
     }
   }, []);
 
-  const style = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { rotate: `${rotate.value}deg` },
-      { scale: scale.value },
-    ],
-    opacity: opacity.value,
-  }));
-
   return (
-    <Animated.Text style={[styles.particle, style]} pointerEvents="none">
+    <Animated.Text
+      style={[
+        styles.particle,
+        {
+          transform: [
+            { translateX },
+            { translateY },
+            { rotate: rotate.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] }) },
+            { scale },
+          ],
+          opacity,
+        },
+      ]}
+      pointerEvents="none"
+    >
       {cfg.emoji}
     </Animated.Text>
   );

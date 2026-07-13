@@ -275,7 +275,9 @@ export default function DailyDashboard({
             setReactionBursts(groups);
             setCurrentBurstIdx(0);
           }
-        }).catch(() => {});
+        }).catch((err) => {
+          console.error('checkForNewReactions failed:', err);
+        });
       }
     }, [goal.challenge_phase, goal.current_challenge_day, goal.celebration_seen])
   );
@@ -1024,7 +1026,9 @@ export default function DailyDashboard({
               setReactionBursts([]);
               setCurrentBurstIdx(0);
               if (user?.id) {
-                markReactionsRead(user.id).catch(() => {});
+                markReactionsRead(user.id).catch((err) => {
+                  console.error('markReactionsRead failed:', err);
+                });
               }
             }
           }}
