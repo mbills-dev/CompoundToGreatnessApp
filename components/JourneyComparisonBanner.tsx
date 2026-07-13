@@ -43,7 +43,7 @@ export default function JourneyComparisonBanner({ goalId, currentChallengeDay }:
   const { colors, isDark } = useTheme();
   const cardBg = isDark ? '#000000' : colors.card;
   const cardBorder = isDark ? '#222222' : colors.border;
-  const headerBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
+  const headerBg = '#1A1A1A';
   const textPrimary = isDark ? '#FFFFFF' : colors.text;
   const textMuted = isDark ? 'rgba(255,255,255,0.4)' : colors.textTertiary;
   const statTileBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;

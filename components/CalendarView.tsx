@@ -759,6 +759,10 @@ const styles = StyleSheet.create({
   },
   shareStat: {
     alignItems: 'center',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
   shareStatValue: {
     fontSize: 36,
