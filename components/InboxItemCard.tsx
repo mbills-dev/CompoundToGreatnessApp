@@ -32,10 +32,8 @@ export default function InboxItemCard({ item, onPress }: Props) {
       style={[
         styles.inboxCard,
         {
-          backgroundColor: isUnread
-            ? isDark ? '#1A1A14' : '#F5F8E8'
-            : colors.card,
-          borderColor: isUnread ? 'rgba(204,255,0,0.25)' : colors.border,
+          backgroundColor: colors.card,
+          borderColor: colors.border,
         },
       ]}
       onPress={() => isUnread && onPress(item)}
@@ -51,10 +49,10 @@ export default function InboxItemCard({ item, onPress }: Props) {
           <Text style={[styles.inboxSenderName, { color: colors.text }]} numberOfLines={1}>
             {item.senderName}
           </Text>
+          {item.emoji && <Text style={styles.inboxEmoji}>{item.emoji}</Text>}
         </View>
         {isUnread && <View style={styles.unreadDot} />}
       </View>
-      {item.emoji && <Text style={styles.inboxEmoji}>{item.emoji}</Text>}
       {item.message && (
         <Text style={[styles.inboxMessage, { color: colors.textSecondary }]} numberOfLines={3}>
           {item.message}
@@ -71,8 +69,8 @@ const styles = StyleSheet.create({
   inboxCard: {
     borderRadius: 24,
     borderWidth: 1,
-    padding: 16,
-    gap: 6,
+    padding: 14,
+    gap: 4,
   },
   inboxCardHeader: {
     flexDirection: 'row',
@@ -99,17 +97,16 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   inboxEmoji: {
-    fontSize: 28,
-    marginTop: 2,
+    fontSize: 16,
   },
   inboxMessage: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
-    lineHeight: 20,
+    lineHeight: 18,
     fontFamily: 'Inter-Bold',
   },
   inboxTimestamp: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     marginTop: 2,
     fontFamily: 'Inter-Bold',
