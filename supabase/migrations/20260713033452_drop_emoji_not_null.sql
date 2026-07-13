@@ -1,0 +1,1 @@
+ALTER TABLE encouragements ALTER COLUMN emoji DROP NOT NULL;
