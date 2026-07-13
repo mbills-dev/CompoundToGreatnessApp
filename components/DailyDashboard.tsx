@@ -271,7 +271,9 @@ export default function DailyDashboard({
       }
 
       if (user?.id) {
+        console.log('[reaction-debug] user.id being used:', user?.id);
         checkForNewReactions(user.id).then((groups) => {
+          console.log('[reaction-poll] groups found:', groups);
           if (groups.length > 0) {
             setReactionBursts(groups);
             setCurrentBurstIdx(0);
