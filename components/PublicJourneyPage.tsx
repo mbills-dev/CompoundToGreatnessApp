@@ -10,6 +10,7 @@ import {
   Modal,
   Platform,
   KeyboardAvoidingView,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, Zap, Check, X, Send, ExternalLink } from 'lucide-react-native';
@@ -40,6 +41,7 @@ interface JourneyData {
   realStreak: number;
   challengePhase: string;
   shareFullJourney: boolean;
+  photoUrl: string | null;
 }
 
 interface Props {
@@ -60,7 +62,7 @@ export default function PublicJourneyPage({ username }: Props) {
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, display_name, username')
+        .select('id, display_name, username, photo_url')
         .ilike('username', username)
         .maybeSingle();
 
@@ -145,6 +147,7 @@ export default function PublicJourneyPage({ username }: Props) {
         realStreak,
         challengePhase: goal?.challenge_phase || 'challenge',
         shareFullJourney: goal?.share_full_journey ?? true,
+        photoUrl: profile.photo_url || null,
       });
     } catch {
       setNotFound(true);
@@ -225,11 +228,15 @@ export default function PublicJourneyPage({ username }: Props) {
         </View>
 
         <View style={styles.heroSection}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarLetter}>
-              {journey?.displayName.charAt(0).toUpperCase()}
-            </Text>
-          </View>
+          {journey?.photoUrl ? (
+            <Image source={{ uri: journey.photoUrl }} style={styles.avatarCircle} />
+          ) : (
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarLetter}>
+                {journey?.displayName.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
           <Text style={styles.heroName}>{journey?.displayName}</Text>
           <View style={styles.activeTag}>
             <View style={[styles.activeDot, lastActiveInfo.isActive && styles.activeDotLive]} />

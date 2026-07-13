@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, Zap, Calendar, Target, LogOut, Star, Shield, Layers } from 'lucide-react-native';
@@ -24,6 +25,7 @@ interface WatchedUser {
   completionDates: string[];
   compassVision: string;
   shareFullJourney: boolean;
+  photoUrl: string | null;
 }
 
 interface EarnedBadge {
@@ -72,7 +74,7 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
 
   const loadData = async () => {
     try {
-      const [settingsRes, goalRes, watcherRes] = await Promise.all([
+      const [settingsRes, goalRes, watcherRes, profileRes] = await Promise.all([
         supabase
           .from('user_settings')
           .select('first_name, last_name')
@@ -88,6 +90,11 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           .from('user_settings')
           .select('first_name')
           .eq('user_id', watcherId)
+          .maybeSingle(),
+        supabase
+          .from('profiles')
+          .select('photo_url')
+          .eq('id', watchedId)
           .maybeSingle(),
       ]);
 
@@ -123,6 +130,7 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
         compassVision: goalRes.data?.compass_vision || '',
         completionDates: completionsRes.data?.map((c) => c.completion_date) || [],
         shareFullJourney: goalRes.data?.share_full_journey ?? true,
+        photoUrl: profileRes.data?.photo_url || null,
       });
 
       setEarnedBadges((badgeRes.data as unknown as EarnedBadge[]) || []);
@@ -171,11 +179,15 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
             style={styles.heroCardInner}
           >
             <View style={styles.heroTop}>
-              <View style={styles.avatarLarge}>
-                <Text style={styles.avatarLargeText}>
-                  {watched?.displayName.charAt(0).toUpperCase()}
-                </Text>
-              </View>
+              {watched?.photoUrl ? (
+                <Image source={{ uri: watched.photoUrl }} style={styles.avatarLarge} />
+              ) : (
+                <View style={styles.avatarLarge}>
+                  <Text style={styles.avatarLargeText}>
+                    {watched?.displayName.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
               <View style={styles.heroInfo}>
                 <Text style={styles.heroName}>{watched?.displayName}</Text>
                 <Text style={styles.heroGoal} numberOfLines={2}>{watched?.goalTitle}</Text>
