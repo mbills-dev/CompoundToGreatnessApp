@@ -43,6 +43,11 @@ function TabLayoutInner() {
       <Tabs
         screenOptions={{
           headerShown: false,
+          sceneStyle: {
+            maxWidth: 480,
+            width: '100%',
+            alignSelf: 'center',
+          },
           tabBarStyle: {
             backgroundColor: isDark ? colors.background : '#F5F5F0',
             borderTopWidth: 0,
