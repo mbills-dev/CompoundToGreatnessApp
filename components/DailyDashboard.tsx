@@ -280,6 +280,39 @@ export default function DailyDashboard({
     }, [goal.challenge_phase, goal.current_challenge_day, goal.celebration_seen])
   );
 
+  // Real-time subscription for new reactions while the app is open
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('reaction-bursts')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'encouragements',
+          filter: `to_user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const row = payload.new as any;
+          if (row.message !== null) return;
+          const emoji = row.emoji;
+          if (!emoji) return;
+          setReactionBursts((prev) => {
+            const next = [...prev, { emoji, count: 1 }];
+            if (prev.length === 0) setCurrentBurstIdx(0);
+            return next;
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   const progress = activities.length > 0
     ? (completedActivities.length / activities.length) * 100
     : 0;
