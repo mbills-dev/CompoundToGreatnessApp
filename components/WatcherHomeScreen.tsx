@@ -9,11 +9,17 @@ import {
   Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Eye, Zap, Calendar, Target, LogOut, Star, Shield, Layers, Flame } from 'lucide-react-native';
+import { Eye, Zap, Calendar, Target, LogOut, Star, Shield, Layers, Flame, Check } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
 import { getTodayDateString, toLocalDateString } from '@/lib/dateHelpers';
+
+interface Activity {
+  id: string;
+  activity_name: string;
+  order_position: number;
+}
 
 interface WatchedUser {
   displayName: string;
@@ -28,6 +34,8 @@ interface WatchedUser {
   shareFullJourney: boolean;
   photoUrl: string | null;
   watcherCount: number;
+  activities: Activity[];
+  todayCompletedIds: string[];
 }
 
 interface EarnedBadge {
@@ -119,6 +127,31 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
 
       const goalId = goalRes.data?.id || '';
 
+      let activities: Activity[] = [];
+      let todayCompletedIds: string[] = [];
+      if (goalId) {
+        const today = getTodayDateString();
+        const [actsRes, todayCompletionRes] = await Promise.all([
+          supabase
+            .from('daily_activities')
+            .select('id, activity_name, order_position')
+            .eq('goal_id', goalId)
+            .order('order_position', { ascending: true }),
+          supabase
+            .from('daily_completions')
+            .select('activities_completed')
+            .eq('goal_id', goalId)
+            .eq('completion_date', today)
+            .maybeSingle(),
+        ]);
+        activities = actsRes.data || [];
+        if (todayCompletionRes.data?.activities_completed) {
+          todayCompletedIds = Array.isArray(todayCompletionRes.data.activities_completed)
+            ? todayCompletionRes.data.activities_completed
+            : [];
+        }
+      }
+
       const [completionsRes, badgeRes, lifetimeRes] = await Promise.all([
         supabase
           .from('daily_completions')
@@ -157,6 +190,8 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
         shareFullJourney: goalRes.data?.share_full_journey ?? true,
         photoUrl: profileRes.data?.photo_url || null,
         watcherCount: watchersCountRes.count || 0,
+        activities,
+        todayCompletedIds,
       });
 
       setEarnedBadges((badgeRes.data as unknown as EarnedBadge[]) || []);
@@ -223,9 +258,11 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
             </View>
 
             {watched?.shareFullJourney && watched?.identityStatement ? (
-              <View style={styles.identityCard}>
-                <Text style={styles.identityCardLabel}>THEIR IDENTITY</Text>
-                <Text style={[styles.identityCardText, { color: textPrimary }]}>"{watched.identityStatement}"</Text>
+              <View style={[styles.identityChip, { backgroundColor: secondaryBg, borderColor }]}>
+                <Text style={styles.identityChipLabel}>THEIR IDENTITY</Text>
+                <Text style={[styles.identityChipText, { color: textPrimary }]} numberOfLines={6}>
+                  {watched.identityStatement}
+                </Text>
               </View>
             ) : null}
 
@@ -236,6 +273,31 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
             <Text style={[styles.streakLabel, { color: textTertiary }]}>DAY STREAK</Text>
           </LinearGradient>
         </View>
+
+        {watched?.shareFullJourney && watched && watched.activities.length > 0 ? (
+          <View style={[styles.stackCard, { backgroundColor: cardBg, borderColor }]}>
+            <Text style={styles.stackLabel}>TODAY'S SUCCESS STACK</Text>
+            {watched.activities.map((activity) => {
+              const completed = watched.todayCompletedIds.includes(activity.id);
+              return (
+                <View key={activity.id} style={styles.stackRow}>
+                  <Text style={[styles.stackActivityName, { color: textTertiary }, completed && { color: textPrimary }]}>
+                    {activity.activity_name}
+                  </Text>
+                  <View style={styles.checkmarkContainer}>
+                    {completed ? (
+                      <View style={styles.checkmarkCircleInner}>
+                        <Check size={24} color="#000000" strokeWidth={3} />
+                      </View>
+                    ) : (
+                      <View style={[styles.uncheckedCircleInner, { borderColor }]} />
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
 
         <View style={styles.badgesSection}>
           <Text style={[styles.sectionTitle, { color: textPrimary }]}>Badges</Text>
@@ -350,27 +412,73 @@ const styles = StyleSheet.create({
   heroGoal: { fontSize: 13, fontWeight: '600', color: '#808080', lineHeight: 18, marginBottom: 6 },
   heroActive: { fontSize: 12, fontWeight: '600', color: '#ccff00' },
 
-  identityCard: {
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    borderRadius: 14,
-    padding: 16,
-    borderLeftWidth: 3,
-    borderLeftColor: '#ccff00',
+  identityChip: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     marginBottom: 20,
+    gap: 4,
   },
-  identityCardLabel: {
+  identityChipLabel: {
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 1.5,
+    letterSpacing: 2,
     color: '#ccff00',
-    marginBottom: 8,
   },
-  identityCardText: {
+  identityChipText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
     lineHeight: 22,
-    fontStyle: 'italic',
+  },
+  stackCard: {
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    marginBottom: 20,
+  },
+  stackLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 2,
+    color: '#ccff00',
+    marginBottom: 16,
+  },
+  stackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: 16,
+    minHeight: 72,
+  },
+  checkmarkContainer: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  checkmarkCircleInner: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ccff00',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uncheckedCircleInner: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+  },
+  stackActivityName: {
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
+    flex: 1,
+    paddingRight: 12,
   },
   streakHeroRow: {
     flexDirection: 'row',
