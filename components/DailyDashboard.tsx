@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,7 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { CircleCheck as CheckCircle, Circle, Flame, Award, TrendingUp, Check, Plus, Lock, Eye, X, Zap } from 'lucide-react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyActivity, DailyCompletion } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -259,36 +259,34 @@ export default function DailyDashboard({
   // Re-present the celebration when returning to the Today tab
   // while it's still pending (not yet seen). Tab screens stay mounted,
   // so the mount effect above won't re-run on tab focus.
-  useFocusEffect(
-    useCallback(() => {
-      isFocusedRef.current = true;
+  useEffect(() => {
+    isFocusedRef.current = true;
 
-      const celebrationPending =
-        goal.challenge_phase === 'challenge' &&
-        goal.current_challenge_day >= 77 &&
-        !goal.celebration_seen;
-      if (celebrationPending && !celebrationOpen && !celebrationSuppressed.current) {
-        openCelebration();
-      }
+    const celebrationPending =
+      goal.challenge_phase === 'challenge' &&
+      goal.current_challenge_day >= 77 &&
+      !goal.celebration_seen;
+    if (celebrationPending && !celebrationOpen && !celebrationSuppressed.current) {
+      openCelebration();
+    }
 
-      if (user?.id) {
-        console.log('[reaction-debug] user.id being used:', user?.id);
-        checkForNewReactions(user.id).then((groups) => {
-          console.log('[reaction-poll] groups found:', groups);
-          if (groups.length > 0) {
-            setReactionBursts(groups);
-            setCurrentBurstIdx(0);
-          }
-        }).catch((err) => {
-          console.error('checkForNewReactions failed:', err);
-        });
-      }
+    if (user?.id) {
+      console.log('[reaction-debug] user.id being used:', user?.id);
+      checkForNewReactions(user.id).then((groups) => {
+        console.log('[reaction-poll] groups found:', groups);
+        if (groups.length > 0) {
+          setReactionBursts(groups);
+          setCurrentBurstIdx(0);
+        }
+      }).catch((err) => {
+        console.error('checkForNewReactions failed:', err);
+      });
+    }
 
-      return () => {
-        isFocusedRef.current = false;
-      };
-    }, [goal.challenge_phase, goal.current_challenge_day, goal.celebration_seen, user?.id, celebrationOpen, openCelebration])
-  );
+    return () => {
+      isFocusedRef.current = false;
+    };
+  }, [goal.challenge_phase, goal.current_challenge_day, goal.celebration_seen, user?.id, celebrationOpen, openCelebration]);
 
   // Real-time subscription for new reactions while the app is open
   useEffect(() => {
