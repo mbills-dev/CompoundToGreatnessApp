@@ -29,7 +29,7 @@ interface ThemeContextType {
 
 const lightColors: ThemeColors = {
   background: '#F5F5F0',
-  backgroundSecondary: '#EBEBЕ6',
+  backgroundSecondary: '#EBEBE6',
   backgroundTertiary: '#E0E0DB',
   text: '#000000',
   textSecondary: '#404040',
