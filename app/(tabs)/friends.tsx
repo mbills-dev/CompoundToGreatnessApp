@@ -437,12 +437,12 @@ export default function FriendsScreen() {
                   if (aUnread !== bUnread) return bUnread - aUnread;
                   return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
                 })
-                .slice(0, 3)
+                .slice(0, 1)
                 .map((item) => (
                   <InboxItemCard key={`${item.source}-${item.id}`} item={item} onPress={handleMarkInboxRead} />
                 ))}
             </View>
-            {inboxItems.length > 3 && (
+            {inboxItems.length > 1 && (
               <TouchableOpacity
                 style={styles.seeAllButton}
                 onPress={() => router.push('/inbox')}
