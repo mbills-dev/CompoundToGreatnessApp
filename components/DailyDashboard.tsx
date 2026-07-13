@@ -938,7 +938,7 @@ export default function DailyDashboard({
               </View>
               {!isDayLocked && (
                 <TouchableOpacity
-                  style={[styles.editButton, editMode && styles.editButtonActive]}
+                  style={[styles.editButton, { backgroundColor: isDark ? '#1A1A1A' : colors.backgroundSecondary }, editMode && styles.editButtonActive]}
                   onPress={async () => {
                     if (onLockedInteraction) { onLockedInteraction(); return; }
                     if (editMode) {
@@ -957,7 +957,7 @@ export default function DailyDashboard({
             {editMode && (
               <View style={styles.addActivitySection}>
                 <TextInput
-                  style={styles.addActivityInput}
+                  style={[styles.addActivityInput, { backgroundColor: isDark ? '#1A1A1A' : colors.backgroundSecondary }]}
                   placeholder="Add a new input"
                   placeholderTextColor="rgba(255,255,255,0.3)"
                   value={newActivityName}
