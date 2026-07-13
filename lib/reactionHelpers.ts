@@ -13,10 +13,6 @@ export async function checkForNewReactions(userId: string): Promise<ReactionGrou
     .is('message', null)
     .is('read_at', null);
 
-  console.log('[reaction-raw] userId:', userId);
-  console.log('[reaction-raw] data:', data);
-  console.log('[reaction-raw] error:', error);
-
   if (error) throw error;
   if (!data || data.length === 0) return [];
 

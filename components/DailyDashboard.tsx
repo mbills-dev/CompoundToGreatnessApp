@@ -189,7 +189,6 @@ export default function DailyDashboard({
   onRefresh,
   onLockedInteraction,
 }: DailyDashboardProps) {
-  console.log('%c[BUILD-CHECK] DailyDashboard mounted — v2', 'color: lime; font-size: 20px');
   const { colors, isDark } = useTheme();
   const { triggerRacingBorder } = useRacingBorder();
   const { user } = useAuth();
@@ -271,9 +270,7 @@ export default function DailyDashboard({
     }
 
     if (user?.id) {
-      console.log('[reaction-debug] user.id being used:', user?.id);
       checkForNewReactions(user.id).then((groups) => {
-        console.log('[reaction-poll] groups found:', groups);
         if (groups.length > 0) {
           setReactionBursts(groups);
           setCurrentBurstIdx(0);
