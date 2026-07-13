@@ -21,7 +21,7 @@ import InviteWatcherModal from '@/components/InviteWatcherModal';
 import { getInboxItems, markInboxItemRead, type InboxItem } from '@/lib/inboxHelpers';
 import InboxItemCard from '@/components/InboxItemCard';
 import { useRouter } from 'expo-router';
-import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming, Easing } from 'react-native-reanimated';
+import { Animated } from 'react-native';
 
 interface FriendWithStreak {
   id: string;
@@ -625,22 +625,15 @@ export default function FriendsScreen() {
 const QUICK_EMOJIS = ['🔥', '💪', '👏', '🚀'];
 
 function QuickReactButton({ emoji, onPress }: { emoji: string; onPress: () => void }) {
-  const [pulsing, setPulsing] = useState(false);
-  const scale = useSharedValue(1);
+  const scale = useRef(new Animated.Value(1)).current;
 
   const handlePress = () => {
-    setPulsing(true);
-    scale.value = withSequence(
-      withTiming(1.4, { duration: 100, easing: Easing.out(Easing.ease) }),
-      withTiming(1, { duration: 200, easing: Easing.inOut(Easing.ease) }),
-    );
-    setTimeout(() => setPulsing(false), 300);
+    Animated.sequence([
+      Animated.timing(scale, { toValue: 1.4, duration: 100, useNativeDriver: true }),
+      Animated.timing(scale, { toValue: 1, duration: 200, useNativeDriver: true }),
+    ]).start();
     onPress();
   };
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulsing ? scale.value : 1 }],
-  }));
 
   return (
     <TouchableOpacity
@@ -648,7 +641,7 @@ function QuickReactButton({ emoji, onPress }: { emoji: string; onPress: () => vo
       onPress={handlePress}
       activeOpacity={0.7}
     >
-      <Animated.Text style={[styles.quickReactEmoji, animatedStyle]}>
+      <Animated.Text style={[styles.quickReactEmoji, { transform: [{ scale }] }]}>
         {emoji}
       </Animated.Text>
     </TouchableOpacity>
