@@ -405,7 +405,7 @@ export default function FriendsScreen() {
                   {result.photo_url ? (
                     <Image source={{ uri: result.photo_url }} style={styles.searchResultAvatar} />
                   ) : (
-                    <View style={[styles.searchResultAvatar, styles.avatarPlaceholder]}>
+                    <View style={[styles.searchResultAvatar, styles.avatarPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
                       <Text style={styles.avatarText}>
                         {(result.display_name || result.username || '?').charAt(0).toUpperCase()}
                       </Text>
@@ -493,7 +493,7 @@ export default function FriendsScreen() {
                         {friend.photo_url ? (
                           <Image source={{ uri: friend.photo_url }} style={styles.avatarImage} />
                         ) : (
-                          <View style={styles.avatarPlaceholder}>
+                          <View style={[styles.avatarPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
                             <Text style={styles.avatarText}>
                               {friend.display_name.charAt(0).toUpperCase()}
                             </Text>
@@ -539,8 +539,8 @@ export default function FriendsScreen() {
                                 style={[
                                   styles.emojiButton,
                                   {
-                                    backgroundColor: isDark ? '#1A1A1A' : '#1A1A1A',
-                                    borderColor: isDark ? '#2A2A2A' : '#111111',
+                                    backgroundColor: isDark ? '#1A1A1A' : colors.backgroundSecondary,
+                                    borderColor: isDark ? '#2A2A2A' : colors.border,
                                     borderWidth: 2,
                                   },
                                 ]}
@@ -678,6 +678,7 @@ const styles = StyleSheet.create({
   inviteButtonText: {
     fontSize: 14,
     fontWeight: '800',
+    fontFamily: 'Inter-Black',
     color: '#000000',
   },
   gradient: {
@@ -702,6 +703,7 @@ const styles = StyleSheet.create({
   headerLabel: {
     fontSize: 12,
     fontWeight: '800',
+    fontFamily: 'Inter-Black',
     letterSpacing: 1.5,
     marginBottom: 8,
   },
@@ -720,10 +722,11 @@ const styles = StyleSheet.create({
   addFriendInput: {
     flex: 1,
     borderWidth: 2,
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 18,
     fontSize: 17,
     fontWeight: '600',
+    fontFamily: 'Inter-Black',
   },
   searchLoadingRow: {
     flexDirection: 'row',
@@ -735,10 +738,11 @@ const styles = StyleSheet.create({
   searchLoadingText: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
   },
   searchResultsContainer: {
     marginTop: 12,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -762,10 +766,12 @@ const styles = StyleSheet.create({
   searchResultName: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: 'Inter-Black',
   },
   searchResultUsername: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     marginTop: 2,
   },
   errorContainer: {
@@ -785,11 +791,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     color: '#fc433d',
   },
   errorDismiss: {
     fontSize: 14,
     fontWeight: '700',
+    fontFamily: 'Inter-Bold',
   },
   content: {
     padding: 24,
@@ -812,6 +820,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
   },
   friendCard: {
     borderRadius: 24,
@@ -835,7 +844,6 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#707070',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
@@ -849,6 +857,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 24,
     fontWeight: '900',
+    fontFamily: 'Inter-Black',
     color: '#FFFFFF',
   },
   friendDetails: {
@@ -857,16 +866,19 @@ const styles = StyleSheet.create({
   friendName: {
     fontSize: 20,
     fontWeight: '800',
+    fontFamily: 'Inter-Black',
     marginBottom: 4,
   },
   friendUsername: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     marginBottom: 8,
   },
   friendGoal: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     marginBottom: 6,
   },
   friendStats: {
@@ -878,13 +890,14 @@ const styles = StyleSheet.create({
   friendWatchers: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
   },
   streakBadge: {
     alignItems: 'center',
     backgroundColor: '#000000',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 2,
     borderColor: 'rgba(204,255,0,0.3)',
   },
@@ -973,6 +986,7 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
     minHeight: 80,
   },
   emojiButtons: {
@@ -1000,6 +1014,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 15,
     fontWeight: '700',
+    fontFamily: 'Inter-Bold',
   },
   encouragementActions: {
     flexDirection: 'row',
@@ -1017,6 +1032,7 @@ const styles = StyleSheet.create({
   sendButtonText: {
     fontSize: 15,
     fontWeight: '900',
+    fontFamily: 'Inter-Black',
     color: '#000000',
   },
   inboxSection: {
