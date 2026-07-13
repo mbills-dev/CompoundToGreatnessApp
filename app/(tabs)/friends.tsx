@@ -1028,6 +1028,7 @@ const styles = StyleSheet.create({
   },
   inboxSection: {
     marginBottom: 24,
+    paddingHorizontal: 24,
   },
   inboxLabel: {
     fontSize: 11,
