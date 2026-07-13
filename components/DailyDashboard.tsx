@@ -189,6 +189,7 @@ export default function DailyDashboard({
   onRefresh,
   onLockedInteraction,
 }: DailyDashboardProps) {
+  console.log('%c[BUILD-CHECK] DailyDashboard mounted — v2', 'color: lime; font-size: 20px');
   const { colors, isDark } = useTheme();
   const { triggerRacingBorder } = useRacingBorder();
   const { user } = useAuth();
