@@ -75,7 +75,7 @@ function ReactionParticle({ cfg, onDone }: { cfg: ParticleConfig; onDone?: () =>
 
     animations.push(
       Animated.timing(scale, {
-        toValue: cfg.scale * 1.3,
+        toValue: cfg.scale * 1.15,
         duration: cfg.duration,
         delay: cfg.delay,
         useNativeDriver: true,
@@ -132,7 +132,7 @@ export default function ReactionBurst({ emoji, count, onComplete }: ReactionBurs
       driftY: randomBetween(-280, -180),
       rotation: randomBetween(180, 540),
       rotationDir: Math.random() > 0.5 ? 1 : -1,
-      scale: randomBetween(28, 44),
+      scale: randomBetween(0.8, 1.3),
       delay,
       duration,
     };
