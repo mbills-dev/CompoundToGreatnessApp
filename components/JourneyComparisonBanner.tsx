@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,28 +8,11 @@ import {
   Modal,
   ScrollView,
   Dimensions,
-  ActivityIndicator,
 } from 'react-native';
 import { ArrowRight, X } from 'lucide-react-native';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { isMilestoneDay } from '@/constants/milestones';
-
-interface ProgressPhoto {
-  id: string;
-  challenge_day: number;
-  storage_url: string;
-  is_milestone: boolean;
-}
-
-interface JourneyStats {
-  earliestPhoto: ProgressPhoto | null;
-  latestPhoto: ProgressPhoto | null;
-  photoCount: number;
-  perfectDays: number;
-  daysCompleted: number;
-}
+import { useJourneyComparison, JourneyPhoto } from '@/hooks/useJourneyComparison';
 
 interface JourneyComparisonBannerProps {
   goalId: string;
@@ -39,7 +22,6 @@ interface JourneyComparisonBannerProps {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function JourneyComparisonBanner({ goalId, currentChallengeDay }: JourneyComparisonBannerProps) {
-  const { user } = useAuth();
   const { colors, isDark } = useTheme();
   const cardBg = isDark ? '#000000' : colors.card;
   const cardBorder = isDark ? '#222222' : colors.border;
@@ -50,57 +32,8 @@ export default function JourneyComparisonBanner({ goalId, currentChallengeDay }:
   const dayBadgeBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
   const dayBadgeTextColor = isDark ? '#FFFFFF' : colors.text;
   const ctaTextColor = isDark ? '#1A1A1A' : '#000000';
-  const [stats, setStats] = useState<JourneyStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { stats, loading } = useJourneyComparison(goalId, currentChallengeDay);
   const [modalVisible, setModalVisible] = useState(false);
-
-  useEffect(() => {
-    if (user && goalId) {
-      loadData();
-    }
-  }, [user, goalId]);
-
-  const loadData = async () => {
-    try {
-      const [photosRes, completionsRes] = await Promise.all([
-        supabase
-          .from('progress_photos')
-          .select('id, challenge_day, storage_url, is_milestone')
-          .eq('goal_id', goalId)
-          .eq('user_id', user!.id)
-          .order('challenge_day', { ascending: true }),
-        supabase
-          .from('daily_completions')
-          .select('activities_completed')
-          .eq('goal_id', goalId),
-      ]);
-
-      const photos: ProgressPhoto[] = photosRes.data || [];
-      const completions = completionsRes.data || [];
-
-      const perfectDays = completions.filter((c) => {
-        const acts: string[] = c.activities_completed || [];
-        return acts.length > 0;
-      }).length;
-
-      if (photos.length < 2) {
-        setStats(null);
-        return;
-      }
-
-      setStats({
-        earliestPhoto: photos[0],
-        latestPhoto: photos[photos.length - 1],
-        photoCount: photos.length,
-        perfectDays,
-        daysCompleted: currentChallengeDay,
-      });
-    } catch (err) {
-      console.error('Error loading journey data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading || !stats) return null;
 
@@ -177,14 +110,15 @@ export default function JourneyComparisonBanner({ goalId, currentChallengeDay }:
   );
 }
 
-interface ComparisonModalProps {
+export interface ComparisonModalProps {
   visible: boolean;
   onClose: () => void;
-  earliestPhoto: ProgressPhoto;
-  latestPhoto: ProgressPhoto;
+  earliestPhoto: JourneyPhoto | null;
+  latestPhoto: JourneyPhoto | null;
 }
 
-function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }: ComparisonModalProps) {
+export function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }: ComparisonModalProps) {
+  if (!earliestPhoto || !latestPhoto) return null;
   const { colors, isDark } = useTheme();
   const modalBg = isDark ? '#000000' : colors.background;
   const modalBorderColor = isDark ? '#1A1A1A' : colors.border;

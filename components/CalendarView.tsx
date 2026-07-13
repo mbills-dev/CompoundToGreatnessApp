@@ -24,7 +24,6 @@ import EvidenceLogSection from './EvidenceLog';
 import GracePeriodModal from './GracePeriodModal';
 import DayCardModal, { TileLayout } from './DayCardModal';
 import { isMilestoneDay, TOTAL_CHALLENGE_DAYS } from '@/constants/milestones';
-import JourneyComparisonBanner from './JourneyComparisonBanner';
 import CompoundScoreSection from './CompoundScoreSection';
 import ChallengeWall from './ChallengeWall';
 
@@ -496,7 +495,6 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
               </View>
             </View>
           </View>
-          <JourneyComparisonBanner goalId={goal.id} currentChallengeDay={currentDay} />
           <ChallengeWall
             currentDay={displayDay}
             isDayCompleted={isDayCompleted}

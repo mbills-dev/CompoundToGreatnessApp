@@ -21,6 +21,8 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Goal, DailyActivity, DailyCompletion, ProgressPhoto } from '@/types/database';
 import { MILESTONE_DATA, isMilestoneDay } from '@/constants/milestones';
 import { getDateForChallengeDay } from '@/lib/dateHelpers';
+import { useJourneyComparison } from '@/hooks/useJourneyComparison';
+import { ComparisonModal } from './JourneyComparisonBanner';
 
 export interface TileLayout {
   x: number;
@@ -56,8 +58,10 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
   const shareSheetBg = isDark ? '#1A1A1A' : colors.card;
   const textPrimary = isDark ? '#FFFFFF' : colors.text;
   const textMuted = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
+  const { stats: journeyStats } = useJourneyComparison(goal.id, goal.current_challenge_day ?? 0);
   const [activities, setActivities] = useState<DailyActivity[]>([]);
   const [showFullPhoto, setShowFullPhoto] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
   const [completion, setCompletion] = useState<DailyCompletion | null>(null);
   const [evidenceContent, setEvidenceContent] = useState<string | null>(null);
   const [photo, setPhoto] = useState<ProgressPhoto | null>(null);
@@ -403,6 +407,11 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
                       )}
                     </TouchableOpacity>
                   )}
+                  {journeyStats && (
+                    <TouchableOpacity style={styles.journeyLink} onPress={() => setShowComparison(true)}>
+                      <Text style={styles.journeyLinkText}>See Your Journey →</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </>
             )}
@@ -436,6 +445,13 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
           <X size={18} color="rgba(255,255,255,0.55)" strokeWidth={2.5} />
         </TouchableOpacity>
       </Animated.View>
+
+      <ComparisonModal
+        visible={showComparison}
+        onClose={() => setShowComparison(false)}
+        earliestPhoto={journeyStats?.earliestPhoto ?? null}
+        latestPhoto={journeyStats?.latestPhoto ?? null}
+      />
 
       <Modal visible={showFullPhoto} transparent animationType="fade" onRequestClose={() => setShowFullPhoto(false)}>
         <TouchableOpacity
@@ -748,6 +764,16 @@ const styles = StyleSheet.create({
   shareOptionDivider: {
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  journeyLink: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+  },
+  journeyLinkText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
+    color: LIME,
   },
   fullPhotoOverlay: {
     flex: 1,
