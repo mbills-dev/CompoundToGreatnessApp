@@ -776,6 +776,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 1,
     fontFamily: 'Inter-Bold',
+    textAlign: 'center',
   },
   shareStatDivider: {
     width: 1,

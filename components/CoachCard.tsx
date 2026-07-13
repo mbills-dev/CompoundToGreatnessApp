@@ -110,12 +110,12 @@ interface CoachCardProps {
 
 export default function CoachCard({ challengeDay }: CoachCardProps) {
   const { colors, isDark } = useTheme();
-  const cardBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
-  const textPrimary = isDark ? '#FFFFFF' : colors.text;
-  const textAttr = isDark ? '#444444' : colors.textTertiary;
-  const footerLabelColor = isDark ? '#555555' : colors.textTertiary;
-  const footerBorderColor = isDark ? 'rgba(255,255,255,0.08)' : colors.border;
-  const progressTrackBg = isDark ? 'rgba(255,255,255,0.12)' : colors.border;
+  const cardBg = '#1A1A1A';
+  const textPrimary = '#FFFFFF';
+  const textAttr = '#444444';
+  const footerLabelColor = '#555555';
+  const footerBorderColor = 'rgba(255,255,255,0.08)';
+  const progressTrackBg = 'rgba(255,255,255,0.12)';
   const day = challengeDay || 1;
   const index = Math.min(Math.max(day - 1, 0), DAYS.length - 1);
   const entry = DAYS[index];
