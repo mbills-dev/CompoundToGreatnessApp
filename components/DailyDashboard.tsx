@@ -269,6 +269,7 @@ export default function DailyDashboard({
 
       if (user?.id) {
         checkForNewReactions(user.id).then((groups) => {
+          console.log('[reaction-poll] groups found:', groups);
           if (groups.length > 0) {
             setReactionBursts(groups);
             setCurrentBurstIdx(0);
@@ -295,6 +296,7 @@ export default function DailyDashboard({
           filter: `to_user_id=eq.${user.id}`,
         },
         (payload) => {
+          console.log('[reaction-realtime] payload received:', payload);
           const row = payload.new as any;
           if (row.message !== null) return;
           const emoji = row.emoji;
@@ -1011,6 +1013,7 @@ export default function DailyDashboard({
         </LinearGradient>
       </ScrollView>
 
+      {(() => { console.log('[reaction-render] bursts:', reactionBursts.length, 'idx:', currentBurstIdx); return null; })()}
       {reactionBursts.length > 0 && currentBurstIdx < reactionBursts.length && (
         <ReactionBurst
           key={currentBurstIdx}
