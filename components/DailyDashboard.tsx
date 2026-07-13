@@ -306,7 +306,11 @@ export default function DailyDashboard({
           });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status !== 'SUBSCRIBED') {
+          console.warn('[reaction-bursts] subscription status:', status);
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);
