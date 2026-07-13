@@ -1,4 +1,5 @@
-import { View } from 'react-native';
+import { View, Platform } from 'react-native';
+import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Users } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -38,6 +39,14 @@ function TabLayoutInner() {
   const { showRacingBorder, resetRacingBorder } = useRacingBorder();
   const { visible } = useTabBarVisibility();
 
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const bg = isDark ? colors.background : '#F5F5F0';
+      document.documentElement.style.backgroundColor = bg;
+      document.body.style.backgroundColor = bg;
+    }
+  }, [isDark, colors.background]);
+
   return (
     <View style={{ flex: 1 }}>
       <Tabs
@@ -55,6 +64,9 @@ function TabLayoutInner() {
             paddingBottom: 30,
             paddingTop: 10,
             display: visible ? 'flex' : 'none',
+            maxWidth: 480,
+            width: '100%',
+            alignSelf: 'center',
           },
           tabBarActiveTintColor: '#CCFF00',
           tabBarInactiveTintColor: isDark ? colors.textTertiary : 'rgba(0,0,0,0.3)',
