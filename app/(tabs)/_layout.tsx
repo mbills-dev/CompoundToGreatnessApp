@@ -56,6 +56,7 @@ function TabLayoutInner() {
             maxWidth: 480,
             width: '100%',
             alignSelf: 'center',
+            backgroundColor: isDark ? colors.background : '#F5F5F0',
           },
           tabBarStyle: {
             backgroundColor: isDark ? colors.background : '#F5F5F0',
