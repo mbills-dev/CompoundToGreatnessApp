@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Modal,
   Platform,
   Share,
   Alert,
@@ -54,7 +55,9 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
   const placeholderBg = isDark ? '#111111' : colors.backgroundSecondary;
   const shareSheetBg = isDark ? '#1A1A1A' : colors.card;
   const textPrimary = isDark ? '#FFFFFF' : colors.text;
+  const textMuted = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
   const [activities, setActivities] = useState<DailyActivity[]>([]);
+  const [showFullPhoto, setShowFullPhoto] = useState(false);
   const [completion, setCompletion] = useState<DailyCompletion | null>(null);
   const [evidenceContent, setEvidenceContent] = useState<string | null>(null);
   const [photo, setPhoto] = useState<ProgressPhoto | null>(null);
@@ -307,10 +310,10 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
             <View style={[styles.header, { backgroundColor: headerBg }]}>
               <View style={styles.headerLeft}>
                 <Text style={[styles.dayNumber, { color: textPrimary }]}>DAY {day}</Text>
-                <Text style={styles.challengeLabel}>77-DAY CHALLENGE</Text>
+                <Text style={[styles.challengeLabel, { color: textMuted }]}>77-DAY CHALLENGE</Text>
               </View>
               <View style={styles.headerRight}>
-                {dateStr && <Text style={styles.dateText}>{formatDate(dateStr)}</Text>}
+                {dateStr && <Text style={[styles.dateText, { color: textMuted }]}>{formatDate(dateStr)}</Text>}
                 {isMilestone && (
                   <View style={styles.milestonePill}>
                     <Text style={styles.milestonePillText}>MILESTONE</Text>
@@ -321,10 +324,10 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
 
             {isMilestone && milestoneData && (
               <View style={styles.milestoneBlock}>
-                <Text style={styles.milestoneBlockTag}>MILESTONE UNLOCKED</Text>
-                <Text style={styles.milestoneH1}>{milestoneData.h1} /</Text>
+                <Text style={[styles.milestoneBlockTag, { color: textMuted }]}>MILESTONE UNLOCKED</Text>
+                <Text style={[styles.milestoneH1, { color: textPrimary }]}>{milestoneData.h1} /</Text>
                 <Text style={styles.milestoneH2}>{milestoneData.h2}</Text>
-                <Text style={styles.milestoneBody}>{milestoneData.body}</Text>
+                <Text style={[styles.milestoneBody, { color: textMuted }]}>{milestoneData.body}</Text>
               </View>
             )}
 
@@ -345,7 +348,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
                         </View>
                         <Text style={[
                           styles.activityName,
-                          done ? styles.activityNameDone : styles.activityNameMissed,
+                          done ? [styles.activityNameDone, { color: textPrimary }] : [styles.activityNameMissed, { color: textMuted }],
                         ]}>
                           {act.activity_name}
                         </Text>
@@ -353,7 +356,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
                     );
                   })}
                   {activities.length === 0 && (
-                    <Text style={styles.emptyNote}>No activities configured</Text>
+                    <Text style={[styles.emptyNote, { color: textMuted }]}>No activities configured</Text>
                   )}
                 </View>
 
@@ -361,10 +364,10 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
                   <Text style={styles.sectionLabel}>EVIDENCE LOG</Text>
                   {evidenceContent ? (
                     <View style={[styles.evidenceBox, { backgroundColor: evidenceBg }]}>
-                      <Text style={styles.evidenceText}>"{evidenceContent}"</Text>
+                      <Text style={[styles.evidenceText, { color: textMuted }]}>"{evidenceContent}"</Text>
                     </View>
                   ) : (
-                    <Text style={styles.emptyNote}>No entry for this day</Text>
+                    <Text style={[styles.emptyNote, { color: textMuted }]}>No entry for this day</Text>
                   )}
                 </View>
 
@@ -372,7 +375,9 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
                   <Text style={styles.sectionLabel}>PROGRESS PHOTO</Text>
                   {photo ? (
                     <View style={styles.photoWrapper}>
-                      <Image source={{ uri: photo.storage_url }} style={styles.photo} resizeMode="cover" />
+                      <TouchableOpacity activeOpacity={0.9} onPress={() => setShowFullPhoto(true)}>
+                        <Image source={{ uri: photo.storage_url }} style={styles.photo} resizeMode="cover" />
+                      </TouchableOpacity>
                       <View style={styles.photoStamp}>
                         <Text style={styles.photoStampText}>
                           Day {day}{isMilestone && milestoneData ? ` · ${milestoneData.h1} ${milestoneData.h2}` : ''}
@@ -389,11 +394,11 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
                       disabled={uploadingPhoto}
                     >
                       {uploadingPhoto ? (
-                        <ActivityIndicator color="rgba(255,255,255,0.4)" />
+                        <ActivityIndicator color={textMuted} />
                       ) : (
                         <>
-                          <Camera size={22} color="rgba(255,255,255,0.3)" strokeWidth={1.5} />
-                          <Text style={styles.photoPlaceholderText}>Add photo</Text>
+                          <Camera size={22} color={textMuted} strokeWidth={1.5} />
+                          <Text style={[styles.photoPlaceholderText, { color: textMuted }]}>Add photo</Text>
                         </>
                       )}
                     </TouchableOpacity>
@@ -410,14 +415,14 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
             <View style={[styles.shareSheet, { backgroundColor: shareSheetBg }]}>
               <View style={styles.shareSheetHandle} />
               <TouchableOpacity style={styles.shareOption} onPress={handleShareWithWatchers}>
-                <Text style={styles.shareOptionText}>Share with my watchers</Text>
+                <Text style={[styles.shareOptionText, { color: textPrimary }]}>Share with my watchers</Text>
               </TouchableOpacity>
               <View style={styles.shareOptionDivider} />
               <TouchableOpacity style={styles.shareOption} onPress={handleShareExternally}>
-                <Text style={styles.shareOptionText}>Share externally</Text>
+                <Text style={[styles.shareOptionText, { color: textPrimary }]}>Share externally</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.shareOption, { marginTop: 8 }]} onPress={() => setShowShareSheet(false)}>
-                <Text style={[styles.shareOptionText, { color: 'rgba(255,255,255,0.4)' }]}>Cancel</Text>
+                <Text style={[styles.shareOptionText, { color: textMuted }]}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -431,6 +436,23 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
           <X size={18} color="rgba(255,255,255,0.55)" strokeWidth={2.5} />
         </TouchableOpacity>
       </Animated.View>
+
+      <Modal visible={showFullPhoto} transparent animationType="fade" onRequestClose={() => setShowFullPhoto(false)}>
+        <TouchableOpacity
+          style={styles.fullPhotoOverlay}
+          activeOpacity={1}
+          onPress={() => setShowFullPhoto(false)}
+        >
+          <Image
+            source={{ uri: photo?.storage_url }}
+            style={styles.fullPhotoImage}
+            resizeMode="contain"
+          />
+          <TouchableOpacity style={styles.fullPhotoClose} onPress={() => setShowFullPhoto(false)}>
+            <X size={22} color="#FFFFFF" strokeWidth={2.5} />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -726,5 +748,26 @@ const styles = StyleSheet.create({
   shareOptionDivider: {
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  fullPhotoOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullPhotoImage: {
+    width: '100%',
+    height: '80%',
+  },
+  fullPhotoClose: {
+    position: 'absolute',
+    top: 52,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
