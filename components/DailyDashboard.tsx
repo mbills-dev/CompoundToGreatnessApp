@@ -215,7 +215,6 @@ export default function DailyDashboard({
   const [confettiCompleted, setConfettiCompleted] = useState(false);
   const [reactionBursts, setReactionBursts] = useState<ReactionGroup[]>([]);
   const [currentBurstIdx, setCurrentBurstIdx] = useState(0);
-  const reactionsCheckedRef = useRef(false);
   const { celebrationOpen, openCelebration, closeCelebration } = useCelebration();
   const [watcherCount, setWatcherCount] = useState(0);
   const [perfectDays, setPerfectDays] = useState(0);
@@ -268,8 +267,7 @@ export default function DailyDashboard({
         openCelebration();
       }
 
-      if (user?.id && !reactionsCheckedRef.current) {
-        reactionsCheckedRef.current = true;
+      if (user?.id) {
         checkForNewReactions(user.id).then((groups) => {
           if (groups.length > 0) {
             setReactionBursts(groups);
