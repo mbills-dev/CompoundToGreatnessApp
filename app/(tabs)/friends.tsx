@@ -52,7 +52,6 @@ export default function FriendsScreen() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<string | null>(null);
-  const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
   const [encouragementMessage, setEncouragementMessage] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -309,7 +308,7 @@ export default function FriendsScreen() {
     }
   };
 
-  const sendEncouragement = async (friendId: string, emoji: string) => {
+  const sendEncouragement = async (friendId: string, emoji: string | null) => {
     if (!user) return;
     try {
       const { error: insErr } = await supabase
@@ -322,7 +321,6 @@ export default function FriendsScreen() {
         });
       if (insErr) throw insErr;
       setSelectedFriend(null);
-      setSelectedEmoji(null);
       setEncouragementMessage('');
     } catch (e: any) {
       setError(e.message || 'Failed to send encouragement');
@@ -542,11 +540,11 @@ export default function FriendsScreen() {
                                   styles.emojiButton,
                                   {
                                     backgroundColor: isDark ? '#1A1A1A' : '#1A1A1A',
-                                    borderColor: selectedEmoji === emoji ? colors.primary : isDark ? '#2A2A2A' : '#111111',
-                                    borderWidth: selectedEmoji === emoji ? 2.5 : 2,
+                                    borderColor: isDark ? '#2A2A2A' : '#111111',
+                                    borderWidth: 2,
                                   },
                                 ]}
-                                onPress={() => setSelectedEmoji(emoji === selectedEmoji ? null : emoji)}
+                                onPress={() => setEncouragementMessage(prev => prev + emoji)}
                               >
                                 <Text style={styles.emojiButtonText}>{emoji}</Text>
                               </TouchableOpacity>
@@ -557,7 +555,6 @@ export default function FriendsScreen() {
                               style={styles.cancelButton}
                               onPress={() => {
                                 setSelectedFriend(null);
-                                setSelectedEmoji(null);
                                 setEncouragementMessage('');
                               }}
                             >
@@ -565,7 +562,7 @@ export default function FriendsScreen() {
                             </TouchableOpacity>
                             <TouchableOpacity
                               style={[styles.sendButton, { backgroundColor: colors.primary }]}
-                              onPress={() => sendEncouragement(friend.id, selectedEmoji ?? '')}
+                              onPress={() => sendEncouragement(friend.id, null)}
                             >
                               <Text style={styles.sendButtonText}>Send</Text>
                             </TouchableOpacity>
