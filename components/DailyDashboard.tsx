@@ -215,6 +215,7 @@ export default function DailyDashboard({
   const [confettiCompleted, setConfettiCompleted] = useState(false);
   const [reactionBursts, setReactionBursts] = useState<ReactionGroup[]>([]);
   const [currentBurstIdx, setCurrentBurstIdx] = useState(0);
+  const isFocusedRef = useRef(true);
   const { celebrationOpen, openCelebration, closeCelebration } = useCelebration();
   const [watcherCount, setWatcherCount] = useState(0);
   const [perfectDays, setPerfectDays] = useState(0);
@@ -259,6 +260,8 @@ export default function DailyDashboard({
   // so the mount effect above won't re-run on tab focus.
   useFocusEffect(
     useCallback(() => {
+      isFocusedRef.current = true;
+
       const celebrationPending =
         goal.challenge_phase === 'challenge' &&
         goal.current_challenge_day >= 77 &&
@@ -268,9 +271,7 @@ export default function DailyDashboard({
       }
 
       if (user?.id) {
-        console.log('[reaction-debug] user.id being used:', user?.id);
         checkForNewReactions(user.id).then((groups) => {
-          console.log('[reaction-poll] groups found:', groups);
           if (groups.length > 0) {
             setReactionBursts(groups);
             setCurrentBurstIdx(0);
@@ -279,7 +280,11 @@ export default function DailyDashboard({
           console.error('checkForNewReactions failed:', err);
         });
       }
-    }, [goal.challenge_phase, goal.current_challenge_day, goal.celebration_seen])
+
+      return () => {
+        isFocusedRef.current = false;
+      };
+    }, [goal.challenge_phase, goal.current_challenge_day, goal.celebration_seen, user?.id, celebrationOpen, openCelebration])
   );
 
   // Real-time subscription for new reactions while the app is open
@@ -297,11 +302,14 @@ export default function DailyDashboard({
           filter: `to_user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('[reaction-realtime] payload received:', payload);
           const row = payload.new as any;
           if (row.message !== null) return;
           const emoji = row.emoji;
           if (!emoji) return;
+          // Only queue the burst if the Today tab is focused.
+          // Otherwise the animation plays invisibly and gets marked read
+          // before the user ever sees it.
+          if (!isFocusedRef.current) return;
           setReactionBursts((prev) => {
             const next = [...prev, { emoji, count: 1 }];
             if (prev.length === 0) setCurrentBurstIdx(0);
@@ -1014,7 +1022,6 @@ export default function DailyDashboard({
         </LinearGradient>
       </ScrollView>
 
-      {(() => { console.log('[reaction-render] bursts:', reactionBursts.length, 'idx:', currentBurstIdx); return null; })()}
       {reactionBursts.length > 0 && currentBurstIdx < reactionBursts.length && (
         <ReactionBurst
           key={currentBurstIdx}
