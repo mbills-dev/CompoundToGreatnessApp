@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MILESTONE_DATA, getNextMilestone, getMilestoneProgress, isMilestoneDay } from '@/constants/milestones';
+import { useTheme } from '@/contexts/ThemeContext';
 
 type QuoteEntry = {
   type: 'quote';
@@ -108,6 +109,13 @@ interface CoachCardProps {
 }
 
 export default function CoachCard({ challengeDay }: CoachCardProps) {
+  const { colors, isDark } = useTheme();
+  const cardBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
+  const textPrimary = isDark ? '#FFFFFF' : colors.text;
+  const textAttr = isDark ? '#444444' : colors.textTertiary;
+  const footerLabelColor = isDark ? '#555555' : colors.textTertiary;
+  const footerBorderColor = isDark ? 'rgba(255,255,255,0.08)' : colors.border;
+  const progressTrackBg = isDark ? 'rgba(255,255,255,0.12)' : colors.border;
   const day = challengeDay || 1;
   const index = Math.min(Math.max(day - 1, 0), DAYS.length - 1);
   const entry = DAYS[index];
@@ -144,19 +152,19 @@ export default function CoachCard({ challengeDay }: CoachCardProps) {
   const progress = getMilestoneProgress(day);
 
   return (
-    <View style={styles.quoteCard}>
+    <View style={[styles.quoteCard, { backgroundColor: cardBg }]}>
       <View style={styles.quoteContent}>
-        <Text style={styles.quoteLine1}>{quoteEntry.l1}</Text>
+        <Text style={[styles.quoteLine1, { color: textPrimary }]}>{quoteEntry.l1}</Text>
         <Text style={styles.quoteLine2}>{quoteEntry.l2}</Text>
-        <Text style={styles.quoteLine3}>{quoteEntry.l3}</Text>
-        <Text style={styles.quoteAttr}>— {quoteEntry.attr}</Text>
+        <Text style={[styles.quoteLine3, { color: textPrimary }]}>{quoteEntry.l3}</Text>
+        <Text style={[styles.quoteAttr, { color: textAttr }]}>— {quoteEntry.attr}</Text>
       </View>
-      <View style={styles.quoteFooter}>
-        <Text style={styles.quoteNextLabel}>NEXT MILESTONE</Text>
+      <View style={[styles.quoteFooter, { borderTopColor: footerBorderColor }]}>
+        <Text style={[styles.quoteNextLabel, { color: footerLabelColor }]}>NEXT MILESTONE</Text>
         <View style={styles.quotePill}>
           <Text style={styles.quotePillText}>{nextMilestone ? `Day ${nextMilestone}` : quoteEntry.next}</Text>
         </View>
-        <View style={styles.progressTrack}>
+        <View style={[styles.progressTrack, { backgroundColor: progressTrackBg }]}>
           <View style={[styles.progressFill, { width: `${progress}%` }]} />
         </View>
       </View>

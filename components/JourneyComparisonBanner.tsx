@@ -13,6 +13,7 @@ import {
 import { ArrowRight, X } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { isMilestoneDay } from '@/constants/milestones';
 
 interface ProgressPhoto {
@@ -39,6 +40,16 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function JourneyComparisonBanner({ goalId, currentChallengeDay }: JourneyComparisonBannerProps) {
   const { user } = useAuth();
+  const { colors, isDark } = useTheme();
+  const cardBg = isDark ? '#000000' : colors.card;
+  const cardBorder = isDark ? '#222222' : colors.border;
+  const headerBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
+  const textPrimary = isDark ? '#FFFFFF' : colors.text;
+  const textMuted = isDark ? 'rgba(255,255,255,0.4)' : colors.textTertiary;
+  const statTileBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
+  const dayBadgeBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
+  const dayBadgeTextColor = isDark ? '#FFFFFF' : colors.text;
+  const ctaTextColor = isDark ? '#1A1A1A' : '#000000';
   const [stats, setStats] = useState<JourneyStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -101,13 +112,13 @@ export default function JourneyComparisonBanner({ goalId, currentChallengeDay }:
 
   return (
     <>
-      <View style={styles.card}>
-        <View style={styles.header}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+        <View style={[styles.header, { backgroundColor: headerBg }]}>
           <Text style={styles.title}>
-            <Text style={styles.titleWhite}>See Your </Text>
+            <Text style={[styles.titleWhite, { color: textPrimary }]}>See Your </Text>
             <Text style={styles.titleLime}>Journey.</Text>
           </Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: textMuted }]}>
             Day {earliestPhoto.challenge_day} → Day {latestPhoto.challenge_day} · {photoCount} photos captured
           </Text>
         </View>
@@ -115,8 +126,8 @@ export default function JourneyComparisonBanner({ goalId, currentChallengeDay }:
         <View style={styles.photoSection}>
           <View style={styles.photoPanel}>
             <Image source={{ uri: earliestPhoto.storage_url }} style={styles.photo} resizeMode="cover" />
-            <View style={[styles.dayBadge, isEarliestMilestone && styles.dayBadgeMilestone]}>
-              <Text style={[styles.dayBadgeText, isEarliestMilestone && styles.dayBadgeTextMilestone]}>
+            <View style={[styles.dayBadge, { backgroundColor: dayBadgeBg }, isEarliestMilestone && styles.dayBadgeMilestone]}>
+              <Text style={[styles.dayBadgeText, { color: dayBadgeTextColor }, isEarliestMilestone && styles.dayBadgeTextMilestone]}>
                 DAY {earliestPhoto.challenge_day}
               </Text>
             </View>
@@ -128,8 +139,8 @@ export default function JourneyComparisonBanner({ goalId, currentChallengeDay }:
 
           <View style={styles.photoPanel}>
             <Image source={{ uri: latestPhoto.storage_url }} style={styles.photo} resizeMode="cover" />
-            <View style={[styles.dayBadge, isLatestMilestone && styles.dayBadgeMilestone]}>
-              <Text style={[styles.dayBadgeText, isLatestMilestone && styles.dayBadgeTextMilestone]}>
+            <View style={[styles.dayBadge, { backgroundColor: dayBadgeBg }, isLatestMilestone && styles.dayBadgeMilestone]}>
+              <Text style={[styles.dayBadgeText, { color: dayBadgeTextColor }, isLatestMilestone && styles.dayBadgeTextMilestone]}>
                 DAY {latestPhoto.challenge_day}
               </Text>
             </View>
@@ -137,22 +148,22 @@ export default function JourneyComparisonBanner({ goalId, currentChallengeDay }:
         </View>
 
         <View style={styles.statsRow}>
-          <View style={styles.statTile}>
+          <View style={[styles.statTile, { backgroundColor: statTileBg }]}>
             <Text style={styles.statValue}>{daysCompleted}</Text>
-            <Text style={styles.statLabel}>DAYS IN</Text>
+            <Text style={[styles.statLabel, { color: textMuted }]}>DAYS IN</Text>
           </View>
-          <View style={styles.statTile}>
+          <View style={[styles.statTile, { backgroundColor: statTileBg }]}>
             <Text style={styles.statValue}>{perfectDays}</Text>
-            <Text style={styles.statLabel}>PERFECT DAYS</Text>
+            <Text style={[styles.statLabel, { color: textMuted }]}>PERFECT DAYS</Text>
           </View>
-          <View style={styles.statTile}>
+          <View style={[styles.statTile, { backgroundColor: statTileBg }]}>
             <Text style={styles.statValue}>{photoCount}</Text>
-            <Text style={styles.statLabel}>PHOTOS</Text>
+            <Text style={[styles.statLabel, { color: textMuted }]}>PHOTOS</Text>
           </View>
         </View>
 
         <TouchableOpacity style={styles.ctaButton} onPress={() => setModalVisible(true)} activeOpacity={0.8}>
-          <Text style={styles.ctaText}>View Full Comparison →</Text>
+          <Text style={[styles.ctaText, { color: ctaTextColor }]}>View Full Comparison →</Text>
         </TouchableOpacity>
       </View>
 
@@ -174,6 +185,14 @@ interface ComparisonModalProps {
 }
 
 function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }: ComparisonModalProps) {
+  const { colors, isDark } = useTheme();
+  const modalBg = isDark ? '#000000' : colors.background;
+  const modalBorderColor = isDark ? '#1A1A1A' : colors.border;
+  const modalTextPrimary = isDark ? '#FFFFFF' : colors.text;
+  const modalTextMuted = isDark ? 'rgba(255,255,255,0.35)' : colors.textTertiary;
+  const modalDayBadgeBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
+  const modalDayBadgeTextColor = isDark ? '#FFFFFF' : colors.text;
+
   const isEarliestMilestone = isMilestoneDay(earliestPhoto.challenge_day) || earliestPhoto.is_milestone;
   const isLatestMilestone = isMilestoneDay(latestPhoto.challenge_day) || latestPhoto.is_milestone;
 
@@ -181,16 +200,16 @@ function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }: Compa
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" statusBarTranslucent>
-      <View style={modalStyles.container}>
-        <View style={modalStyles.topBar}>
-          <Text style={modalStyles.topBarTitle}>Your Journey</Text>
+      <View style={[modalStyles.container, { backgroundColor: modalBg }]}>
+        <View style={[modalStyles.topBar, { borderBottomColor: modalBorderColor }]}>
+          <Text style={[modalStyles.topBarTitle, { color: modalTextPrimary }]}>Your Journey</Text>
           <TouchableOpacity onPress={onClose} style={modalStyles.closeBtn} activeOpacity={0.7}>
             <X size={18} color="rgba(255,255,255,0.6)" strokeWidth={2.5} />
           </TouchableOpacity>
         </View>
 
         <ScrollView contentContainerStyle={modalStyles.content} showsVerticalScrollIndicator={false}>
-          <Text style={modalStyles.sectionLabel}>SIDE BY SIDE</Text>
+          <Text style={[modalStyles.sectionLabel, { color: modalTextMuted }]}>SIDE BY SIDE</Text>
 
           <View style={modalStyles.sideBySide}>
             <View style={[modalStyles.modalPhotoPanel, { width: panelWidth }]}>
@@ -200,8 +219,8 @@ function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }: Compa
                 resizeMode="cover"
               />
               <View style={modalStyles.modalOverlay}>
-                <View style={[modalStyles.modalDayBadge, isEarliestMilestone && modalStyles.modalDayBadgeMilestone]}>
-                  <Text style={[modalStyles.modalDayBadgeText, isEarliestMilestone && modalStyles.modalDayBadgeTextMilestone]}>
+                <View style={[modalStyles.modalDayBadge, { backgroundColor: modalDayBadgeBg }, isEarliestMilestone && modalStyles.modalDayBadgeMilestone]}>
+                  <Text style={[modalStyles.modalDayBadgeText, { color: modalDayBadgeTextColor }, isEarliestMilestone && modalStyles.modalDayBadgeTextMilestone]}>
                     DAY {earliestPhoto.challenge_day}
                   </Text>
                 </View>
@@ -215,8 +234,8 @@ function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }: Compa
                 resizeMode="cover"
               />
               <View style={modalStyles.modalOverlay}>
-                <View style={[modalStyles.modalDayBadge, isLatestMilestone && modalStyles.modalDayBadgeMilestone]}>
-                  <Text style={[modalStyles.modalDayBadgeText, isLatestMilestone && modalStyles.modalDayBadgeTextMilestone]}>
+                <View style={[modalStyles.modalDayBadge, { backgroundColor: modalDayBadgeBg }, isLatestMilestone && modalStyles.modalDayBadgeMilestone]}>
+                  <Text style={[modalStyles.modalDayBadgeText, { color: modalDayBadgeTextColor }, isLatestMilestone && modalStyles.modalDayBadgeTextMilestone]}>
                     DAY {latestPhoto.challenge_day}
                   </Text>
                 </View>
@@ -224,7 +243,7 @@ function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }: Compa
             </View>
           </View>
 
-          <Text style={modalStyles.sectionLabel}>EARLIEST</Text>
+          <Text style={[modalStyles.sectionLabel, { color: modalTextMuted }]}>EARLIEST</Text>
           <View style={modalStyles.fullPhotoPanel}>
             <Image
               source={{ uri: earliestPhoto.storage_url }}
@@ -232,15 +251,15 @@ function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }: Compa
               resizeMode="cover"
             />
             <View style={modalStyles.fullOverlay}>
-              <View style={[modalStyles.modalDayBadge, isEarliestMilestone && modalStyles.modalDayBadgeMilestone]}>
-                <Text style={[modalStyles.modalDayBadgeText, isEarliestMilestone && modalStyles.modalDayBadgeTextMilestone]}>
+              <View style={[modalStyles.modalDayBadge, { backgroundColor: modalDayBadgeBg }, isEarliestMilestone && modalStyles.modalDayBadgeMilestone]}>
+                <Text style={[modalStyles.modalDayBadgeText, { color: modalDayBadgeTextColor }, isEarliestMilestone && modalStyles.modalDayBadgeTextMilestone]}>
                   DAY {earliestPhoto.challenge_day}
                 </Text>
               </View>
             </View>
           </View>
 
-          <Text style={modalStyles.sectionLabel}>MOST RECENT</Text>
+          <Text style={[modalStyles.sectionLabel, { color: modalTextMuted }]}>MOST RECENT</Text>
           <View style={modalStyles.fullPhotoPanel}>
             <Image
               source={{ uri: latestPhoto.storage_url }}
@@ -248,8 +267,8 @@ function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }: Compa
               resizeMode="cover"
             />
             <View style={modalStyles.fullOverlay}>
-              <View style={[modalStyles.modalDayBadge, isLatestMilestone && modalStyles.modalDayBadgeMilestone]}>
-                <Text style={[modalStyles.modalDayBadgeText, isLatestMilestone && modalStyles.modalDayBadgeTextMilestone]}>
+              <View style={[modalStyles.modalDayBadge, { backgroundColor: modalDayBadgeBg }, isLatestMilestone && modalStyles.modalDayBadgeMilestone]}>
+                <Text style={[modalStyles.modalDayBadgeText, { color: modalDayBadgeTextColor }, isLatestMilestone && modalStyles.modalDayBadgeTextMilestone]}>
                   DAY {latestPhoto.challenge_day}
                 </Text>
               </View>

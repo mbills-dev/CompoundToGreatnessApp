@@ -51,7 +51,7 @@ export default function ChallengeCompleteScreen({
   onSeeWall,
   onDismiss,
 }: ChallengeCompleteScreenProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const shareCardRef = useRef<View>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [showConfetti, setShowConfetti] = useState(true);
@@ -365,7 +365,7 @@ export default function ChallengeCompleteScreen({
   );
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: isDark ? '#000000' : colors.background }]}>
       <TouchableOpacity
         onPress={onDismiss}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -374,7 +374,7 @@ export default function ChallengeCompleteScreen({
         <X size={24} color="rgba(255,255,255,0.4)" />
       </TouchableOpacity>
       <LinearGradient
-        colors={['#000000', '#0A0A0A', '#000000']}
+        colors={isDark ? ['#000000', '#0A0A0A', '#000000'] : [colors.background, colors.background, colors.background]}
         style={styles.gradient}
       >
         <ScrollView
