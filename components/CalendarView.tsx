@@ -483,15 +483,15 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
                 DAY {displayDay} of {TOTAL_CHALLENGE_DAYS}
               </Text>
             </View>
-            <View style={styles.shareStatsRow}>
+            <View style={[styles.shareStatsRow, !isDark && styles.shareStatsRowBoxed]}>
               <View style={styles.shareStat}>
                 <Text style={[styles.shareStatValue, { color: colors.primary }]}>{completedDays}</Text>
-                <Text style={[styles.shareStatLabel, { color: textMuted }]}>DAYS COMPLETED</Text>
+                <Text style={[styles.shareStatLabel, { color: isDark ? textMuted : 'rgba(255,255,255,0.4)' }]}>DAYS COMPLETED</Text>
               </View>
-              <View style={[styles.shareStatDivider, { backgroundColor: borderColor }]} />
+              <View style={[styles.shareStatDivider, { backgroundColor: isDark ? borderColor : 'rgba(255,255,255,0.15)' }]} />
               <View style={styles.shareStat}>
                 <Text style={[styles.shareStatValue, { color: colors.primary }]}>{Math.round((completedDays / TOTAL_CHALLENGE_DAYS) * 100)}%</Text>
-                <Text style={[styles.shareStatLabel, { color: textMuted }]}>PROGRESS</Text>
+                <Text style={[styles.shareStatLabel, { color: isDark ? textMuted : 'rgba(255,255,255,0.4)' }]}>PROGRESS</Text>
               </View>
             </View>
           </View>
@@ -752,15 +752,18 @@ const styles = StyleSheet.create({
   shareStatsRow: {
     flexDirection: 'row',
     marginTop: 24,
-    gap: 32,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  shareStat: {
-    alignItems: 'center',
+  shareStatsRowBoxed: {
     backgroundColor: '#1A1A1A',
     borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+  },
+  shareStat: {
+    flex: 1,
+    alignItems: 'center',
   },
   shareStatValue: {
     fontSize: 36,
@@ -777,6 +780,7 @@ const styles = StyleSheet.create({
   shareStatDivider: {
     width: 1,
     height: 40,
+    marginHorizontal: 24,
   },
   shareFooter: {
     display: 'none',
