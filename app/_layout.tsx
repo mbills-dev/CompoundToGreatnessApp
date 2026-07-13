@@ -91,7 +91,7 @@ function AppContent() {
 
   return (
     <>
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: isDark ? colors.background : '#F5F5F0' } }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="watch/[code]" options={{ headerShown: false }} />
         <Stack.Screen name="archived-challenges" options={{ headerShown: false }} />
