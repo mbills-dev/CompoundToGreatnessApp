@@ -9,6 +9,7 @@ import {
   Platform,
   TouchableOpacity,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -23,6 +24,8 @@ import {
   Sparkles,
   Archive,
   Eye,
+  Check,
+  X,
 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -61,6 +64,7 @@ export default function SettingsScreen() {
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [dayEndTime, setDayEndTime] = useState('12:00 AM');
   const [morningNotifications, setMorningNotifications] = useState(true);
@@ -110,6 +114,7 @@ export default function SettingsScreen() {
         setSettingsId(data.id);
         setFirstName(data.first_name || '');
         setLastName(data.last_name || '');
+        setName([data.first_name, data.last_name].filter(Boolean).join(' '));
         setEmail(data.email || user.email || '');
         setDayEndTime(data.day_end_time || '12:00 AM');
         setMorningNotifications(data.morning_notifications);
@@ -133,6 +138,7 @@ export default function SettingsScreen() {
           setSettingsId(newSettings.id);
           setFirstName(newSettings.first_name || '');
           setLastName(newSettings.last_name || '');
+          setName([newSettings.first_name, newSettings.last_name].filter(Boolean).join(' '));
           setEmail(newSettings.email || user.email || '');
         }
       }
@@ -237,14 +243,14 @@ export default function SettingsScreen() {
     }
   }, [settingsId]);
 
-  const handleFirstNameChange = (value: string) => {
-    setFirstName(value);
-    saveSettings({ first_name: value });
-  };
-
-  const handleLastNameChange = (value: string) => {
-    setLastName(value);
-    saveSettings({ last_name: value });
+  const handleNameChange = (value: string) => {
+    setName(value);
+    const parts = value.trim().split(/\s+/).filter(Boolean);
+    const first = parts[0] || '';
+    const last = parts.slice(1).join(' ');
+    setFirstName(first);
+    setLastName(last);
+    saveSettings({ first_name: first, last_name: last });
   };
 
   const handleEmailChange = (value: string) => {
@@ -553,24 +559,27 @@ export default function SettingsScreen() {
           </Text>
 
           <GlassPanel isDark={isDark} colors={colors}>
-            <ProfileInput label="Username" value={username} onChangeText={handleUsernameChange} onBlur={handleUsernameBlur} placeholder="username" colors={colors} isDark={isDark} autoCapitalize="none" isFirst isLast={false} />
-            <ProfileInput label="First" value={firstName} onChangeText={handleFirstNameChange} placeholder="First name" colors={colors} isDark={isDark} isLast={false} />
-            <ProfileInput label="Last" value={lastName} onChangeText={handleLastNameChange} placeholder="Last name" colors={colors} isDark={isDark} isLast={false} />
+            <ProfileInput
+              label="Username"
+              value={username}
+              onChangeText={handleUsernameChange}
+              onBlur={handleUsernameBlur}
+              placeholder="username"
+              colors={colors}
+              isDark={isDark}
+              autoCapitalize="none"
+              isFirst
+              isLast={false}
+              rightElement={
+                usernameAvailability === 'checking' ? <ActivityIndicator size="small" color={colors.textTertiary} /> :
+                usernameAvailability === 'available' ? <Check size={18} color="#ccff00" strokeWidth={3} /> :
+                usernameAvailability === 'taken' ? <X size={18} color="#EF4444" strokeWidth={3} /> :
+                null
+              }
+            />
+            <ProfileInput label="Name" value={name} onChangeText={handleNameChange} placeholder="Your name" colors={colors} isDark={isDark} isLast={false} />
             <ProfileInput label="Email" value={email} onChangeText={handleEmailChange} placeholder="email@example.com" colors={colors} isDark={isDark} keyboardType="email-address" autoCapitalize="none" isLast />
           </GlassPanel>
-          {usernameAvailability !== 'idle' && (
-            <Text style={[
-              styles.usernameFeedback,
-              usernameAvailability === 'available' && { color: '#ccff00' },
-              usernameAvailability === 'taken' && { color: '#EF4444' },
-              (usernameAvailability === 'checking' || usernameAvailability === 'invalid') && { color: colors.textTertiary },
-            ]}>
-              {usernameAvailability === 'checking' ? 'Checking…' :
-               usernameAvailability === 'available' ? 'Available' :
-               usernameAvailability === 'taken' ? 'Already taken' :
-               '3–20 characters · lowercase letters, numbers, underscores'}
-            </Text>
-          )}
 
           <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>SCHEDULE</Text>
           <GlassPanel isDark={isDark} colors={colors}>

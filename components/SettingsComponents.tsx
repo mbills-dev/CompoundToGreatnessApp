@@ -84,6 +84,7 @@ interface ProfileInputProps {
   value: string;
   onChangeText: (text: string) => void;
   onBlur?: () => void;
+  rightElement?: React.ReactNode;
   placeholder: string;
   colors: any;
   isDark: boolean;
@@ -93,7 +94,7 @@ interface ProfileInputProps {
   isLast?: boolean;
 }
 
-export function ProfileInput({ label, value, onChangeText, onBlur, placeholder, colors, isDark, keyboardType = 'default', autoCapitalize = 'words', isFirst, isLast }: ProfileInputProps) {
+export function ProfileInput({ label, value, onChangeText, onBlur, rightElement, placeholder, colors, isDark, keyboardType = 'default', autoCapitalize = 'words', isFirst, isLast }: ProfileInputProps) {
   return (
     <View style={[
       styles.glassInputRow,
@@ -113,6 +114,7 @@ export function ProfileInput({ label, value, onChangeText, onBlur, placeholder, 
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
       />
+      {rightElement && <View style={styles.rowIconSmall}>{rightElement}</View>}
     </View>
   );
 }
