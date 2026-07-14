@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   Modal,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -26,6 +27,7 @@ import {
   Eye,
   Check,
   X,
+  Trash2,
 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -449,6 +451,10 @@ export default function SettingsScreen() {
   };
 
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showRulesModal, setShowRulesModal] = useState(false);
 
   const handleSignOut = () => {
@@ -482,6 +488,26 @@ export default function SettingsScreen() {
       await authSignOut();
     } catch (error) {
       console.error('Error signing out:', error);
+    }
+  };
+
+  const handleDeleteAccountPress = () => {
+    setDeleteConfirmText('');
+    setDeleteError(null);
+    setConfirmingDelete(true);
+  };
+
+  const handleConfirmDeleteAccount = async () => {
+    if (deleteConfirmText.trim().toUpperCase() !== 'DELETE') return;
+    setDeletingAccount(true);
+    setDeleteError(null);
+    try {
+      const { error } = await supabase.functions.invoke('delete-account');
+      if (error) throw error;
+      await authSignOut();
+    } catch (error: any) {
+      setDeleteError(error?.message ?? 'Something went wrong. Please try again.');
+      setDeletingAccount(false);
     }
   };
 
@@ -761,6 +787,68 @@ export default function SettingsScreen() {
             </GlassPanel>
           )}
 
+          {confirmingDelete ? (
+            <View style={[
+              styles.confirmPanel,
+              { backgroundColor: isDark ? 'rgba(239,68,68,0.12)' : 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.25)' },
+            ]}>
+              <Text style={[styles.confirmText, { color: colors.text }]}>
+                This permanently deletes your account and all your data — challenge history, photos, friends, and streaks. This cannot be undone.
+              </Text>
+              <Text style={[styles.deleteInputLabel, { color: colors.textTertiary }]}>Type DELETE to confirm</Text>
+              <TextInput
+                style={[styles.deleteInput, { color: colors.text, borderColor: 'rgba(239,68,68,0.4)' }]}
+                value={deleteConfirmText}
+                onChangeText={setDeleteConfirmText}
+                placeholder="DELETE"
+                placeholderTextColor={colors.textTertiary}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                editable={!deletingAccount}
+              />
+              {deleteError && <Text style={styles.deleteErrorText}>{deleteError}</Text>}
+              <View style={styles.confirmButtons}>
+                <TouchableOpacity
+                  style={[styles.confirmBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}
+                  onPress={() => setConfirmingDelete(false)}
+                  activeOpacity={0.7}
+                  disabled={deletingAccount}
+                >
+                  <Text style={[styles.confirmBtnText, { color: colors.text }]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.confirmBtn,
+                    { backgroundColor: '#EF4444' },
+                    (deleteConfirmText.trim().toUpperCase() !== 'DELETE' || deletingAccount) && { opacity: 0.5 },
+                  ]}
+                  onPress={handleConfirmDeleteAccount}
+                  activeOpacity={0.7}
+                  disabled={deleteConfirmText.trim().toUpperCase() !== 'DELETE' || deletingAccount}
+                >
+                  {deletingAccount ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={[styles.confirmBtnText, { color: '#FFFFFF' }]}>Delete Account</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <GlassPanel isDark={isDark} colors={colors}>
+              <ActionRow
+                icon={<Trash2 size={18} color="#EF4444" strokeWidth={2} />}
+                title="Delete Account"
+                onPress={handleDeleteAccountPress}
+                colors={colors}
+                isDark={isDark}
+                variant="danger"
+                isFirst
+                isLast
+              />
+            </GlassPanel>
+          )}
+
           <Text style={[styles.footerText, { color: colors.textTertiary }]}>
             Compound to Greatness v1.0
           </Text>
@@ -845,6 +933,25 @@ const styles = StyleSheet.create({
   confirmBtnText: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  deleteInputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  deleteInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  deleteErrorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#EF4444',
   },
   photoOptionsPanel: {
     borderRadius: 14,
