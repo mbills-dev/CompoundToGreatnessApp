@@ -676,7 +676,7 @@ export function PathPractice({
   goal: FlowGoal;
   onDone: (result: string) => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const deadlineMonths = DEADLINE_MONTHS[goal.deadline];
   const use77Days = deadlineMonths === undefined || goal.deadline === 'ongoing';
 
@@ -686,6 +686,7 @@ export function PathPractice({
   const [hoursChip, setHoursChip] = useState<string | null>(null);
   const [paceChip, setPaceChip] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const [actionText, setActionText] = useState('');
 
   const hoursMap: Record<string, number> = {
     '~100 hrs': 100,
@@ -719,15 +720,14 @@ export function PathPractice({
   const timeline =
     knowsHours && hours && pace ? hoursToYears(hours, pace) : null;
 
-  const canReveal = hoursChip !== null && paceChip !== null;
+  const canReveal = hoursChip !== null && paceChip !== null && actionText.trim().length > 0;
 
   const timeframeLabel = use77Days
     ? 'your first 77 days'
     : `your ${goal.deadline} deadline`;
 
-  const result = knowsHours
-    ? `${paceChip} — done in ${timeline}`
-    : `${paceChip} — ${banked} hrs banked in ${timeframeLabel}`;
+  const actionLabel = actionText.trim();
+  const result = actionLabel ? `${actionLabel} — ${paceChip}` : paceChip ?? '';
 
   const reset = () => {
     setRevealed(false);
@@ -787,6 +787,33 @@ export function PathPractice({
             }}
             keyboardType="numeric"
             customPlaceholder="e.g. 45 min/day"
+          />
+        </View>
+      )}
+
+      {paceChip && (
+        <View style={{ marginTop: 20 }}>
+          <Text style={[styles.fieldLabel, { color: colors.primary }]}>
+            What will you actually do?
+          </Text>
+          <TextInput
+            style={[
+              styles.customInlineInput,
+              { flex: 0 },
+              {
+                color: colors.text,
+                borderColor: colors.primary + '80',
+                backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+              },
+            ]}
+            value={actionText}
+            onChangeText={t => {
+              setActionText(t);
+              reset();
+            }}
+            placeholder="e.g. listen to a French podcast"
+            placeholderTextColor={colors.textTertiary}
+            returnKeyType="done"
           />
         </View>
       )}
