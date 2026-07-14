@@ -8,6 +8,8 @@ import {
   Image,
   ActivityIndicator,
   Pressable,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -140,6 +142,100 @@ export function GlassPanel({ children, isDark, colors }: GlassPanelProps) {
     </View>
   );
 }
+
+interface LegalModalProps {
+  visible: boolean;
+  onClose: () => void;
+  title: string;
+  updatedLabel: string;
+  sections: { heading: string; body: string }[];
+  colors: any;
+  isDark: boolean;
+}
+
+export function LegalModal({ visible, onClose, title, updatedLabel, sections, colors, isDark }: LegalModalProps) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
+      <View style={legalModalStyles.overlay}>
+        <View style={[legalModalStyles.card, { backgroundColor: isDark ? colors.backgroundSecondary : '#FFFFFF', borderColor: isDark ? colors.border : '#E0E0DB' }]}>
+          <Text style={[legalModalStyles.title, { color: colors.text }]}>{title}</Text>
+          <Text style={[legalModalStyles.updated, { color: colors.textTertiary }]}>{updatedLabel}</Text>
+          <ScrollView style={legalModalStyles.scroll} showsVerticalScrollIndicator={false}>
+            {sections.map((section, i) => (
+              <View key={i} style={legalModalStyles.section}>
+                <Text style={[legalModalStyles.sectionHeading, { color: colors.primary }]}>{section.heading}</Text>
+                <Text style={[legalModalStyles.sectionBody, { color: colors.textSecondary }]}>{section.body}</Text>
+              </View>
+            ))}
+          </ScrollView>
+          <TouchableOpacity
+            style={[legalModalStyles.closeBtn, { backgroundColor: colors.primary }]}
+            onPress={onClose}
+            activeOpacity={0.85}
+          >
+            <Text style={legalModalStyles.closeBtnText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const legalModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '80%',
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 24,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    marginBottom: 4,
+  },
+  updated: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  scroll: {
+    marginBottom: 16,
+  },
+  section: {
+    marginBottom: 18,
+  },
+  sectionHeading: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  sectionBody: {
+    fontSize: 14,
+    fontWeight: '400',
+    lineHeight: 21,
+  },
+  closeBtn: {
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  closeBtnText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#000000',
+  },
+});
 
 interface ToggleRowProps {
   icon: React.ReactNode;
