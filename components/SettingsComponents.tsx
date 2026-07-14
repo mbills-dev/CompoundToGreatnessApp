@@ -83,6 +83,7 @@ interface ProfileInputProps {
   label: string;
   value: string;
   onChangeText: (text: string) => void;
+  onBlur?: () => void;
   placeholder: string;
   colors: any;
   isDark: boolean;
@@ -92,7 +93,7 @@ interface ProfileInputProps {
   isLast?: boolean;
 }
 
-export function ProfileInput({ label, value, onChangeText, placeholder, colors, isDark, keyboardType = 'default', autoCapitalize = 'words', isFirst, isLast }: ProfileInputProps) {
+export function ProfileInput({ label, value, onChangeText, onBlur, placeholder, colors, isDark, keyboardType = 'default', autoCapitalize = 'words', isFirst, isLast }: ProfileInputProps) {
   return (
     <View style={[
       styles.glassInputRow,
@@ -106,6 +107,7 @@ export function ProfileInput({ label, value, onChangeText, placeholder, colors, 
         style={[styles.glassInput, { color: colors.text }]}
         value={value}
         onChangeText={onChangeText}
+        onBlur={onBlur}
         placeholder={placeholder}
         placeholderTextColor={colors.textTertiary}
         keyboardType={keyboardType}

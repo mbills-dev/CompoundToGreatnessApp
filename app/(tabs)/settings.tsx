@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -49,6 +49,7 @@ import { CHALLENGE_RULES } from '@/constants/challengeRules';
 import { BookOpen } from 'lucide-react-native';
 
 const ONBOARDING_KEY = '@onboarding_completed';
+const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
 
 export default function SettingsScreen() {
   const { theme, toggleTheme, colors, isDark } = useTheme();
@@ -70,6 +71,10 @@ export default function SettingsScreen() {
   const [activeGoal, setActiveGoal] = useState<Goal | null>(null);
   const [challengeActionLoading, setChallengeActionLoading] = useState(false);
   const [shareFullJourney, setShareFullJourney] = useState(true);
+  const [username, setUsername] = useState('');
+  const [usernameAvailability, setUsernameAvailability] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
+  const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const originalUsernameRef = useRef('');
 
   useEffect(() => {
     loadSettings();
@@ -82,11 +87,15 @@ export default function SettingsScreen() {
       // Load persisted profile photo
       const { data: profile } = await supabase
         .from('profiles')
-        .select('photo_url')
+        .select('photo_url, username')
         .eq('id', user.id)
         .maybeSingle();
       if (profile?.photo_url) {
         setProfilePhoto(profile.photo_url);
+      }
+      if (profile?.username) {
+        setUsername(profile.username);
+        originalUsernameRef.current = profile.username;
       }
 
       const { data, error } = await supabase
@@ -241,6 +250,56 @@ export default function SettingsScreen() {
   const handleEmailChange = (value: string) => {
     setEmail(value);
     saveSettings({ email: value });
+  };
+
+  const checkUsernameAvailability = useCallback(async (value: string) => {
+    if (value === originalUsernameRef.current) {
+      setUsernameAvailability('idle');
+      return;
+    }
+    if (!USERNAME_REGEX.test(value)) {
+      setUsernameAvailability('invalid');
+      return;
+    }
+    if (!user?.id) return;
+    setUsernameAvailability('checking');
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .ilike('username', value)
+        .neq('id', user.id)
+        .limit(1);
+      setUsernameAvailability(data && data.length > 0 ? 'taken' : 'available');
+    } catch {
+      setUsernameAvailability('idle');
+    }
+  }, [user?.id]);
+
+  const handleUsernameChange = (value: string) => {
+    const cleaned = value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    setUsername(cleaned);
+    if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
+    if (!cleaned) {
+      setUsernameAvailability('idle');
+      return;
+    }
+    usernameDebounceRef.current = setTimeout(() => {
+      checkUsernameAvailability(cleaned);
+    }, 400);
+  };
+
+  const handleUsernameBlur = async () => {
+    if (!user?.id) return;
+    if (username === originalUsernameRef.current) return;
+    if (usernameAvailability !== 'available') return;
+    const { error } = await supabase
+      .from('profiles')
+      .update({ username, username_set: true })
+      .eq('id', user.id);
+    if (!error) {
+      originalUsernameRef.current = username;
+    }
   };
 
   const handleDayEndTimeSelect = (time: string) => {
@@ -494,10 +553,24 @@ export default function SettingsScreen() {
           </Text>
 
           <GlassPanel isDark={isDark} colors={colors}>
-            <ProfileInput label="First" value={firstName} onChangeText={handleFirstNameChange} placeholder="First name" colors={colors} isDark={isDark} isFirst isLast={false} />
+            <ProfileInput label="Username" value={username} onChangeText={handleUsernameChange} onBlur={handleUsernameBlur} placeholder="username" colors={colors} isDark={isDark} autoCapitalize="none" isFirst isLast={false} />
+            <ProfileInput label="First" value={firstName} onChangeText={handleFirstNameChange} placeholder="First name" colors={colors} isDark={isDark} isLast={false} />
             <ProfileInput label="Last" value={lastName} onChangeText={handleLastNameChange} placeholder="Last name" colors={colors} isDark={isDark} isLast={false} />
             <ProfileInput label="Email" value={email} onChangeText={handleEmailChange} placeholder="email@example.com" colors={colors} isDark={isDark} keyboardType="email-address" autoCapitalize="none" isLast />
           </GlassPanel>
+          {usernameAvailability !== 'idle' && (
+            <Text style={[
+              styles.usernameFeedback,
+              usernameAvailability === 'available' && { color: '#ccff00' },
+              usernameAvailability === 'taken' && { color: '#EF4444' },
+              (usernameAvailability === 'checking' || usernameAvailability === 'invalid') && { color: colors.textTertiary },
+            ]}>
+              {usernameAvailability === 'checking' ? 'Checking…' :
+               usernameAvailability === 'available' ? 'Available' :
+               usernameAvailability === 'taken' ? 'Already taken' :
+               '3–20 characters · lowercase letters, numbers, underscores'}
+            </Text>
+          )}
 
           <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>SCHEDULE</Text>
           <GlassPanel isDark={isDark} colors={colors}>
@@ -787,6 +860,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
     marginBottom: 8,
+  },
+  usernameFeedback: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: -8,
+    marginBottom: 16,
+    marginLeft: 4,
   },
 });
 
