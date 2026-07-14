@@ -578,7 +578,7 @@ export default function SettingsScreen() {
               }
             />
             <ProfileInput label="Name" value={name} onChangeText={handleNameChange} placeholder="Your name" colors={colors} isDark={isDark} isLast={false} />
-            <ProfileInput label="Email" value={email} onChangeText={handleEmailChange} placeholder="email@example.com" colors={colors} isDark={isDark} keyboardType="email-address" autoCapitalize="none" isLast />
+            <ProfileInput label="Email" value={user?.email || ''} onChangeText={() => {}} editable={false} placeholder="email@example.com" colors={colors} isDark={isDark} keyboardType="email-address" autoCapitalize="none" isLast />
           </GlassPanel>
 
           <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>SCHEDULE</Text>
