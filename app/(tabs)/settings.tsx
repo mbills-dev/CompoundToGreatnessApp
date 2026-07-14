@@ -308,11 +308,12 @@ export default function SettingsScreen() {
 
       const publicUrl = urlData.publicUrl;
 
-      const { error: upsertError } = await supabase
+      const { error: updateError } = await supabase
         .from('profiles')
-        .upsert({ id: user.id, photo_url: publicUrl }, { onConflict: 'id' });
+        .update({ photo_url: publicUrl })
+        .eq('id', user.id);
 
-      if (upsertError) throw upsertError;
+      if (updateError) throw updateError;
 
       setProfilePhoto(publicUrl);
     } catch (err: any) {
