@@ -13,7 +13,7 @@ import DayCardModal from './DayCardModal';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyCompletion, DailyActivity } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getTodayDateString, isPhase2DayLocked } from '@/lib/dateHelpers';
+import { getTodayDateString, isPhase2DayLocked, parseLocalDate } from '@/lib/dateHelpers';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
 import JourneyComparisonBanner from './JourneyComparisonBanner';
 
@@ -30,8 +30,8 @@ const MONTH_NAMES = [
 
 function challengeDayForDate(challengeStartDate: string | null, dateStr: string): number {
   if (!challengeStartDate) return 1;
-  const start = new Date(challengeStartDate + 'T00:00:00');
-  const target = new Date(dateStr + 'T00:00:00');
+  const start = parseLocalDate(challengeStartDate);
+  const target = parseLocalDate(dateStr);
   const diffDays = Math.round((target.getTime() - start.getTime()) / 86400000);
   return diffDays + 1;
 }
