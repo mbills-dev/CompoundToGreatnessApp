@@ -84,7 +84,7 @@ export default function AuthScreen() {
     try {
       const origin = Platform.OS === 'web' && typeof window !== 'undefined'
         ? window.location.origin
-        : 'https://your-app.bolt.new';
+        : 'https://app.compoundtogreatness.com';
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${origin}/reset-password`,
       });
@@ -127,6 +127,7 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+        <View style={styles.contentColumn}>
           <View style={styles.header}>
             <LinearGradient
               colors={[colors.primary, colors.primaryDark]}
@@ -140,7 +141,7 @@ export default function AuthScreen() {
               Compound to{'\n'}Greatness
             </Text>
             <Text style={[styles.tagline, { color: colors.textSecondary }]}>
-              77 days to build unstoppable habits
+              Small inputs. Exponential life.
             </Text>
           </View>
 
@@ -337,6 +338,7 @@ export default function AuthScreen() {
               </>
             )}
           </View>
+        </View>
         </ScrollView>
       </LinearGradient>
     </KeyboardAvoidingView>
@@ -353,7 +355,12 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
+    alignItems: 'center',
     padding: 24,
+  },
+  contentColumn: {
+    width: '100%',
+    maxWidth: 480,
   },
   header: {
     alignItems: 'center',
