@@ -37,6 +37,9 @@ interface DayCardModalProps {
   goal: Goal;
   tileLayout: TileLayout | null;
   onClose: () => void;
+  editable?: boolean;
+  onSaved?: () => void;
+  headerMode?: 'day' | 'date';
 }
 
 const LIME = '#CCFF00';
@@ -49,7 +52,7 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default function DayCardModal({ visible, day, goal, tileLayout, onClose }: DayCardModalProps) {
+export default function DayCardModal({ visible, day, goal, tileLayout, onClose, editable = false, onSaved, headerMode = 'day' }: DayCardModalProps) {
   const { colors, isDark } = useTheme();
   const cardBg = isDark ? '#000000' : colors.background;
   const headerBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
@@ -63,6 +66,8 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
   const [showFullPhoto, setShowFullPhoto] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
   const [completion, setCompletion] = useState<DailyCompletion | null>(null);
+  const [editChecked, setEditChecked] = useState<string[]>([]);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [evidenceContent, setEvidenceContent] = useState<string | null>(null);
   const [photo, setPhoto] = useState<ProgressPhoto | null>(null);
   const [loading, setLoading] = useState(false);
@@ -169,6 +174,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
 
       setActivities(actRes.data ?? []);
       setCompletion(compRes.data ?? null);
+      setEditChecked(compRes.data?.activities_completed ?? []);
       setEvidenceContent(evRes.data?.content ?? null);
       setPhoto(photoRes.data ?? null);
     } finally {
@@ -181,6 +187,48 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
       load();
     }
   }, [visible, day, load]);
+
+  const toggleEditActivity = (activityId: string) => {
+    setEditChecked((prev) =>
+      prev.includes(activityId) ? prev.filter((id) => id !== activityId) : [...prev, activityId]
+    );
+  };
+
+  const saveActivityEdit = async () => {
+    if (!dateStr) return;
+    setSavingEdit(true);
+    try {
+      const allComplete = editChecked.length === activities.length && activities.length > 0;
+      const now = new Date().toISOString();
+
+      if (completion) {
+        await supabase
+          .from('daily_completions')
+          .update({
+            activities_completed: editChecked,
+            completed_at: allComplete ? completion.completed_at || now : null,
+            edited_at: now,
+          })
+          .eq('id', completion.id);
+      } else {
+        await supabase.from('daily_completions').insert({
+          goal_id: goal.id,
+          completion_date: dateStr,
+          activities_completed: editChecked,
+          completed_at: allComplete ? now : null,
+          is_rest_day: false,
+          edited_at: now,
+        });
+      }
+
+      await load();
+      if (onSaved) onSaved();
+    } catch (error) {
+      console.error('Error saving activity edit:', error);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const handlePickPhoto = async () => {
     if (day == null) return;
@@ -313,11 +361,15 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} bounces>
             <View style={[styles.header, { backgroundColor: headerBg }]}>
               <View style={styles.headerLeft}>
-                <Text style={[styles.dayNumber, { color: textPrimary }]}>DAY {day}</Text>
-                <Text style={[styles.challengeLabel, { color: textMuted }]}>77-DAY CHALLENGE</Text>
+                <Text style={[styles.dayNumber, { color: textPrimary }]}>
+                  {headerMode === 'date' && dateStr ? formatDate(dateStr) : `DAY ${day}`}
+                </Text>
+                <Text style={[styles.challengeLabel, { color: textMuted }]}>
+                  {headerMode === 'date' ? 'KEEP GOING' : '77-DAY CHALLENGE'}
+                </Text>
               </View>
               <View style={styles.headerRight}>
-                {dateStr && <Text style={[styles.dateText, { color: textMuted }]}>{formatDate(dateStr)}</Text>}
+                {dateStr && headerMode !== 'date' && <Text style={[styles.dateText, { color: textMuted }]}>{formatDate(dateStr)}</Text>}
                 {isMilestone && (
                   <View style={styles.milestonePill}>
                     <Text style={styles.milestonePillText}>MILESTONE</Text>
@@ -344,9 +396,9 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
                 <View style={styles.section}>
                   <Text style={styles.sectionLabel}>SUCCESS STACK</Text>
                   {activities.map((act) => {
-                    const done = completedIds.includes(act.id);
-                    return (
-                      <View key={act.id} style={styles.activityRow}>
+                    const done = editable ? editChecked.includes(act.id) : completedIds.includes(act.id);
+                    const row = (
+                      <>
                         <View style={[styles.activityCircle, done && styles.activityCircleDone]}>
                           {done && <Text style={styles.activityCheck}>✓</Text>}
                         </View>
@@ -356,9 +408,28 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose }
                         ]}>
                           {act.activity_name}
                         </Text>
+                      </>
+                    );
+                    return editable ? (
+                      <TouchableOpacity key={act.id} style={styles.activityRow} onPress={() => toggleEditActivity(act.id)} activeOpacity={0.7}>
+                        {row}
+                      </TouchableOpacity>
+                    ) : (
+                      <View key={act.id} style={styles.activityRow}>
+                        {row}
                       </View>
                     );
                   })}
+                  {editable && activities.length > 0 && (
+                    <TouchableOpacity
+                      style={[styles.saveEditBtn, savingEdit && { opacity: 0.6 }]}
+                      onPress={saveActivityEdit}
+                      disabled={savingEdit}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.saveEditBtnText}>{savingEdit ? 'Saving…' : 'Save'}</Text>
+                    </TouchableOpacity>
+                  )}
                   {activities.length === 0 && (
                     <Text style={[styles.emptyNote, { color: textMuted }]}>No activities configured</Text>
                   )}
@@ -795,5 +866,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  saveEditBtn: {
+    backgroundColor: LIME,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  saveEditBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    fontFamily: 'Inter-Bold',
+    color: '#000000',
   },
 });

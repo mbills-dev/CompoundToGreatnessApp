@@ -7,14 +7,14 @@ import {
   ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, ChevronRight, Check, Zap } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Zap } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
+import DayCardModal from './DayCardModal';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyCompletion, DailyActivity } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getTodayDateString, isPhase2DayLocked } from '@/lib/dateHelpers';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
-import EvidenceLogSection from './EvidenceLog';
 import JourneyComparisonBanner from './JourneyComparisonBanner';
 
 interface MonthCalendarViewProps {
@@ -28,6 +28,14 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
+function challengeDayForDate(challengeStartDate: string | null, dateStr: string): number {
+  if (!challengeStartDate) return 1;
+  const start = new Date(challengeStartDate + 'T00:00:00');
+  const target = new Date(dateStr + 'T00:00:00');
+  const diffDays = Math.round((target.getTime() - start.getTime()) / 86400000);
+  return diffDays + 1;
+}
+
 export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarViewProps) {
   const { colors, isDark } = useTheme();
   const today = getTodayDateString();
@@ -38,10 +46,7 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [editingDate, setEditingDate] = useState<string | null>(null);
-  const [editingCompletion, setEditingCompletion] = useState<DailyCompletion | null>(null);
-  const [editingChecked, setEditingChecked] = useState<string[]>([]);
-  const [saving, setSaving] = useState(false);
+  const [dayCardDay, setDayCardDay] = useState<number | null>(null);
 
   useEffect(() => {
     loadData();
@@ -116,7 +121,7 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
       setCurrentMonth((m) => m - 1);
     }
     setSelectedDate(null);
-    setEditingDate(null);
+    setDayCardDay(null);
   };
 
   const nextMonth = () => {
@@ -131,7 +136,7 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
       setCurrentMonth((m) => m + 1);
     }
     setSelectedDate(null);
-    setEditingDate(null);
+    setDayCardDay(null);
   };
 
   const canGoNext = () => {
@@ -142,66 +147,8 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
   const handleDayPress = (dateStr: string) => {
     if (isPhase2DayLocked(dateStr)) return;
     if (dateStr > today) return;
-
-    if (selectedDate === dateStr) {
-      setSelectedDate(null);
-      setEditingDate(null);
-      return;
-    }
-
     setSelectedDate(dateStr);
-
-    const existing = getCompletionForDate(dateStr);
-    setEditingDate(dateStr);
-    setEditingCompletion(existing);
-    setEditingChecked(existing?.activities_completed ?? []);
-  };
-
-  const toggleEditActivity = (activityId: string) => {
-    setEditingChecked((prev) =>
-      prev.includes(activityId)
-        ? prev.filter((id) => id !== activityId)
-        : [...prev, activityId]
-    );
-  };
-
-  const saveEdit = async () => {
-    if (!editingDate) return;
-    setSaving(true);
-
-    try {
-      const allComplete = editingChecked.length === activities.length && activities.length > 0;
-      const now = new Date().toISOString();
-
-      if (editingCompletion) {
-        await supabase
-          .from('daily_completions')
-          .update({
-            activities_completed: editingChecked,
-            completed_at: allComplete ? editingCompletion.completed_at || now : null,
-            edited_at: now,
-          })
-          .eq('id', editingCompletion.id);
-      } else {
-        await supabase.from('daily_completions').insert({
-          goal_id: goal.id,
-          completion_date: editingDate,
-          activities_completed: editingChecked,
-          completed_at: allComplete ? now : null,
-          is_rest_day: false,
-          edited_at: now,
-        });
-      }
-
-      await loadCompletions();
-      setEditingDate(null);
-      setSelectedDate(null);
-      if (onRefresh) onRefresh();
-    } catch (error) {
-      console.error('Error saving edit:', error);
-    } finally {
-      setSaving(false);
-    }
+    setDayCardDay(challengeDayForDate(goal.challenge_start_date, dateStr));
   };
 
   const { firstDay, daysInMonth } = getMonthDays();
@@ -210,10 +157,11 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
   const borderColor = isDark ? 'rgba(255,255,255,0.08)' : '#E0E0DB';
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        showsVerticalScrollIndicator={false}
+      >
       <LinearGradient
         colors={isDark ? ['#000000', '#111111', '#000000'] : ['#F5F5F0', '#F0F0EB', '#F5F5F0']}
         style={styles.gradient}
@@ -302,79 +250,22 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
           </View>
         </View>
 
-        {editingDate && (
-          <View style={[styles.editSection, { borderTopColor: borderColor }]}>
-            <Text style={[styles.editDateLabel, { color: textMuted }]}>
-              {new Date(editingDate + 'T12:00:00').toLocaleDateString('en-US', {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-              }).toUpperCase()}
-            </Text>
-            <Text style={[styles.editTitle, { color: colors.text }]}>Log Activities</Text>
-
-            <View style={styles.editActivities}>
-              {activities.map((activity) => {
-                const checked = editingChecked.includes(activity.id);
-                return (
-                  <TouchableOpacity
-                    key={activity.id}
-                    style={[
-                      styles.editActivityRow,
-                      {
-                        backgroundColor: checked
-                          ? isDark ? 'rgba(204,255,0,0.08)' : 'rgba(204,255,0,0.08)'
-                          : colors.card,
-                        borderColor: checked ? colors.primary : colors.border,
-                      },
-                    ]}
-                    onPress={() => toggleEditActivity(activity.id)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.editActivityName, { color: colors.text }]}>
-                      {activity.activity_name}
-                    </Text>
-                    <View
-                      style={[
-                        styles.editCheckbox,
-                        {
-                          backgroundColor: checked ? colors.primary : 'transparent',
-                          borderColor: checked ? colors.primary : colors.border,
-                        },
-                      ]}
-                    >
-                      {checked && <Check size={14} color="#000000" strokeWidth={3} />}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <TouchableOpacity
-              style={styles.saveEditButton}
-              onPress={saveEdit}
-              disabled={saving}
-            >
-              <LinearGradient
-                colors={['#ccff00', '#aed900']}
-                style={styles.saveEditGradient}
-              >
-                <Text style={styles.saveEditText}>{saving ? 'Saving...' : 'Save'}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            {editingDate && (
-              <EvidenceLogSection
-                goalId={goal.id}
-                date={editingDate}
-                readOnly={false}
-                challengeDay={goal.current_challenge_day}
-              />
-            )}
-          </View>
-        )}
       </LinearGradient>
-    </ScrollView>
+      </ScrollView>
+      <DayCardModal
+        visible={dayCardDay !== null}
+        day={dayCardDay}
+        goal={goal}
+        tileLayout={null}
+        onClose={() => setDayCardDay(null)}
+        editable
+        headerMode="date"
+        onSaved={() => {
+          loadCompletions();
+          if (onRefresh) onRefresh();
+        }}
+      />
+    </View>
   );
 }
 
@@ -487,64 +378,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     fontFamily: 'Inter-Bold',
-  },
-  editSection: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    borderTopWidth: 1,
-  },
-  editDateLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    marginBottom: 8,
-  },
-  editTitle: {
-    fontSize: 24,
-    fontWeight: '900',
-    marginBottom: 20,
-    fontFamily: 'Inter-Black',
-  },
-  editActivities: {
-    gap: 10,
-    marginBottom: 20,
-  },
-  editActivityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 14,
-    borderWidth: 2,
-  },
-  editActivityName: {
-    fontSize: 15,
-    fontWeight: '600',
-    flex: 1,
-    marginRight: 12,
-  },
-  editCheckbox: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveEditButton: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    marginBottom: 24,
-  },
-  saveEditGradient: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  saveEditText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#000000',
-    letterSpacing: 0.5,
   },
 });
