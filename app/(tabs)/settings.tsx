@@ -872,7 +872,7 @@ export default function SettingsScreen() {
           )}
 
           <Text style={[styles.footerText, { color: colors.textTertiary }]}>
-            Compound to Greatness v1.0
+            COMPOUND TO GREATNESS v1.0
           </Text>
           <View style={styles.legalLinksRow}>
             <TouchableOpacity onPress={() => setShowPrivacyModal(true)} activeOpacity={0.7}>

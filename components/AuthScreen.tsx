@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
@@ -129,16 +130,15 @@ export default function AuthScreen() {
         >
         <View style={styles.contentColumn}>
           <View style={styles.header}>
-            <LinearGradient
-              colors={[colors.primary, colors.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.logoBadge}
-            >
-              <Text style={styles.logoText}>CTG</Text>
-            </LinearGradient>
+            <View style={styles.logoBadge}>
+              <Image
+                source={require('@/assets/images/logo-mark.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            </View>
             <Text style={[styles.appName, { color: colors.text }]}>
-              Compound to{'\n'}Greatness
+              COMPOUND TO{'\n'}GREATNESS
             </Text>
             <Text style={[styles.tagline, { color: colors.textSecondary }]}>
               Small inputs. Exponential life.
@@ -373,16 +373,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
+    backgroundColor: '#000000',
   },
-  logoText: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#000000',
-    letterSpacing: 1,
+  logoImage: {
+    width: 48,
+    height: 48,
   },
   appName: {
     fontSize: 36,
     fontWeight: '900',
+    fontFamily: 'Inter-Black',
     textAlign: 'center',
     lineHeight: 42,
     marginBottom: 8,

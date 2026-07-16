@@ -9,6 +9,7 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
@@ -117,14 +118,13 @@ export default function ResetPasswordScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <LinearGradient
-              colors={[colors.primary, colors.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.logoBadge}
-            >
-              <Text style={styles.logoText}>CTG</Text>
-            </LinearGradient>
+            <View style={styles.logoBadge}>
+              <Image
+                source={require('@/assets/images/logo-mark.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            </View>
             <Text style={[styles.title, { color: colors.text }]}>Set new password</Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               Choose something strong and memorable.
@@ -241,12 +241,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
+    backgroundColor: '#000000',
   },
-  logoText: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#000000',
-    letterSpacing: 1,
+  logoImage: {
+    width: 48,
+    height: 48,
   },
   title: {
     fontSize: 28,
