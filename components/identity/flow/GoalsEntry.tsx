@@ -418,16 +418,21 @@ export function GoalDoneLooksScreen({
 export function IntroScreen({
   goals,
   onNext,
+  onBack,
   goalLabelOverrides,
 }: {
   goals: FlowGoal[];
   onNext: () => void;
+  onBack: () => void;
   goalLabelOverrides: Record<number, string>;
 }) {
   const { colors } = useTheme();
   return (
     <View style={styles.screen}>
       <View style={{ flex: 1, justifyContent: 'center' }}>
+        <TouchableOpacity onPress={onBack} style={[styles.backBtn, { marginBottom: 20 }]}>
+          <ArrowLeft size={20} color={colors.text} strokeWidth={2.5} />
+        </TouchableOpacity>
         <View
           style={[
             styles.stepPill,

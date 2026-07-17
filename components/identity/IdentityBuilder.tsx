@@ -666,6 +666,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
             goals={goals}
             goalLabelOverrides={goalLabelOverrides}
             onNext={() => navigate({ kind: 'path-select', goalIdx: 0 })}
+            onBack={goBack}
           />
         );
 
