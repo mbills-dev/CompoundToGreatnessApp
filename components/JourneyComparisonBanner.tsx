@@ -120,6 +120,7 @@ export interface ComparisonModalProps {
 
 export function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }: ComparisonModalProps) {
   if (!earliestPhoto || !latestPhoto) return null;
+  const [fullPhotoUri, setFullPhotoUri] = useState<string | null>(null);
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const modalBg = isDark ? '#000000' : colors.background;
@@ -135,6 +136,7 @@ export function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }
   const panelWidth = (SCREEN_WIDTH - 48 - 8) / 2;
 
   return (
+    <>
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" statusBarTranslucent>
       <View style={[modalStyles.container, { backgroundColor: modalBg }]}>
         <View style={[modalStyles.topBar, { borderBottomColor: modalBorderColor, paddingTop: insets.top + 12 }]}>
@@ -148,7 +150,11 @@ export function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }
           <Text style={[modalStyles.sectionLabel, { color: modalTextMuted }]}>SIDE BY SIDE</Text>
 
           <View style={modalStyles.sideBySide}>
-            <View style={[modalStyles.modalPhotoPanel, { width: panelWidth }]}>
+            <TouchableOpacity
+              style={[modalStyles.modalPhotoPanel, { width: panelWidth }]}
+              activeOpacity={0.9}
+              onPress={() => setFullPhotoUri(earliestPhoto.storage_url)}
+            >
               <Image
                 source={{ uri: earliestPhoto.storage_url }}
                 style={modalStyles.modalPhoto}
@@ -161,9 +167,13 @@ export function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }
                   </Text>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
 
-            <View style={[modalStyles.modalPhotoPanel, { width: panelWidth }]}>
+            <TouchableOpacity
+              style={[modalStyles.modalPhotoPanel, { width: panelWidth }]}
+              activeOpacity={0.9}
+              onPress={() => setFullPhotoUri(latestPhoto.storage_url)}
+            >
               <Image
                 source={{ uri: latestPhoto.storage_url }}
                 style={modalStyles.modalPhoto}
@@ -176,43 +186,34 @@ export function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }
                   </Text>
                 </View>
               </View>
-            </View>
-          </View>
-
-          <Text style={[modalStyles.sectionLabel, { color: modalTextMuted }]}>EARLIEST</Text>
-          <View style={modalStyles.fullPhotoPanel}>
-            <Image
-              source={{ uri: earliestPhoto.storage_url }}
-              style={modalStyles.fullPhoto}
-              resizeMode="cover"
-            />
-            <View style={modalStyles.fullOverlay}>
-              <View style={[modalStyles.modalDayBadge, { backgroundColor: modalDayBadgeBg }, isEarliestMilestone && modalStyles.modalDayBadgeMilestone]}>
-                <Text style={[modalStyles.modalDayBadgeText, { color: modalDayBadgeTextColor }, isEarliestMilestone && modalStyles.modalDayBadgeTextMilestone]}>
-                  DAY {earliestPhoto.challenge_day}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <Text style={[modalStyles.sectionLabel, { color: modalTextMuted }]}>MOST RECENT</Text>
-          <View style={modalStyles.fullPhotoPanel}>
-            <Image
-              source={{ uri: latestPhoto.storage_url }}
-              style={modalStyles.fullPhoto}
-              resizeMode="cover"
-            />
-            <View style={modalStyles.fullOverlay}>
-              <View style={[modalStyles.modalDayBadge, { backgroundColor: modalDayBadgeBg }, isLatestMilestone && modalStyles.modalDayBadgeMilestone]}>
-                <Text style={[modalStyles.modalDayBadgeText, { color: modalDayBadgeTextColor }, isLatestMilestone && modalStyles.modalDayBadgeTextMilestone]}>
-                  DAY {latestPhoto.challenge_day}
-                </Text>
-              </View>
-            </View>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </View>
     </Modal>
+
+    <Modal
+      visible={fullPhotoUri !== null}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setFullPhotoUri(null)}
+    >
+      <TouchableOpacity
+        style={modalStyles.fullPhotoOverlay}
+        activeOpacity={1}
+        onPress={() => setFullPhotoUri(null)}
+      >
+        <Image
+          source={{ uri: fullPhotoUri ?? '' }}
+          style={modalStyles.fullPhotoImage}
+          resizeMode="contain"
+        />
+        <TouchableOpacity style={modalStyles.fullPhotoClose} onPress={() => setFullPhotoUri(null)}>
+          <X size={22} color="#FFFFFF" strokeWidth={2.5} />
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+    </>
   );
 }
 
@@ -440,5 +441,26 @@ const modalStyles = StyleSheet.create({
   },
   modalDayBadgeTextMilestone: {
     color: '#1A1A1A',
+  },
+  fullPhotoOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullPhotoImage: {
+    width: '100%',
+    height: '80%',
+  },
+  fullPhotoClose: {
+    position: 'absolute',
+    top: 52,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
