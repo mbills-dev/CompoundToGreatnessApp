@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyCompletion, DailyActivity } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCelebration } from '@/contexts/CelebrationContext';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
@@ -35,6 +36,7 @@ const LIME = '#CCFF00';
 
 export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const { openCelebration } = useCelebration();
   const [goal, setGoal] = useState(initialGoal);
   const [completions, setCompletions] = useState<DailyCompletion[]>([]);
@@ -455,7 +457,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
         colors={gradientColors}
         style={styles.gradient}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
           {isCompleted ? (
             <View style={[styles.completedBadge, { borderColor: colors.error }]}>
               <Text style={[styles.completedText, { color: colors.error }]}>COMPLETED</Text>

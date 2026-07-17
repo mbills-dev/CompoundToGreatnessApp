@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { ArrowRight, X } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isMilestoneDay } from '@/constants/milestones';
 import { useJourneyComparison, JourneyPhoto } from '@/hooks/useJourneyComparison';
 
@@ -120,6 +121,7 @@ export interface ComparisonModalProps {
 export function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }: ComparisonModalProps) {
   if (!earliestPhoto || !latestPhoto) return null;
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const modalBg = isDark ? '#000000' : colors.background;
   const modalBorderColor = isDark ? '#1A1A1A' : colors.border;
   const modalTextPrimary = isDark ? '#FFFFFF' : colors.text;
@@ -135,7 +137,7 @@ export function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto }
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" statusBarTranslucent>
       <View style={[modalStyles.container, { backgroundColor: modalBg }]}>
-        <View style={[modalStyles.topBar, { borderBottomColor: modalBorderColor }]}>
+        <View style={[modalStyles.topBar, { borderBottomColor: modalBorderColor, paddingTop: insets.top + 12 }]}>
           <Text style={[modalStyles.topBarTitle, { color: modalTextPrimary }]}>Your Journey</Text>
           <TouchableOpacity onPress={onClose} style={modalStyles.closeBtn} activeOpacity={0.7}>
             <X size={18} color="rgba(255,255,255,0.6)" strokeWidth={2.5} />

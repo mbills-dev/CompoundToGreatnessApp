@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Heart, UserPlus, Eye, Share2, Zap } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
 import InviteWatcherModal from '@/components/InviteWatcherModal';
@@ -44,6 +45,7 @@ interface SearchResult {
 
 export default function FriendsScreen() {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const { user, isSubscribed } = useAuth();
   const router = useRouter();
   const [friends, setFriends] = useState<FriendWithStreak[]>([]);
@@ -359,7 +361,7 @@ export default function FriendsScreen() {
         colors={isDark ? ['#000000', '#111111', '#000000'] : ['#F5F5F0', '#F0F0EB', '#F5F5F0']}
         style={styles.gradient}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <View style={styles.headerTop}>
             <View>
               <Text style={[styles.title, { color: colors.text }]}>Your Friends</Text>

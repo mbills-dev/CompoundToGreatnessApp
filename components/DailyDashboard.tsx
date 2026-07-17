@@ -26,6 +26,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyActivity, DailyCompletion } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DayBadge } from './DayBadge';
 import EvidenceLogSection from './EvidenceLog';
 import CompassCard from './CompassCard';
@@ -190,6 +191,7 @@ export default function DailyDashboard({
   onLockedInteraction,
 }: DailyDashboardProps) {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const { triggerRacingBorder } = useRacingBorder();
   const { user } = useAuth();
   const router = useRouter();
@@ -820,7 +822,7 @@ export default function DailyDashboard({
           colors={isDark ? ['#000000', '#111111', '#000000'] : ['#F5F5F0', '#F0F0EB', '#F5F5F0']}
           style={styles.gradient}
         >
-          <View style={styles.heroSection}>
+          <View style={[styles.heroSection, { paddingTop: insets.top + 12 }]}>
             {isDayLocked && (
               <View style={[styles.lockedBanner, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
                 <Lock size={18} color={colors.textSecondary} strokeWidth={2.5} />

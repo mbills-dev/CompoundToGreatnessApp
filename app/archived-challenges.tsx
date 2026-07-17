@@ -11,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, ChevronRight, Trophy, RefreshCw, Sparkles, Archive } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { ChallengeArchive, ArchiveReason } from '@/types/database';
@@ -42,6 +43,7 @@ function ReasonIcon({ reason, size }: { reason: ArchiveReason; size: number }) {
 
 export default function ArchivedChallengesScreen() {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const router = useRouter();
   const [archives, setArchives] = useState<ChallengeArchive[]>([]);
@@ -71,7 +73,7 @@ export default function ArchivedChallengesScreen() {
         colors={isDark ? ['#000000', '#111111', '#000000'] : ['#F2F2F7', '#EFEFF4', '#F2F2F7']}
         style={styles.gradient}
       >
-        <View style={[styles.header, { borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
+        <View style={[styles.header, { borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', paddingTop: insets.top + 12 }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.6}>
             <ChevronLeft size={24} color={colors.text} strokeWidth={2.5} />
           </TouchableOpacity>

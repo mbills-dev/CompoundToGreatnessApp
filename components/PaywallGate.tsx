@@ -9,6 +9,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Crown, Check, Zap, Shield, ChartBar as BarChart3, Users } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Confetti from '@/components/Confetti';
 
 interface PaywallGateProps {
@@ -42,6 +43,7 @@ const FEATURES = [
 
 export default function PaywallGate({ onDismiss, onSubscribeSuccess, celebrate = false }: PaywallGateProps) {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
   const [showConfetti, setShowConfetti] = useState(celebrate);
 
@@ -60,7 +62,7 @@ export default function PaywallGate({ onDismiss, onSubscribeSuccess, celebrate =
         </View>
       )}
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 24 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>

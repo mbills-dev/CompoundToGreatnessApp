@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, Zap, Check, X, Send, ExternalLink } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChallengeWall from './ChallengeWall';
 import MonthWall from './MonthWall';
 import { getDateForChallengeDay, getTodayDateString, toLocalDateString } from '@/lib/dateHelpers';
@@ -51,6 +52,7 @@ interface Props {
 
 export default function PublicJourneyPage({ username }: Props) {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const [journey, setJourney] = useState<JourneyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -229,7 +231,7 @@ export default function PublicJourneyPage({ username }: Props) {
     <View style={[styles.outerContainer, { backgroundColor: bg }]}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 12 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.topBadge}>

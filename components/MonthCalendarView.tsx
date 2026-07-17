@@ -13,6 +13,7 @@ import DayCardModal from './DayCardModal';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyCompletion, DailyActivity } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getTodayDateString, isPhase2DayLocked, parseLocalDate, toLocalMidnight } from '@/lib/dateHelpers';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
 import JourneyComparisonBanner from './JourneyComparisonBanner';
@@ -38,6 +39,7 @@ function challengeDayForDate(challengeStartDate: string | null, dateStr: string)
 
 export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarViewProps) {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const today = getTodayDateString();
 
   const [completions, setCompletions] = useState<DailyCompletion[]>([]);
@@ -166,7 +168,7 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
         colors={isDark ? ['#000000', '#111111', '#000000'] : ['#F5F5F0', '#F0F0EB', '#F5F5F0']}
         style={styles.gradient}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
           <View style={[styles.keepGoingBadge, { borderColor: colors.primary }]}>
             <Zap size={22} fill={colors.primary} color={colors.primary} />
             <Text style={[styles.keepGoingBadgeNumber, { color: colors.primary }]}>

@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Camera, X, Share2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Goal, DailyActivity, DailyCompletion, ProgressPhoto } from '@/types/database';
 import { MILESTONE_DATA, isMilestoneDay } from '@/constants/milestones';
 import { getDateForChallengeDay } from '@/lib/dateHelpers';
@@ -54,6 +55,7 @@ function formatDate(dateStr: string): string {
 
 export default function DayCardModal({ visible, day, goal, tileLayout, onClose, editable = false, onSaved, headerMode = 'day' }: DayCardModalProps) {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const cardBg = isDark ? '#000000' : colors.background;
   const headerBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
   const evidenceBg = isDark ? '#111111' : colors.backgroundSecondary;
@@ -359,7 +361,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
         <Animated.View style={[styles.cardContent, { opacity: contentOpacity }]}>
 
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} bounces>
-            <View style={[styles.header, { backgroundColor: headerBg }]}>
+            <View style={[styles.header, { backgroundColor: headerBg, paddingTop: insets.top + 12 }]}>
               <View style={styles.headerLeft}>
                 <Text style={[styles.dayNumber, { color: textPrimary }]}>
                   {headerMode === 'date' && dateStr ? formatDate(dateStr) : `DAY ${day}`}

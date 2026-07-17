@@ -15,6 +15,7 @@ import { Check, X, AtSign, ArrowRight } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Props {
   onComplete: () => void;
@@ -24,6 +25,7 @@ const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
 
 export default function UsernamePicker({ onComplete }: Props) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [username, setUsername] = useState('');
   const [availability, setAvailability] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
@@ -146,7 +148,7 @@ export default function UsernamePicker({ onComplete }: Props) {
         colors={isDarkGradient(colors) ? ['#000000', '#0A0A0A', '#000000'] : ['#F5F5F0', '#EBEBE6', '#F5F5F0']}
         style={styles.container}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={[styles.iconCircle, { borderColor: 'rgba(204,255,0,0.3)' }]}>
             <AtSign size={32} color="#ccff00" strokeWidth={2} />
           </View>

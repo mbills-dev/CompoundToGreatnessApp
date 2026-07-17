@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, Zap, Calendar, Target, LogOut, Star, Shield, Layers, Flame, Check } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
 import { getTodayDateString, toLocalDateString } from '@/lib/dateHelpers';
 
@@ -74,6 +75,7 @@ function hexWithOpacity(hex: string, opacity: number): string {
 
 export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onStartOwn, hideAccountActions = false }: Props) {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const rootGradient: [string, string, string] = isDark ? ['#000000', '#050505', '#000000'] : [colors.background, colors.background, colors.background];
   const cardBg = isDark ? '#0A0A0A' : colors.card;
   const secondaryBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
@@ -222,7 +224,7 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
 
   return (
     <LinearGradient colors={rootGradient} style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 16 }]}>
         <View style={styles.header}>
           <View>
             <Text style={styles.headerLabel}>WATCHER MODE</Text>

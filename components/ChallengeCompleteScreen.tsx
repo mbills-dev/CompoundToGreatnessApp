@@ -21,6 +21,7 @@ import { Goal, DailyActivity } from '@/types/database';
 import { resetChallenge } from '@/lib/resetHelpers';
 import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Confetti from './Confetti';
 
 const LIME = '#CCFF00';
@@ -52,6 +53,7 @@ export default function ChallengeCompleteScreen({
   onDismiss,
 }: ChallengeCompleteScreenProps) {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const shareCardRef = useRef<View>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [showConfetti, setShowConfetti] = useState(true);
@@ -381,6 +383,7 @@ export default function ChallengeCompleteScreen({
           style={styles.scroll}
           contentContainerStyle={[
             styles.scrollContent,
+            { paddingTop: insets.top + 12 },
             step === 'choose' && { paddingTop: 100 },
           ]}
           showsVerticalScrollIndicator={false}

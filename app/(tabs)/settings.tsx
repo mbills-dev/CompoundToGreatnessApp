@@ -30,6 +30,7 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -60,6 +61,7 @@ const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
 
 export default function SettingsScreen() {
   const { theme, toggleTheme, colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const { user, signOut: authSignOut } = useAuth();
   const router = useRouter();
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
@@ -563,7 +565,7 @@ export default function SettingsScreen() {
         colors={isDark ? ['#000000', '#111111', '#000000'] : ['#F5F5F0', '#F0F0EB', '#F5F5F0']}
         style={styles.gradient}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
           <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
         </View>
 

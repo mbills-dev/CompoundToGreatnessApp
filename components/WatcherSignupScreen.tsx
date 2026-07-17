@@ -15,6 +15,7 @@ import { Eye, ArrowRight, Zap } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface InviterInfo {
   displayName: string;
@@ -33,6 +34,7 @@ interface Props {
 
 export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStartOwn }: Props) {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const bg = isDark ? '#000000' : colors.background;
   const cardBg = isDark ? '#0A0A0A' : colors.card;
   const secondaryBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
@@ -199,7 +201,7 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
   if (step === 'preview') {
     return (
       <LinearGradient colors={rootGradientPreview} style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}>
           <View style={styles.eyeHeader}>
             <View style={styles.eyeCircle}>
               <Eye size={36} color="#ccff00" strokeWidth={2} />
@@ -286,7 +288,7 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <LinearGradient colors={rootGradientSignup} style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}>
           <TouchableOpacity onPress={() => setStep('preview')} style={styles.backButton}>
             <Text style={[styles.backButtonText, { color: textSecondary }]}>← Back</Text>
           </TouchableOpacity>

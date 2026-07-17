@@ -21,6 +21,7 @@ import {
   User,
 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { ChallengeArchive, ArchiveReason } from '@/types/database';
 
@@ -76,6 +77,7 @@ function DimensionCard({ dimension, colors, isDark }: DimensionCardProps) {
 
 export default function ArchivedChallengeDetailScreen() {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [archive, setArchive] = useState<ChallengeArchive | null>(null);
@@ -107,7 +109,7 @@ export default function ArchivedChallengeDetailScreen() {
         colors={isDark ? ['#000000', '#111111', '#000000'] : ['#F2F2F7', '#EFEFF4', '#F2F2F7']}
         style={styles.gradient}
       >
-        <View style={[styles.header, { borderBottomColor: borderColor }]}>
+        <View style={[styles.header, { borderBottomColor: borderColor, paddingTop: insets.top + 12 }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.6}>
             <ChevronLeft size={24} color={colors.text} strokeWidth={2.5} />
           </TouchableOpacity>
