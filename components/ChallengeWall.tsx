@@ -5,9 +5,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
-  Animated,
 } from 'react-native';
 import Svg, { Rect, Defs, Filter, FeGaussianBlur } from 'react-native-svg';
+import ReanimatedAnimated, { useSharedValue, useAnimatedProps, withRepeat, withTiming } from 'react-native-reanimated';
 import { Star } from 'lucide-react-native';
 import { MILESTONE_DAYS, isMilestoneDay, TOTAL_CHALLENGE_DAYS } from '@/constants/milestones';
 import { TileLayout } from './DayCardModal';
@@ -67,11 +67,11 @@ interface DayTileProps {
   onPress: (layout?: TileLayout) => void;
 }
 
-const AnimatedRect = Animated.createAnimatedComponent(Rect);
+const AnimatedRect = ReanimatedAnimated.createAnimatedComponent(Rect);
 
 function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, interactive, onPress }: DayTileProps) {
   const tileRef = useRef<View>(null);
-  const glowOpacity = useRef(new Animated.Value(1.0)).current;
+  const glowOpacity = useSharedValue(1.0);
 
   const handlePress = () => {
     const ref = tileRef.current as any;
@@ -98,18 +98,17 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, in
   const needsGlow = isUpcomingMilestone || isDay77Locked;
 
   useEffect(() => {
-    if (!needsGlow) return;
-    glowOpacity.setValue(1.0);
+    if (!needsGlow) {
+      glowOpacity.value = 1.0;
+      return;
+    }
     const minOpacity = isCompletedMilestone ? 0.5 : 0.3;
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowOpacity, { toValue: minOpacity, duration: 1000, useNativeDriver: false }),
-        Animated.timing(glowOpacity, { toValue: 1.0, duration: 1000, useNativeDriver: false }),
-      ])
-    );
-    anim.start();
-    return () => anim.stop();
+    glowOpacity.value = 1.0;
+    glowOpacity.value = withRepeat(withTiming(minOpacity, { duration: 1000 }), -1, true);
   }, [needsGlow]);
+  const animatedProps = useAnimatedProps(() => ({
+    opacity: glowOpacity.value,
+  }));
 
   const getBg = (): string => {
     if (isDay77Completed) return '#FF4400';
@@ -163,7 +162,7 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, in
                 ry={rx}
                 fill={glowColor}
                 filter="url(#glow)"
-                opacity={glowOpacity}
+                animatedProps={animatedProps}
               />
               <AnimatedRect
                 x={svgPad + 1}
@@ -175,7 +174,7 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, in
                 fill="none"
                 stroke={glowColor}
                 strokeWidth={2}
-                opacity={glowOpacity}
+                animatedProps={animatedProps}
               />
             </Svg>
           </View>
@@ -216,7 +215,7 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, in
               ry={rx}
               fill={glowColor}
               filter="url(#glow)"
-              opacity={glowOpacity}
+              animatedProps={animatedProps}
             />
             <AnimatedRect
               x={svgPad + 1}
@@ -228,7 +227,7 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, in
               fill="none"
               stroke={glowColor}
               strokeWidth={2}
-              opacity={glowOpacity}
+              animatedProps={animatedProps}
             />
           </Svg>
         </View>
