@@ -84,7 +84,7 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
           <Text style={[styles.heroTitle, { color: colors.text }]}>
             What do you{'\n'}want to achieve?
           </Text>
-          <Text style={[styles.heroSubtitle, { color: colors.textSecondary, marginBottom: 28 }]}>
+          <Text style={[styles.heroSubtitle, { color: colors.primary, marginBottom: 28 }]}>
             Separate multiple goals with commas.
           </Text>
 
