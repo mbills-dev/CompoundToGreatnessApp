@@ -15,6 +15,8 @@ import {
   Dimensions,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import { decode } from 'base64-arraybuffer';
 import { Camera, X, Share2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -232,39 +234,24 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
     }
   };
 
-  const handlePickPhoto = async () => {
+  const uploadPickedPhoto = async (uri: string) => {
     if (day == null) return;
-
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission required', 'Please allow photo library access to upload a photo.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-      allowsEditing: true,
-      aspect: [4, 3],
-    });
-
-    if (result.canceled || !result.assets[0]) return;
-
     setUploadingPhoto(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const asset = result.assets[0];
-      const ext = asset.uri.split('.').pop() ?? 'jpg';
+      const ext = uri.split('.').pop() ?? 'jpg';
       const path = `${user.id}/${goal.id}/day-${day}.${ext}`;
 
-      const response = await fetch(asset.uri);
-      const blob = await response.blob();
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const arrayBuffer = decode(base64);
 
       const { error: uploadError } = await supabase.storage
         .from('progress-photos')
-        .upload(path, blob, { upsert: true, contentType: `image/${ext}` });
+        .upload(path, arrayBuffer, { upsert: true, contentType: `image/${ext}` });
 
       if (uploadError) throw uploadError;
 
@@ -308,6 +295,50 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
     } finally {
       setUploadingPhoto(false);
     }
+  };
+
+  const pickFromLibrary = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please allow photo library access to upload a photo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+      allowsEditing: true,
+      aspect: [4, 3],
+    });
+    if (result.canceled || !result.assets[0]) return;
+    await uploadPickedPhoto(result.assets[0].uri);
+  };
+
+  const takePhotoWithCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please allow camera access to take a photo.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.8,
+      allowsEditing: true,
+      aspect: [4, 3],
+    });
+    if (result.canceled || !result.assets[0]) return;
+    await uploadPickedPhoto(result.assets[0].uri);
+  };
+
+  const handlePickPhoto = () => {
+    if (day == null) return;
+    Alert.alert(
+      'Add Photo',
+      undefined,
+      [
+        { text: 'Take Photo', onPress: takePhotoWithCamera },
+        { text: 'Choose from Library', onPress: pickFromLibrary },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
 
   const handleShareWithWatchers = async () => {
