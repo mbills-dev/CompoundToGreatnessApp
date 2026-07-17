@@ -1027,29 +1027,33 @@ export function PathSelectorScreen({
   onBack: () => void;
 }) {
   const { colors, isDark } = useTheme();
-  const paths: Array<{ id: DecodePath | 'daily'; label: string; sub: string; onPress: () => void }> = [
+  const paths: Array<{ id: DecodePath | 'daily'; label: string; mechanism: string; examples: string; onPress: () => void }> = [
     {
       id: 'numbers',
       label: "It's a numbers game",
-      sub: 'More attempts → more wins. Deals, clients, outreach.',
+      mechanism: 'More attempts → more wins.',
+      examples: 'Deals, clients, outreach, sales calls, income.',
       onPress: () => onSelect('numbers'),
     },
     {
       id: 'practice',
       label: 'It takes time invested',
-      sub: 'Hours in → ability out. Skills, crafts, languages.',
+      mechanism: 'Hours in → ability out.',
+      examples: 'Skills, crafts, languages.',
       onPress: () => onSelect('practice'),
     },
     {
       id: 'starting',
       label: "It's built on daily habits",
-      sub: 'Repeat the right actions and the result follows. Health, energy, character.',
+      mechanism: 'Repeat the right actions and the result follows.',
+      examples: 'Health, energy, character.',
       onPress: () => onSelect('starting'),
     },
     {
       id: 'daily',
       label: 'This is the daily action',
-      sub: 'No math needed — lock it in.',
+      mechanism: 'No math needed — lock it in.',
+      examples: 'e.g. Walk 10,000 steps a day. Drink a gallon of water. Save $10 a day.',
       onPress: onDailyAction,
     },
   ];
@@ -1091,7 +1095,10 @@ export function PathSelectorScreen({
                 {p.label}
               </Text>
               <Text style={[styles.pathCardSub, { color: colors.textTertiary }]}>
-                {p.sub}
+                {p.mechanism}
+              </Text>
+              <Text style={[styles.pathCardSub, { color: colors.primary, marginTop: 2 }]}>
+                {p.examples}
               </Text>
             </View>
             <ArrowRight size={18} color={colors.textTertiary} strokeWidth={2} />
