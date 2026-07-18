@@ -13,6 +13,8 @@ import { Share2, Lock, ArrowUpFromLine } from 'lucide-react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchCompletions, completionsKey } from '@/hooks/useCompletions';
 import { Goal, DailyCompletion, DailyActivity } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -53,12 +55,21 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
   const rootWrapperRef = useRef<View>(null);
   const containerOriginRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
+  const queryClient = useQueryClient();
+  const { data: completionsData } = useQuery({
+    queryKey: completionsKey(goal.id),
+    queryFn: () => fetchCompletions(goal.id),
+  });
+
+  useEffect(() => {
+    if (completionsData) setCompletions(completionsData);
+  }, [completionsData]);
+
   useEffect(() => {
     initializeChallenge();
   }, [goal.id, isFocused]);
 
   useEffect(() => {
-    loadCompletions();
     loadActivities();
   }, [goal.id, isFocused]);
 
@@ -127,19 +138,8 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
     }
   };
 
-  const loadCompletions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('daily_completions')
-        .select('*')
-        .eq('goal_id', goal.id)
-        .order('completion_date', { ascending: true });
-
-      if (error) throw error;
-      setCompletions(data || []);
-    } catch (error) {
-      console.error('Error loading completions:', error);
-    }
+  const loadCompletions = () => {
+    return queryClient.invalidateQueries({ queryKey: completionsKey(goal.id) });
   };
 
   const loadActivities = async () => {

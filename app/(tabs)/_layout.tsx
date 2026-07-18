@@ -7,6 +7,8 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchFriends, friendsKey } from '@/hooks/useFriends';
 import { fetchSettingsBundle, settingsBundleKey } from '@/hooks/useSettingsBundle';
+import { fetchGoalBundle } from '@/hooks/useGoalBundle';
+import { fetchCompletions, completionsKey } from '@/hooks/useCompletions';
 import { RacingBorderProvider, useRacingBorder } from '@/contexts/RacingBorderContext';
 import { CelebrationProvider } from '@/contexts/CelebrationContext';
 import { TabBarVisibilityProvider, useTabBarVisibility } from '@/contexts/TabBarVisibilityContext';
@@ -55,6 +57,23 @@ function TabLayoutInner() {
       queryKey: settingsBundleKey(user.id),
       queryFn: () => fetchSettingsBundle(user),
     });
+    (async () => {
+      try {
+        const bundle = await queryClient.fetchQuery({
+          queryKey: ['goal-bundle', user.id],
+          queryFn: () => fetchGoalBundle(user.id),
+        });
+        const goalId = bundle.goal?.id ?? bundle.pendingGoal?.id;
+        if (goalId) {
+          queryClient.prefetchQuery({
+            queryKey: completionsKey(goalId),
+            queryFn: () => fetchCompletions(goalId),
+          });
+        }
+      } catch {
+        // prefetch is best-effort; screens fetch on demand if this fails
+      }
+    })();
   }, [user?.id]);
 
   useEffect(() => {

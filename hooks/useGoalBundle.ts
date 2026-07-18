@@ -8,7 +8,7 @@ export interface GoalBundle {
   activities: DailyActivity[];
 }
 
-async function fetchGoalBundle(userId: string): Promise<GoalBundle> {
+export async function fetchGoalBundle(userId: string): Promise<GoalBundle> {
   const { data: activeGoal, error: activeError } = await supabase
     .from('goals')
     .select('*')

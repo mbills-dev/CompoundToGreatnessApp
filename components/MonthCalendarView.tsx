@@ -15,7 +15,9 @@ import { Goal, DailyCompletion, DailyActivity } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getTodayDateString, isPhase2DayLocked, parseLocalDate, toLocalMidnight } from '@/lib/dateHelpers';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStreakSummary } from '@/hooks/useStreakSummary';
+import { fetchCompletions, completionsKey } from '@/hooks/useCompletions';
 import JourneyComparisonBanner from './JourneyComparisonBanner';
 
 interface MonthCalendarViewProps {
@@ -50,6 +52,16 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [dayCardDay, setDayCardDay] = useState<number | null>(null);
 
+  const queryClient = useQueryClient();
+  const { data: completionsData } = useQuery({
+    queryKey: completionsKey(goal.id),
+    queryFn: () => fetchCompletions(goal.id),
+  });
+
+  useEffect(() => {
+    if (completionsData) setCompletions(completionsData);
+  }, [completionsData]);
+
   useEffect(() => {
     loadData();
   }, [goal.id]);
@@ -64,18 +76,8 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
     await Promise.all([loadCompletions(), loadActivities()]);
   };
 
-  const loadCompletions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('daily_completions')
-        .select('*')
-        .eq('goal_id', goal.id)
-        .order('completion_date', { ascending: true });
-      if (error) throw error;
-      setCompletions(data || []);
-    } catch (error) {
-      console.error('Error loading completions:', error);
-    }
+  const loadCompletions = () => {
+    return queryClient.invalidateQueries({ queryKey: completionsKey(goal.id) });
   };
 
   const loadActivities = async () => {
