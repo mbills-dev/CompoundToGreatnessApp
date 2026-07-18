@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   View,
   Text,
@@ -200,7 +201,6 @@ export default function DailyDashboard({
   const [completion, setCompletion] = useState<DailyCompletion | null>(null);
   const [completedActivities, setCompletedActivities] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [streak, setStreak] = useState(0);
   const [editMode, setEditMode] = useState(false);
   const [newActivityName, setNewActivityName] = useState('');
   const [addingActivity, setAddingActivity] = useState(false);
@@ -220,12 +220,63 @@ export default function DailyDashboard({
   const isFocusedRef = useRef(true);
   const { celebrationOpen, openCelebration, closeCelebration } = useCelebration();
   const [watcherCount, setWatcherCount] = useState(0);
-  const [perfectDays, setPerfectDays] = useState(0);
-  const [phase2ThisMonth, setPhase2ThisMonth] = useState(0);
   const [bestStreak, setBestStreak] = useState(goal.best_streak || 0);
   const [showGracePeriodModal, setShowGracePeriodModal] = useState(false);
   const [gracePeriodDaysMissed, setGracePeriodDaysMissed] = useState(0);
   const [gracePeriodMode, setGracePeriodMode] = useState<'grace' | 'reset'>('grace');
+
+  const queryClient = useQueryClient();
+
+  const { data: streakSummary } = useQuery({
+    queryKey: ['streak-summary', goal.id],
+    queryFn: async () => {
+      const streakCount = await computeCurrentStreak(goal.id);
+
+      const { count: perfectCount, error: perfectError } = await supabase
+        .from('daily_completions')
+        .select('*', { count: 'exact', head: true })
+        .eq('goal_id', goal.id)
+        .not('completed_at', 'is', null);
+      if (perfectError) throw perfectError;
+
+      const now = new Date();
+      const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const { count: monthCount, error: monthError } = await supabase
+        .from('daily_completions')
+        .select('*', { count: 'exact', head: true })
+        .eq('goal_id', goal.id)
+        .like('completion_date', `${monthPrefix}%`)
+        .not('completed_at', 'is', null);
+      if (monthError) throw monthError;
+
+      return {
+        streak: streakCount,
+        perfectDays: perfectCount || 0,
+        phase2ThisMonth: monthCount || 0,
+      };
+    },
+  });
+
+  const streak = streakSummary?.streak ?? 0;
+  const perfectDays = streakSummary?.perfectDays ?? 0;
+  const phase2ThisMonth = streakSummary?.phase2ThisMonth ?? 0;
+
+  const refreshStreakSummary = () => {
+    return queryClient.invalidateQueries({ queryKey: ['streak-summary', goal.id] });
+  };
+
+  useEffect(() => {
+    if (streak > bestStreak) {
+      setBestStreak(streak);
+      supabase
+        .from('goals')
+        .update({ best_streak: streak })
+        .eq('id', goal.id)
+        .then(({ error }) => {
+          if (error) console.error('Error updating best streak:', error);
+        });
+    }
+  }, [streak]);
 
   const progressWidth = useSharedValue(0);
   const progressTextColor = useSharedValue(0);
@@ -246,12 +297,7 @@ export default function DailyDashboard({
 
   useEffect(() => {
     loadTodayCompletion();
-    loadStreak();
     loadWatcherCount();
-    loadPerfectDays();
-    if (isKeepGoing) {
-      loadPhase2ThisMonth();
-    }
     if (!goal.celebration_seen && isKeepGoing) {
       openCelebration();
     }
@@ -361,45 +407,6 @@ export default function DailyDashboard({
     };
   });
 
-  const loadStreak = async () => {
-    try {
-      const streakCount = await computeCurrentStreak(goal.id);
-
-      setStreak(streakCount);
-
-      setBestStreak((prevBest) => {
-        if (streakCount > prevBest) {
-          supabase
-            .from('goals')
-            .update({ best_streak: streakCount })
-            .eq('id', goal.id)
-            .then(() => {});
-          return streakCount;
-        }
-        return prevBest;
-      });
-    } catch (error) {
-      console.error('Error loading streak:', error);
-    }
-  };
-
-  const loadPhase2ThisMonth = async () => {
-    try {
-      const now = new Date();
-      const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      const { count, error } = await supabase
-        .from('daily_completions')
-        .select('*', { count: 'exact', head: true })
-        .eq('goal_id', goal.id)
-        .like('completion_date', `${monthPrefix}%`)
-        .not('completed_at', 'is', null);
-      if (error) throw error;
-      setPhase2ThisMonth(count || 0);
-    } catch (error) {
-      console.error('Error loading this month count:', error);
-    }
-  };
-
   const loadWatcherCount = async () => {
     try {
       const { count, error } = await supabase
@@ -411,21 +418,6 @@ export default function DailyDashboard({
       setWatcherCount(count || 0);
     } catch (error) {
       console.error('Error loading watcher count:', error);
-    }
-  };
-
-  const loadPerfectDays = async () => {
-    try {
-      const { count, error } = await supabase
-        .from('daily_completions')
-        .select('*', { count: 'exact', head: true })
-        .eq('goal_id', goal.id)
-        .not('completed_at', 'is', null);
-
-      if (error) throw error;
-      setPerfectDays(count || 0);
-    } catch (error) {
-      console.error('Error loading perfect days:', error);
     }
   };
 
@@ -624,8 +616,7 @@ export default function DailyDashboard({
           })
           .eq('id', goal.id);
 
-        loadStreak();
-        loadPerfectDays();
+        refreshStreakSummary();
         onRefresh();
         return;
       }
@@ -658,8 +649,7 @@ export default function DailyDashboard({
           .update(updates)
           .eq('id', goal.id);
 
-        loadStreak();
-        loadPerfectDays();
+        refreshStreakSummary();
         if (user) {
           try {
             await checkAndAwardBadges(user.id, goal);
@@ -683,7 +673,7 @@ export default function DailyDashboard({
           }
         });
       }
-      loadStreak();
+      refreshStreakSummary();
       onRefresh();
     } catch (error) {
       console.error('Error updating completion:', error);
