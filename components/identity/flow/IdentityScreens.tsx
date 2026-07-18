@@ -87,6 +87,8 @@ function IdentityLineEditor({
         value={text}
         onChangeText={setText}
         multiline
+        returnKeyType="done"
+        blurOnSubmit={true}
         autoFocus
         style={[
           styles.identityEditInput,

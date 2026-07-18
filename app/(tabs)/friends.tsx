@@ -423,6 +423,8 @@ export default function FriendsScreen() {
                             value={encouragementMessage}
                             onChangeText={setEncouragementMessage}
                             multiline
+                            returnKeyType="done"
+                            blurOnSubmit={true}
                           />
                           <View style={styles.emojiButtons}>
                             {['🔥', '💪', '👏', '⭐', '🎯', '🚀'].map((emoji) => (

@@ -359,6 +359,8 @@ export function CompassMechanismScreen({
           placeholder="e.g. make more offers than anyone"
           placeholderTextColor={colors.textTertiary}
           multiline
+          returnKeyType="done"
+          blurOnSubmit={true}
           autoCapitalize="sentences"
           textAlignVertical="top"
           autoFocus

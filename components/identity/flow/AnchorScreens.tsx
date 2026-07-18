@@ -175,6 +175,7 @@ export function AnchorScreen({
             autoFocus
             multiline
             returnKeyType="done"
+            blurOnSubmit={true}
             onSubmitEditing={() => setEditingWhat(false)}
           />
           <TouchableOpacity
@@ -393,6 +394,8 @@ export function AddInputScreen({
         placeholder={`e.g. 10,000 steps`}
         placeholderTextColor={colors.textTertiary}
         multiline
+        returnKeyType="done"
+        blurOnSubmit={true}
         autoCapitalize="sentences"
         autoFocus
       />

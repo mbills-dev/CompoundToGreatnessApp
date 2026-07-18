@@ -146,6 +146,8 @@ export default function EvidenceLogSection({ goalId, date, readOnly = false, cha
                 value={content}
                 onChangeText={setContent}
                 multiline
+                returnKeyType="done"
+                blurOnSubmit={true}
                 textAlignVertical="top"
                 autoFocus={isEditing}
                 editable={!onLockedInteraction}

@@ -496,6 +496,8 @@ function EncourageModal({ visible, onClose, watchedUserId, watchedName }: Encour
                   value={message}
                   onChangeText={setMessage}
                   multiline
+                  returnKeyType="done"
+                  blurOnSubmit={true}
                   numberOfLines={3}
                 />
               </View>
