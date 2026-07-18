@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { Crown, Check, Zap, Shield, ChartBar as BarChart3, Users } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,6 +49,14 @@ export default function PaywallGate({ onDismiss, onSubscribeSuccess, celebrate =
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
   const [showConfetti, setShowConfetti] = useState(celebrate);
 
+  useEffect(() => {
+    if (!celebrate || Platform.OS === 'web') return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const t1 = setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 150);
+    const t2 = setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium), 300);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [celebrate]);
+
   const handleSubscribe = () => {
     // TODO(PRE-LAUNCH BLOCKER): move this call inside the RevenueCat
     // purchase-success callback. As written, Start My Challenge activates
@@ -58,7 +68,7 @@ export default function PaywallGate({ onDismiss, onSubscribeSuccess, celebrate =
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {showConfetti && (
         <View style={styles.confettiOverlay} pointerEvents="none">
-          <Confetti count={36} onDone={() => setShowConfetti(false)} />
+          <Confetti count={90} onDone={() => setShowConfetti(false)} />
         </View>
       )}
       <ScrollView
