@@ -279,6 +279,8 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
     try {
       setIsSharing(true);
 
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       const uri = await captureRef(shareViewRef, {
         format: 'png',
         quality: 1,
@@ -471,12 +473,16 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
         </View>
 
         <View ref={shareViewRef} style={[styles.shareContainer, { backgroundColor: bg }]} collapsable={false}>
-          <Image
-            source={isDark ? require('@/assets/images/c2g-wordmark-light.png') : require('@/assets/images/c2g-wordmark-dark.png')}
-            style={styles.shareWordmark}
-            resizeMode="contain"
-          />
-          <Text style={[styles.challengeSubtitle, { color: challengeSubtitleColor }]}>77-DAY CHALLENGE</Text>
+          {isSharing && (
+            <>
+              <Image
+                source={isDark ? require('@/assets/images/c2g-wordmark-dark.png') : require('@/assets/images/c2g-wordmark-light.png')}
+                style={styles.shareWordmark}
+                resizeMode="contain"
+              />
+              <Text style={[styles.challengeSubtitle, { color: challengeSubtitleColor }]}>77-DAY CHALLENGE</Text>
+            </>
+          )}
           <View style={styles.shareHeader}>
             <View style={styles.progressBarContainer}>
               <View style={[styles.progressBarTrack, { backgroundColor: progressTrackBg }]}>
