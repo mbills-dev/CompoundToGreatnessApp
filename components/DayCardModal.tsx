@@ -58,8 +58,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
-  const CARD_HEIGHT = windowHeight * 0.94;
-  const CARD_TOP = windowHeight - CARD_HEIGHT;
+  const CARD_TOP = insets.top + 8;
   const cardBg = isDark ? '#000000' : colors.background;
   const headerBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
   const evidenceBg = isDark ? '#111111' : colors.backgroundSecondary;
@@ -386,7 +385,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
         style={[
           styles.card,
           {
-            height: CARD_HEIGHT,
+            top: CARD_TOP,
             transform: [{ translateY }, { scale }],
             backgroundColor: cardBg,
           },
@@ -396,7 +395,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
         <Animated.View style={[styles.cardContent, { opacity: contentOpacity }]}>
 
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} bounces>
-            <View style={[styles.header, { backgroundColor: headerBg, paddingTop: Math.max(insets.top, 44) + 12 }]}>
+            <View style={[styles.header, { backgroundColor: headerBg, paddingTop: 20 }]}>
               <View style={styles.headerLeft}>
                 <Text style={[styles.dayNumber, { color: textPrimary }]}>
                   {headerMode === 'date' && dateStr ? formatDate(dateStr) : `DAY ${day}`}
