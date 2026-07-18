@@ -75,6 +75,7 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
       contentContainerStyle={styles.screen}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
     >
       <Animated.View style={[fadeStyle, { flex: 1 }]}>
         <TouchableOpacity onPress={onBack} style={[styles.backBtn, { marginBottom: 20 }]}>
@@ -102,6 +103,8 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
             placeholder="e.g. earn $100k, lose 20 lbs, read more books"
             placeholderTextColor={colors.textTertiary}
             multiline
+            returnKeyType="done"
+            blurOnSubmit={true}
             autoCapitalize="sentences"
             textAlignVertical="top"
           />
@@ -157,6 +160,7 @@ export function GoalFuelRedirectScreen({
       contentContainerStyle={styles.screen}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
     >
       <Animated.View style={[fadeStyle, { flex: 1 }]}>
         <TouchableOpacity onPress={onBack} style={[styles.backBtn, { marginBottom: 16 }]}>
@@ -184,6 +188,8 @@ export function GoalFuelRedirectScreen({
             value={actionText}
             onChangeText={setActionText}
             multiline
+            returnKeyType="done"
+            blurOnSubmit={true}
             autoCapitalize="sentences"
             textAlignVertical="top"
           />
@@ -221,6 +227,8 @@ export function GoalFuelRedirectScreen({
                 placeholder="e.g. better health, more energy, weight loss"
                 placeholderTextColor={colors.textTertiary}
                 multiline
+                returnKeyType="done"
+                blurOnSubmit={true}
                 textAlignVertical="top"
                 autoFocus
               />
@@ -312,6 +320,7 @@ export function GoalDoneLooksScreen({
       contentContainerStyle={styles.screen}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
     >
       <Animated.View style={[fadeStyle, { flex: 1 }]}>
         <View style={[styles.decodeHeader, { paddingHorizontal: 0, paddingTop: 0, marginBottom: 8 }]}>
@@ -359,6 +368,8 @@ export function GoalDoneLooksScreen({
             placeholder="e.g. I weigh 175 lbs and feel strong every day"
             placeholderTextColor={colors.textTertiary}
             multiline
+            returnKeyType="done"
+            blurOnSubmit={true}
             autoCapitalize="sentences"
             textAlignVertical="top"
             autoFocus={!isPostureA}

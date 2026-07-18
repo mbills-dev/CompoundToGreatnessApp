@@ -10,10 +10,12 @@ import { ChevronLeft } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import WatcherHomeScreen from '@/components/WatcherHomeScreen';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function FriendDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(!user);
@@ -25,7 +27,7 @@ export default function FriendDetailScreen() {
   if (loading || !user) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <View style={[styles.header, { borderBottomColor: colors.border, paddingTop: insets.top + 8 }]}>
           <View style={styles.backButton} />
           <View style={styles.headerSpacer} />
           <View style={styles.headerSpacer} />
@@ -39,7 +41,7 @@ export default function FriendDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      <View style={[styles.header, { borderBottomColor: colors.border, paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}

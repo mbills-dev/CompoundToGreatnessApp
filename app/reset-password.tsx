@@ -16,9 +16,11 @@ import { Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ResetPasswordScreen() {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -113,7 +115,7 @@ export default function ResetPasswordScreen() {
         style={styles.gradient}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >

@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 
 type AuthMode = 'login' | 'signup' | 'forgot';
@@ -22,6 +23,7 @@ type AuthMode = 'login' | 'signup' | 'forgot';
 export default function AuthScreen() {
   const { colors, isDark } = useTheme();
   const { signIn, signUp } = useAuth();
+  const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<AuthMode>('login');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -124,7 +126,7 @@ export default function AuthScreen() {
         style={styles.gradient}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >

@@ -411,6 +411,8 @@ export function PathNumbers({
     <ScrollView
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.decodeScroll}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
     >
       {targetStr.trim() ? (
         <View
@@ -758,6 +760,8 @@ export function PathPractice({
     <ScrollView
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.decodeScroll}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
     >
       <ChipGroup
         label="Total hours to mastery"
@@ -913,6 +917,8 @@ export function PathStarting({
     <ScrollView
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.decodeScroll}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
     >
       <View
         style={[
@@ -956,6 +962,8 @@ export function PathStarting({
         placeholder="e.g. write 500 words, 30 min cardio"
         placeholderTextColor={colors.textTertiary}
         multiline
+        returnKeyType="done"
+        blurOnSubmit={true}
         autoCapitalize="sentences"
       />
 

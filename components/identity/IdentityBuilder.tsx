@@ -49,6 +49,7 @@ import { FinaleScreen } from './flow/FinaleScreens';
 import { generateIdentityStatements } from './identityAi';
 import { supabase } from '@/lib/supabase';
 import { CHALLENGE_RULES } from '@/constants/challengeRules';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ─── Helpers (local — result assembly only) ───────────────────────────────────
 
@@ -411,6 +412,7 @@ interface Props {
 
 export default function IdentityBuilder({ onComplete }: Props) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const [phase, setPhase] = useState<Phase>({ kind: 'welcome', screen: 0 });
   const [history, setHistory] = useState<Phase[]>([]);
@@ -897,7 +899,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
   };
 
   return (
-    <View style={[ibStyles.root, { backgroundColor: colors.background }]}>
+    <View style={[ibStyles.root, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <Animated.View style={containerStyle}>
         {renderPhase()}
       </Animated.View>
