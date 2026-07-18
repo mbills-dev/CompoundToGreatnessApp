@@ -177,6 +177,7 @@ function SignatureScreen({
   const [paths, setPaths] = useState<string[]>([]);
   const [currentPath, setCurrentPath] = useState<string>('');
   const [committed, setCommitted] = useState(false);
+  const [sigActive, setSigActive] = useState(false);
   const placeholderAnim = useRef(new RNAnimated.Value(1)).current;
   const hasSig = paths.length > 0 || currentPath.length > 0;
 
@@ -191,6 +192,7 @@ function SignatureScreen({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: evt => {
+        setSigActive(true);
         const { locationX, locationY } = evt.nativeEvent;
         setCurrentPath(`M${locationX.toFixed(1)},${locationY.toFixed(1)}`);
       },
@@ -199,11 +201,14 @@ function SignatureScreen({
         setCurrentPath(prev => `${prev} L${locationX.toFixed(1)},${locationY.toFixed(1)}`);
       },
       onPanResponderRelease: () => {
+        setSigActive(false);
         setCurrentPath(prev => {
           if (prev) setPaths(ps => [...ps, prev]);
           return '';
         });
       },
+      onPanResponderTerminate: () => setSigActive(false),
+      onPanResponderTerminationRequest: () => false,
     })
   ).current;
 
@@ -219,6 +224,7 @@ function SignatureScreen({
       contentContainerStyle={sigStyles.scroll}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      scrollEnabled={!sigActive}
     >
       <Animated.View style={[fadeStyle, { gap: 0 }]}>
         <Text style={[sigStyles.headline, { color: colors.text, marginBottom: 6 }]}>
