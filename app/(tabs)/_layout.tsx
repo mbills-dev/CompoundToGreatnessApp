@@ -2,7 +2,10 @@ import { View, Platform } from 'react-native';
 import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Users } from 'lucide-react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { fetchFriends, friendsKey } from '@/hooks/useFriends';
 import { RacingBorderProvider, useRacingBorder } from '@/contexts/RacingBorderContext';
 import { CelebrationProvider } from '@/contexts/CelebrationContext';
 import { TabBarVisibilityProvider, useTabBarVisibility } from '@/contexts/TabBarVisibilityContext';
@@ -38,6 +41,16 @@ function TabLayoutInner() {
   const { colors, isDark } = useTheme();
   const { showRacingBorder, resetRacingBorder } = useRacingBorder();
   const { visible } = useTabBarVisibility();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!user?.id) return;
+    queryClient.prefetchQuery({
+      queryKey: friendsKey(user.id),
+      queryFn: () => fetchFriends(user.id),
+    });
+  }, [user?.id]);
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
