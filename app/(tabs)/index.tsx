@@ -9,48 +9,32 @@ import LockedDashboardPreview from '@/components/LockedDashboardPreview';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTabBarVisibility } from '@/contexts/TabBarVisibilityContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
   const { user, isSubscribed } = useAuth();
   const { setVisible } = useTabBarVisibility();
-  const [loading, setLoading] = useState(true);
-  const [goal, setGoal] = useState<Goal | null>(null);
-  const [pendingGoal, setPendingGoal] = useState<Goal | null>(null);
-  const [activities, setActivities] = useState<DailyActivity[]>([]);
+  const queryClient = useQueryClient();
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallCelebrate, setPaywallCelebrate] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      loadGoal();
-    }
-  }, [user]);
+  const fetchGoalBundle = async () => {
+    const { data: activeGoal, error: activeError } = await supabase
+      .from('goals')
+      .select('*')
+      .eq('is_active', true)
+      .eq('user_id', user!.id)
+      .maybeSingle();
 
-  useEffect(() => {
-    setVisible(!!goal);
-  }, [goal]);
+    if (activeError) throw activeError;
 
-  const loadGoal = async () => {
-    try {
-      // 1. Try active goal first.
-      const { data: activeGoal, error: activeError } = await supabase
-        .from('goals')
-        .select('*')
-        .eq('is_active', true)
-        .eq('user_id', user!.id)
-        .maybeSingle();
+    let resolvedGoal: Goal | null = null;
+    let resolvedPending: Goal | null = null;
 
-      if (activeError) throw activeError;
-
-      if (activeGoal) {
-        setGoal(activeGoal);
-        setPendingGoal(null);
-        await loadActivities(activeGoal.id);
-        return;
-      }
-
-      // 2. No active goal — look for a pending (unsubscribed) goal.
+    if (activeGoal) {
+      resolvedGoal = activeGoal;
+    } else {
       const { data: pending, error: pendingError } = await supabase
         .from('goals')
         .select('*')
@@ -62,32 +46,41 @@ export default function HomeScreen() {
         .maybeSingle();
 
       if (pendingError) throw pendingError;
-
-      if (pending) {
-        setPendingGoal(pending);
-        await loadActivities(pending.id);
-      }
-    } catch (error) {
-      console.error('Error loading goal:', error);
-    } finally {
-      setLoading(false);
+      resolvedPending = pending ?? null;
     }
-  };
 
-  const loadActivities = async (goalId: string) => {
-    try {
+    const goalForActivities = resolvedGoal ?? resolvedPending;
+    let resolvedActivities: DailyActivity[] = [];
+    if (goalForActivities) {
       const { data, error } = await supabase
         .from('daily_activities')
         .select('*')
-        .eq('goal_id', goalId)
+        .eq('goal_id', goalForActivities.id)
         .order('order_position');
-
       if (error) throw error;
-      setActivities(data || []);
-    } catch (error) {
-      console.error('Error loading activities:', error);
+      resolvedActivities = data ?? [];
     }
+
+    return { goal: resolvedGoal, pendingGoal: resolvedPending, activities: resolvedActivities };
   };
+
+  const { data: goalBundle, isLoading: loading } = useQuery({
+    queryKey: ['goal-bundle', user?.id],
+    queryFn: fetchGoalBundle,
+    enabled: !!user,
+  });
+
+  const goal = goalBundle?.goal ?? null;
+  const pendingGoal = goalBundle?.pendingGoal ?? null;
+  const activities = goalBundle?.activities ?? [];
+
+  const loadGoal = () => {
+    queryClient.invalidateQueries({ queryKey: ['goal-bundle', user?.id] });
+  };
+
+  useEffect(() => {
+    setVisible(!!goal);
+  }, [goal]);
 
   const deletePendingGoals = async () => {
     // Remove any previously-saved pending goals (is_active=false, start=null)
@@ -159,7 +152,6 @@ export default function HomeScreen() {
 
       if (activitiesError) throw activitiesError;
 
-      setActivities(newActivities || []);
       return newGoal;
     } catch (error) {
       console.error('Error creating goal:', error);
@@ -173,9 +165,9 @@ export default function HomeScreen() {
     if (!created) return;
 
     if (isSubscribed) {
-      setGoal(created);
+      loadGoal();
     } else {
-      setPendingGoal(created);
+      loadGoal();
       setPaywallCelebrate(true);
       setShowPaywall(true);
     }
@@ -200,8 +192,7 @@ export default function HomeScreen() {
 
       if (error) throw error;
 
-      setGoal(activated);
-      setPendingGoal(null);
+      loadGoal();
       setShowPaywall(false);
       setPaywallCelebrate(false);
     } catch (error) {
