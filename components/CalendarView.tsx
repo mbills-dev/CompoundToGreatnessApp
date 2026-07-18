@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Share2, Lock, ArrowUpFromLine } from 'lucide-react-native';
@@ -470,6 +471,12 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
         </View>
 
         <View ref={shareViewRef} style={[styles.shareContainer, { backgroundColor: bg }]} collapsable={false}>
+          <Image
+            source={isDark ? require('@/assets/images/c2g-wordmark-light.png') : require('@/assets/images/c2g-wordmark-dark.png')}
+            style={styles.shareWordmark}
+            resizeMode="contain"
+          />
+          <Text style={[styles.challengeSubtitle, { color: challengeSubtitleColor }]}>77-DAY CHALLENGE</Text>
           <View style={styles.shareHeader}>
             <View style={styles.progressBarContainer}>
               <View style={[styles.progressBarTrack, { backgroundColor: progressTrackBg }]}>
@@ -712,7 +719,14 @@ const styles = StyleSheet.create({
   shareContainer: {
     paddingTop: 0,
     paddingBottom: 40,
+    paddingHorizontal: 20,
     marginHorizontal: 24,
+  },
+  shareWordmark: {
+    width: 220,
+    height: 55,
+    alignSelf: 'center',
+    marginBottom: 2,
   },
   shareHeader: {
     alignItems: 'center',
