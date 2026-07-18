@@ -75,7 +75,7 @@ export default function HomeScreen() {
   const activities = goalBundle?.activities ?? [];
 
   const loadGoal = () => {
-    queryClient.invalidateQueries({ queryKey: ['goal-bundle', user?.id] });
+    return queryClient.invalidateQueries({ queryKey: ['goal-bundle', user?.id] });
   };
 
   useEffect(() => {
@@ -192,7 +192,7 @@ export default function HomeScreen() {
 
       if (error) throw error;
 
-      loadGoal();
+      await loadGoal();
       setShowPaywall(false);
       setPaywallCelebrate(false);
     } catch (error) {
