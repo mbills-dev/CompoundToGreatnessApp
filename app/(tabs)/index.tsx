@@ -9,74 +9,16 @@ import LockedDashboardPreview from '@/components/LockedDashboardPreview';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTabBarVisibility } from '@/contexts/TabBarVisibilityContext';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useGoalBundle } from '@/hooks/useGoalBundle';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
   const { user, isSubscribed } = useAuth();
   const { setVisible } = useTabBarVisibility();
-  const queryClient = useQueryClient();
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallCelebrate, setPaywallCelebrate] = useState(false);
 
-  const fetchGoalBundle = async () => {
-    const { data: activeGoal, error: activeError } = await supabase
-      .from('goals')
-      .select('*')
-      .eq('is_active', true)
-      .eq('user_id', user!.id)
-      .maybeSingle();
-
-    if (activeError) throw activeError;
-
-    let resolvedGoal: Goal | null = null;
-    let resolvedPending: Goal | null = null;
-
-    if (activeGoal) {
-      resolvedGoal = activeGoal;
-    } else {
-      const { data: pending, error: pendingError } = await supabase
-        .from('goals')
-        .select('*')
-        .eq('user_id', user!.id)
-        .eq('is_active', false)
-        .is('challenge_start_date', null)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (pendingError) throw pendingError;
-      resolvedPending = pending ?? null;
-    }
-
-    const goalForActivities = resolvedGoal ?? resolvedPending;
-    let resolvedActivities: DailyActivity[] = [];
-    if (goalForActivities) {
-      const { data, error } = await supabase
-        .from('daily_activities')
-        .select('*')
-        .eq('goal_id', goalForActivities.id)
-        .order('order_position');
-      if (error) throw error;
-      resolvedActivities = data ?? [];
-    }
-
-    return { goal: resolvedGoal, pendingGoal: resolvedPending, activities: resolvedActivities };
-  };
-
-  const { data: goalBundle, isLoading: loading } = useQuery({
-    queryKey: ['goal-bundle', user?.id],
-    queryFn: fetchGoalBundle,
-    enabled: !!user,
-  });
-
-  const goal = goalBundle?.goal ?? null;
-  const pendingGoal = goalBundle?.pendingGoal ?? null;
-  const activities = goalBundle?.activities ?? [];
-
-  const loadGoal = () => {
-    return queryClient.invalidateQueries({ queryKey: ['goal-bundle', user?.id] });
-  };
+  const { goal, pendingGoal, activities, isLoading: loading, invalidate: loadGoal } = useGoalBundle(user?.id);
 
   useEffect(() => {
     setVisible(!!goal);

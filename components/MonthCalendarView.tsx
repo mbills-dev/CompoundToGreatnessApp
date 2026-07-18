@@ -15,9 +15,8 @@ import { Goal, DailyCompletion, DailyActivity } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getTodayDateString, isPhase2DayLocked, parseLocalDate, toLocalMidnight } from '@/lib/dateHelpers';
-import { computeCurrentStreak } from '@/lib/streakHelpers';
+import { useStreakSummary } from '@/hooks/useStreakSummary';
 import JourneyComparisonBanner from './JourneyComparisonBanner';
-import { useQuery } from '@tanstack/react-query';
 
 interface MonthCalendarViewProps {
   goal: Goal;
@@ -45,36 +44,7 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
 
   const [completions, setCompletions] = useState<DailyCompletion[]>([]);
   const [activities, setActivities] = useState<DailyActivity[]>([]);
-  const { data: streakSummary } = useQuery({
-    queryKey: ['streak-summary', goal.id],
-    queryFn: async () => {
-      const streakCount = await computeCurrentStreak(goal.id);
-
-      const { count: perfectCount, error: perfectError } = await supabase
-        .from('daily_completions')
-        .select('*', { count: 'exact', head: true })
-        .eq('goal_id', goal.id)
-        .not('completed_at', 'is', null);
-      if (perfectError) throw perfectError;
-
-      const now = new Date();
-      const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      const { count: monthCount, error: monthError } = await supabase
-        .from('daily_completions')
-        .select('*', { count: 'exact', head: true })
-        .eq('goal_id', goal.id)
-        .like('completion_date', `${monthPrefix}%`)
-        .not('completed_at', 'is', null);
-      if (monthError) throw monthError;
-
-      return {
-        streak: streakCount,
-        perfectDays: perfectCount || 0,
-        phase2ThisMonth: monthCount || 0,
-      };
-    },
-  });
-  const streak = streakSummary?.streak ?? 0;
+  const { streak } = useStreakSummary(goal.id);
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);

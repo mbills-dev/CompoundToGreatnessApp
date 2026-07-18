@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useStreakSummary } from '@/hooks/useStreakSummary';
 import {
   View,
   Text,
@@ -36,7 +36,6 @@ import ChallengeCompleteScreen from './ChallengeCompleteScreen';
 import { isDateLocked, toLocalDateString, parseLocalDate, getDayNumberFromChallengeStart } from '@/lib/dateHelpers';
 import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import { resetChallenge } from '@/lib/resetHelpers';
-import { computeCurrentStreak } from '@/lib/streakHelpers';
 import { checkAndAwardBadges } from '@/lib/badgeHelpers';
 import { useAuth } from '@/contexts/AuthContext';
 import CoachCard from './CoachCard';
@@ -225,45 +224,7 @@ export default function DailyDashboard({
   const [gracePeriodDaysMissed, setGracePeriodDaysMissed] = useState(0);
   const [gracePeriodMode, setGracePeriodMode] = useState<'grace' | 'reset'>('grace');
 
-  const queryClient = useQueryClient();
-
-  const { data: streakSummary } = useQuery({
-    queryKey: ['streak-summary', goal.id],
-    queryFn: async () => {
-      const streakCount = await computeCurrentStreak(goal.id);
-
-      const { count: perfectCount, error: perfectError } = await supabase
-        .from('daily_completions')
-        .select('*', { count: 'exact', head: true })
-        .eq('goal_id', goal.id)
-        .not('completed_at', 'is', null);
-      if (perfectError) throw perfectError;
-
-      const now = new Date();
-      const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      const { count: monthCount, error: monthError } = await supabase
-        .from('daily_completions')
-        .select('*', { count: 'exact', head: true })
-        .eq('goal_id', goal.id)
-        .like('completion_date', `${monthPrefix}%`)
-        .not('completed_at', 'is', null);
-      if (monthError) throw monthError;
-
-      return {
-        streak: streakCount,
-        perfectDays: perfectCount || 0,
-        phase2ThisMonth: monthCount || 0,
-      };
-    },
-  });
-
-  const streak = streakSummary?.streak ?? 0;
-  const perfectDays = streakSummary?.perfectDays ?? 0;
-  const phase2ThisMonth = streakSummary?.phase2ThisMonth ?? 0;
-
-  const refreshStreakSummary = () => {
-    return queryClient.invalidateQueries({ queryKey: ['streak-summary', goal.id] });
-  };
+  const { streak, perfectDays, phase2ThisMonth, invalidate: refreshStreakSummary } = useStreakSummary(goal.id);
 
   useEffect(() => {
     if (streak > bestStreak) {
