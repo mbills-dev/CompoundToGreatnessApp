@@ -12,7 +12,7 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -47,9 +47,6 @@ interface DayCardModalProps {
 }
 
 const LIME = '#CCFF00';
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
-const CARD_HEIGHT = SCREEN_H * 0.94;
-const CARD_TOP = SCREEN_H - CARD_HEIGHT;
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
@@ -60,6 +57,9 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
   const { colors, isDark } = useTheme();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const CARD_HEIGHT = windowHeight * 0.94;
+  const CARD_TOP = windowHeight - CARD_HEIGHT;
   const cardBg = isDark ? '#000000' : colors.background;
   const headerBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
   const evidenceBg = isDark ? '#111111' : colors.backgroundSecondary;
@@ -81,7 +81,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  const translateY = useRef(new Animated.Value(SCREEN_H)).current;
+  const translateY = useRef(new Animated.Value(windowHeight)).current;
   const scale = useRef(new Animated.Value(0.97)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
@@ -93,7 +93,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
   useEffect(() => {
     if (visible) {
       setMounted(true);
-      translateY.setValue(SCREEN_H);
+      translateY.setValue(windowHeight);
       scale.setValue(0.97);
       overlayOpacity.setValue(0);
       contentOpacity.setValue(0);
@@ -128,7 +128,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
     } else {
       Animated.parallel([
         Animated.timing(translateY, {
-          toValue: SCREEN_H,
+          toValue: windowHeight,
           duration: 280,
           useNativeDriver: true,
         }),
@@ -386,6 +386,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
         style={[
           styles.card,
           {
+            height: CARD_HEIGHT,
             transform: [{ translateY }, { scale }],
             backgroundColor: cardBg,
           },
@@ -395,7 +396,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
         <Animated.View style={[styles.cardContent, { opacity: contentOpacity }]}>
 
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} bounces>
-            <View style={[styles.header, { backgroundColor: headerBg, paddingTop: insets.top + 12 }]}>
+            <View style={[styles.header, { backgroundColor: headerBg, paddingTop: Math.max(insets.top, 44) + 12 }]}>
               <View style={styles.headerLeft}>
                 <Text style={[styles.dayNumber, { color: textPrimary }]}>
                   {headerMode === 'date' && dateStr ? formatDate(dateStr) : `DAY ${day}`}
@@ -545,7 +546,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
         )}
       </Animated.View>
       <Animated.View
-        style={[styles.closeBtnWrapper, { opacity: contentOpacity }]}
+        style={[styles.closeBtnWrapper, { top: CARD_TOP + 14, opacity: contentOpacity }]}
         pointerEvents={visible ? 'auto' : 'none'}
       >
         <TouchableOpacity style={styles.closeBtn} onPress={handleClose} activeOpacity={0.6}>
@@ -590,7 +591,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: CARD_HEIGHT,
     backgroundColor: '#000000',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -601,7 +601,6 @@ const styles = StyleSheet.create({
   },
   closeBtnWrapper: {
     position: 'absolute',
-    top: CARD_TOP + 14,
     right: 14,
     zIndex: 30,
   },
