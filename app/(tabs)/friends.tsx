@@ -378,9 +378,10 @@ export default function FriendsScreen() {
                   >
                     <View style={styles.friendHeader}>
                       <TouchableOpacity
-                        style={styles.friendInfo}
+                        style={[styles.friendInfo, !friend.isWatching && { opacity: 0.6 }]}
                         activeOpacity={0.7}
                         onPress={() => router.push(`/friend/${friend.id}`)}
+                        disabled={!friend.isWatching}
                       >
                         {friend.photo_url ? (
                           <Image source={{ uri: friend.photo_url }} style={styles.avatarImage} />
