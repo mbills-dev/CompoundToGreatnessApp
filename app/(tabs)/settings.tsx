@@ -36,6 +36,8 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { useQueryClient } from '@tanstack/react-query';
+import { fetchSettingsBundle, settingsBundleKey } from '@/hooks/useSettingsBundle';
 import { UserSettings, Goal } from '@/types/database';
 import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import { resetChallenge } from '@/lib/resetHelpers';
@@ -64,6 +66,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { user, signOut: authSignOut } = useAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -94,12 +97,11 @@ export default function SettingsScreen() {
   const loadSettings = async () => {
     if (!user) return;
     try {
-      // Load persisted profile photo
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('photo_url, username')
-        .eq('id', user.id)
-        .maybeSingle();
+      const { profile, settings: data } = await queryClient.fetchQuery({
+        queryKey: settingsBundleKey(user.id),
+        queryFn: () => fetchSettingsBundle(user),
+      });
+
       if (profile?.photo_url) {
         setProfilePhoto(profile.photo_url);
       }
@@ -107,14 +109,6 @@ export default function SettingsScreen() {
         setUsername(profile.username);
         originalUsernameRef.current = profile.username;
       }
-
-      const { data, error } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error) throw error;
 
       if (data) {
         setSettingsId(data.id);
@@ -126,27 +120,6 @@ export default function SettingsScreen() {
         setMorningNotifications(data.morning_notifications);
         setEveningNotifications(data.evening_notifications);
         setSaveProgressPhotos(data.save_progress_photos);
-      } else {
-        const metadata = user.user_metadata || {};
-        const { data: newSettings, error: insertError } = await supabase
-          .from('user_settings')
-          .insert({
-            user_id: user.id,
-            first_name: metadata.first_name || '',
-            last_name: metadata.last_name || '',
-            email: user.email || '',
-          })
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-        if (newSettings) {
-          setSettingsId(newSettings.id);
-          setFirstName(newSettings.first_name || '');
-          setLastName(newSettings.last_name || '');
-          setName([newSettings.first_name, newSettings.last_name].filter(Boolean).join(' '));
-          setEmail(newSettings.email || user.email || '');
-        }
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -244,10 +217,11 @@ export default function SettingsScreen() {
         .from('user_settings')
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', settingsId);
+      queryClient.invalidateQueries({ queryKey: settingsBundleKey(user?.id) });
     } catch (error) {
       console.error('Error saving settings:', error);
     }
-  }, [settingsId]);
+  }, [settingsId, queryClient, user?.id]);
 
   const handleNameChange = (value: string) => {
     setName(value);
@@ -311,6 +285,7 @@ export default function SettingsScreen() {
       .eq('id', user.id);
     if (!error) {
       originalUsernameRef.current = username;
+      queryClient.invalidateQueries({ queryKey: settingsBundleKey(user?.id) });
     }
   };
 
@@ -387,6 +362,7 @@ export default function SettingsScreen() {
       if (updateError) throw updateError;
 
       setProfilePhoto(publicUrl);
+      queryClient.invalidateQueries({ queryKey: settingsBundleKey(user?.id) });
     } catch (err: any) {
       setPhotoError(err?.message ?? 'Upload failed. Please try again.');
     } finally {

@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchFriends, friendsKey } from '@/hooks/useFriends';
+import { fetchSettingsBundle, settingsBundleKey } from '@/hooks/useSettingsBundle';
 import { RacingBorderProvider, useRacingBorder } from '@/contexts/RacingBorderContext';
 import { CelebrationProvider } from '@/contexts/CelebrationContext';
 import { TabBarVisibilityProvider, useTabBarVisibility } from '@/contexts/TabBarVisibilityContext';
@@ -49,6 +50,10 @@ function TabLayoutInner() {
     queryClient.prefetchQuery({
       queryKey: friendsKey(user.id),
       queryFn: () => fetchFriends(user.id),
+    });
+    queryClient.prefetchQuery({
+      queryKey: settingsBundleKey(user.id),
+      queryFn: () => fetchSettingsBundle(user),
     });
   }, [user?.id]);
 
