@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import Svg, { Rect, Defs, Filter, FeGaussianBlur } from 'react-native-svg';
 import ReanimatedAnimated, { useSharedValue, useAnimatedProps, withRepeat, withTiming } from 'react-native-reanimated';
@@ -305,12 +306,12 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, in
 }
 
 export default function ChallengeWall({ currentDay, isDayCompleted, isLight, onTilePress }: ChallengeWallProps) {
-  const [containerWidth, setContainerWidth] = useState(0);
+  const { width: windowWidth } = useWindowDimensions();
   const GRID_COLS = 7;
   const GRID_GAP = 6;
-  const tileSize = containerWidth > 0
-    ? Math.floor((containerWidth - (GRID_COLS - 1) * GRID_GAP) / GRID_COLS)
-    : 0;
+  const HORIZONTAL_PADDING = 48;
+  const containerWidth = windowWidth - HORIZONTAL_PADDING;
+  const tileSize = Math.floor((containerWidth - (GRID_COLS - 1) * GRID_GAP) / GRID_COLS);
 
   const days = Array.from({ length: TOTAL_CHALLENGE_DAYS }, (_, i) => i + 1);
 
@@ -322,11 +323,8 @@ export default function ChallengeWall({ currentDay, isDayCompleted, isLight, onT
 
   return (
     <>
-      <View
-        style={styles.challengeGrid}
-        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
-      >
-        {containerWidth > 0 && days.map((day) => {
+      <View style={styles.challengeGrid}>
+        {days.map((day) => {
           const completed = !!isDayCompleted(day);
           return (
             <DayTile
