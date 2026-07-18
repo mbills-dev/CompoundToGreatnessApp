@@ -33,6 +33,8 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import { decode } from 'base64-arraybuffer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -339,12 +341,14 @@ export default function SettingsScreen() {
     try {
       const ext = uri.split('.').pop()?.split('?')[0] ?? 'jpg';
       const path = `${user.id}/avatar.${ext}`;
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const arrayBuffer = decode(base64);
 
       const { error: uploadError } = await supabase.storage
         .from('profile-photos')
-        .upload(path, blob, { upsert: true, contentType: `image/${ext}` });
+        .upload(path, arrayBuffer, { upsert: true, contentType: `image/${ext}` });
 
       if (uploadError) throw uploadError;
 
