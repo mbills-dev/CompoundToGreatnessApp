@@ -44,7 +44,6 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
   const insets = useSafeAreaInsets();
   const today = getTodayDateString();
 
-  const [completions, setCompletions] = useState<DailyCompletion[]>([]);
   const [activities, setActivities] = useState<DailyActivity[]>([]);
   const { streak } = useStreakSummary(goal.id);
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
@@ -53,6 +52,9 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
   const [dayCardDay, setDayCardDay] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
+  const [completions, setCompletions] = useState<DailyCompletion[]>(
+    () => (queryClient.getQueryData(completionsKey(goal.id)) as DailyCompletion[] | undefined) ?? []
+  );
   const { data: completionsData } = useQuery({
     queryKey: completionsKey(goal.id),
     queryFn: () => fetchCompletions(goal.id),

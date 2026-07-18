@@ -41,7 +41,6 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
   const insets = useSafeAreaInsets();
   const { openCelebration } = useCelebration();
   const [goal, setGoal] = useState(initialGoal);
-  const [completions, setCompletions] = useState<DailyCompletion[]>([]);
   const [activities, setActivities] = useState<DailyActivity[]>([]);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [dayCardDay, setDayCardDay] = useState<number | null>(null);
@@ -56,6 +55,9 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
   const containerOriginRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const queryClient = useQueryClient();
+  const [completions, setCompletions] = useState<DailyCompletion[]>(
+    () => (queryClient.getQueryData(completionsKey(goal.id)) as DailyCompletion[] | undefined) ?? []
+  );
   const { data: completionsData } = useQuery({
     queryKey: completionsKey(goal.id),
     queryFn: () => fetchCompletions(goal.id),
