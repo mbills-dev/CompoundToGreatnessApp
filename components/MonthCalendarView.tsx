@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,12 @@ import {
   TouchableOpacity,
   ScrollView,
   useWindowDimensions,
+  Platform,
+  Alert,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, ChevronRight, Zap } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Zap, Share2 } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import DayCardModal from './DayCardModal';
 import { supabase } from '@/lib/supabase';
@@ -20,6 +23,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStreakSummary } from '@/hooks/useStreakSummary';
 import { fetchCompletions, completionsKey } from '@/hooks/useCompletions';
 import JourneyComparisonBanner from './JourneyComparisonBanner';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 
 interface MonthCalendarViewProps {
   goal: Goal;
@@ -51,6 +56,8 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
   const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [dayCardDay, setDayCardDay] = useState<number | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const shareCaptureRef = useRef<View>(null);
 
   const queryClient = useQueryClient();
   const [completions, setCompletions] = useState<DailyCompletion[]>(
@@ -149,6 +156,48 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
     setDayCardDay(challengeDayForDate(goal.challenge_start_date, dateStr));
   };
 
+  const handleShare = async () => {
+    if (!shareCaptureRef.current) {
+      Alert.alert('Error', 'Unable to capture streak image. Please try again.');
+      return;
+    }
+
+    try {
+      setIsSharing(true);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const uri = await captureRef(shareCaptureRef, {
+        format: 'png',
+        quality: 1,
+      });
+
+      if (Platform.OS === 'web') {
+        const link = document.createElement('a');
+        link.download = `keep-going-streak.png`;
+        link.href = uri;
+        link.click();
+
+        setTimeout(() => {
+          Alert.alert('Success', 'Your streak image has been downloaded!');
+        }, 100);
+      } else {
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(uri, {
+            dialogTitle: 'Share your Keep Going streak',
+          });
+        } else {
+          Alert.alert('Error', 'Sharing is not available on this device.');
+        }
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+      Alert.alert('Error', `Failed to share your streak: ${error}`);
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   const { firstDay, daysInMonth } = getMonthDays();
 
   const { width: windowWidth } = useWindowDimensions();
@@ -156,7 +205,7 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
   const effectiveWidth = Math.min(windowWidth, APP_MAX_WIDTH);
   const GRID_COLS = 7;
   const GRID_GAP = 6;
-  const HORIZONTAL_PADDING = 32;
+  const HORIZONTAL_PADDING = 40;
   const containerWidth = effectiveWidth - HORIZONTAL_PADDING;
   const tileSize = Math.floor((containerWidth - (GRID_COLS - 1) * GRID_GAP) / GRID_COLS);
 
@@ -173,90 +222,116 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
         colors={isDark ? ['#000000', '#111111', '#000000'] : ['#F5F5F0', '#F0F0EB', '#F5F5F0']}
         style={styles.gradient}
       >
-        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-          <View style={[styles.keepGoingBadge, { borderColor: colors.primary }]}>
-            <Zap size={22} fill={colors.primary} color={colors.primary} />
-            <Text style={[styles.keepGoingBadgeNumber, { color: colors.primary }]}>
-              {streak}
-            </Text>
-            <Text style={[styles.keepGoingBadgeText, { color: colors.primary }]}>
-              DAY STREAK
-            </Text>
-          </View>
-        </View>
-
-        <JourneyComparisonBanner goalId={goal.id} currentChallengeDay={goal.current_challenge_day || 0} />
-        <View style={styles.monthNav}>
-          <TouchableOpacity onPress={prevMonth} style={styles.navArrow} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <ChevronLeft size={28} color={colors.text} strokeWidth={2.5} />
-          </TouchableOpacity>
-
-          <View style={styles.monthTitleBlock}>
-            <Text style={[styles.monthName, { color: colors.text }]}>
-              {MONTH_NAMES[currentMonth]}
-            </Text>
-            <Text style={[styles.monthYear, { color: textMuted }]}>{currentYear}</Text>
-          </View>
-
-          <TouchableOpacity
-            onPress={nextMonth}
-            style={[styles.navArrow, !canGoNext() && styles.navArrowDisabled]}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            disabled={!canGoNext()}
-          >
-            <ChevronRight size={28} color={canGoNext() ? colors.text : textMuted} strokeWidth={2.5} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.calendarGrid}>
-          <View style={styles.weekDaysRow}>
-            {DAYS_OF_WEEK.map((d) => (
-              <Text key={d} style={[styles.weekDayLabel, { color: textMuted }]}>{d}</Text>
-            ))}
+        <View
+          ref={shareCaptureRef}
+          style={[styles.shareContainer, { backgroundColor: colors.background, paddingTop: isSharing ? 20 : insets.top + 16 }]}
+          collapsable={false}
+        >
+          {isSharing && (
+            <>
+              <Image
+                source={isDark ? require('@/assets/images/c2g-wordmark-dark.png') : require('@/assets/images/c2g-wordmark-light.png')}
+                style={styles.shareWordmark}
+                resizeMode="contain"
+              />
+              <Text style={[styles.shareSubtitle, { color: textMuted }]}>KEEP GOING</Text>
+            </>
+          )}
+          <View style={styles.header}>
+            <View style={[styles.keepGoingBadge, { borderColor: colors.primary }]}>
+              <Zap size={22} fill={colors.primary} color={colors.primary} />
+              <Text style={[styles.keepGoingBadgeNumber, { color: colors.primary }]}>
+                {streak}
+              </Text>
+              <Text style={[styles.keepGoingBadgeText, { color: colors.primary }]}>
+                DAY STREAK
+              </Text>
+            </View>
           </View>
 
-          <View style={styles.daysGrid}>
-            {Array.from({ length: firstDay }).map((_, i) => (
-              <View key={`empty-${i}`} style={[styles.dayCell, { width: tileSize, height: tileSize }]} />
-            ))}
+          <JourneyComparisonBanner goalId={goal.id} currentChallengeDay={goal.current_challenge_day || 0} />
+          <View style={styles.monthNav}>
+            <TouchableOpacity onPress={prevMonth} style={styles.navArrow} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <ChevronLeft size={28} color={colors.text} strokeWidth={2.5} />
+            </TouchableOpacity>
 
-            {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-              const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              const completed = isDayCompleted(dateStr);
-              const isFuture = dateStr > today;
-              const isToday = dateStr === today;
-              const isSelected = selectedDate === dateStr;
+            <View style={styles.monthTitleBlock}>
+              <Text style={[styles.monthName, { color: colors.text }]}>
+                {MONTH_NAMES[currentMonth]}
+              </Text>
+              <Text style={[styles.monthYear, { color: textMuted }]}>{currentYear}</Text>
+            </View>
 
-              return (
-                <TouchableOpacity
-                  key={day}
-                  style={[
-                    styles.dayCell,
-                    { width: tileSize, height: tileSize },
-                    completed && { backgroundColor: colors.primary },
-                    isToday && !completed && { borderWidth: 2, borderColor: colors.primary },
-                    isSelected && !completed && { borderWidth: 2, borderColor: colors.primary },
-                    isFuture && styles.dayCellFuture,
-                  ]}
-                  onPress={() => handleDayPress(dateStr)}
-                  disabled={isFuture}
-                  activeOpacity={isFuture ? 1 : 0.7}
-                >
-                  <Text
+            <TouchableOpacity
+              onPress={nextMonth}
+              style={[styles.navArrow, !canGoNext() && styles.navArrowDisabled]}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              disabled={!canGoNext()}
+            >
+              <ChevronRight size={28} color={canGoNext() ? colors.text : textMuted} strokeWidth={2.5} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.calendarGrid}>
+            <View style={styles.weekDaysRow}>
+              {DAYS_OF_WEEK.map((d) => (
+                <Text key={d} style={[styles.weekDayLabel, { color: textMuted }]}>{d}</Text>
+              ))}
+            </View>
+
+            <View style={styles.daysGrid}>
+              {Array.from({ length: firstDay }).map((_, i) => (
+                <View key={`empty-${i}`} style={[styles.dayCell, { width: tileSize, height: tileSize }]} />
+              ))}
+
+              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+                const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const completed = isDayCompleted(dateStr);
+                const isFuture = dateStr > today;
+                const isToday = dateStr === today;
+                const isSelected = selectedDate === dateStr;
+
+                return (
+                  <TouchableOpacity
+                    key={day}
                     style={[
-                      styles.dayNumber,
-                      { color: isDark ? '#FFFFFF' : '#000000' },
-                      completed && { color: '#000000' },
-                      isFuture && { color: textMuted },
+                      styles.dayCell,
+                      { width: tileSize, height: tileSize },
+                      completed && { backgroundColor: colors.primary },
+                      isToday && !completed && { borderWidth: 2, borderColor: colors.primary },
+                      isSelected && !completed && { borderWidth: 2, borderColor: colors.primary },
+                      isFuture && styles.dayCellFuture,
                     ]}
+                    onPress={() => handleDayPress(dateStr)}
+                    disabled={isFuture}
+                    activeOpacity={isFuture ? 1 : 0.7}
                   >
-                    {day}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+                    <Text
+                      style={[
+                        styles.dayNumber,
+                        { color: isDark ? '#FFFFFF' : '#000000' },
+                        completed && { color: '#000000' },
+                        isFuture && { color: textMuted },
+                      ]}
+                    >
+                      {day}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
         </View>
+
+        <TouchableOpacity
+          style={styles.shareJourneyButton}
+          onPress={handleShare}
+          disabled={isSharing}
+          activeOpacity={0.85}
+        >
+          <Share2 size={16} color="#1A1A1A" strokeWidth={2.5} />
+          <Text style={styles.shareJourneyText}>SHARE YOUR STREAK</Text>
+        </TouchableOpacity>
 
       </LinearGradient>
       </ScrollView>
@@ -286,8 +361,7 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   header: {
-    paddingHorizontal: 24,
-    paddingTop: 64,
+    paddingTop: 0,
     paddingBottom: 24,
     alignItems: 'center',
   },
@@ -323,7 +397,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
     marginBottom: 16,
   },
   navArrow: {
@@ -351,7 +424,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
   },
   calendarGrid: {
-    paddingHorizontal: 16,
     marginBottom: 8,
   },
   weekDaysRow: {
@@ -384,5 +456,43 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     fontFamily: 'Inter-Bold',
+  },
+  shareContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  shareWordmark: {
+    width: 220,
+    height: 55,
+    alignSelf: 'center',
+    marginBottom: 2,
+  },
+  shareSubtitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.14 * 11,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  shareJourneyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#CCFF00',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginHorizontal: 24,
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  shareJourneyText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#1A1A1A',
+    letterSpacing: 13 * 0.06,
+    fontFamily: 'Inter-Black',
   },
 });
