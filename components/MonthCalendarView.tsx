@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, ChevronRight, Zap } from 'lucide-react-native';
@@ -150,6 +151,13 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
 
   const { firstDay, daysInMonth } = getMonthDays();
 
+  const { width: windowWidth } = useWindowDimensions();
+  const GRID_COLS = 7;
+  const GRID_GAP = 6;
+  const HORIZONTAL_PADDING = 32;
+  const containerWidth = windowWidth - HORIZONTAL_PADDING;
+  const tileSize = Math.floor((containerWidth - (GRID_COLS - 1) * GRID_GAP) / GRID_COLS);
+
   const textMuted = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)';
   const borderColor = isDark ? 'rgba(255,255,255,0.08)' : '#E0E0DB';
 
@@ -207,7 +215,7 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
 
           <View style={styles.daysGrid}>
             {Array.from({ length: firstDay }).map((_, i) => (
-              <View key={`empty-${i}`} style={styles.dayCell} />
+              <View key={`empty-${i}`} style={[styles.dayCell, { width: tileSize, height: tileSize }]} />
             ))}
 
             {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
@@ -222,6 +230,7 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
                   key={day}
                   style={[
                     styles.dayCell,
+                    { width: tileSize, height: tileSize },
                     completed && { backgroundColor: colors.primary },
                     isToday && !completed && { borderWidth: 2, borderColor: colors.primary },
                     isSelected && !completed && { borderWidth: 2, borderColor: colors.primary },
@@ -361,8 +370,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dayCell: {
-    width: `${100 / 7}%`,
-    aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 9,
