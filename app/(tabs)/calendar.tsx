@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
+import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { Goal } from '@/types/database';
+import { Goal, DailyActivity } from '@/types/database';
 import CalendarView from '@/components/CalendarView';
 import MonthCalendarView from '@/components/MonthCalendarView';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,42 +11,66 @@ import { useTheme } from '@/contexts/ThemeContext';
 export default function CalendarScreen() {
   const { user } = useAuth();
   const { colors } = useTheme();
-  const [loading, setLoading] = useState(true);
-  const [goal, setGoal] = useState<Goal | null>(null);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (user) {
-      loadGoal();
-    }
-  }, [user]);
+  const fetchGoalBundle = async () => {
+    const { data: activeGoal, error: activeError } = await supabase
+      .from('goals')
+      .select('*')
+      .eq('is_active', true)
+      .eq('user_id', user!.id)
+      .maybeSingle();
 
-  useFocusEffect(
-    useCallback(() => {
-      if (user) {
-        loadGoal();
-      }
-    }, [user])
-  );
+    if (activeError) throw activeError;
 
-  const loadGoal = async () => {
-    try {
-      const { data, error } = await supabase
+    let resolvedGoal: Goal | null = null;
+    let resolvedPending: Goal | null = null;
+
+    if (activeGoal) {
+      resolvedGoal = activeGoal;
+    } else {
+      const { data: pending, error: pendingError } = await supabase
         .from('goals')
         .select('*')
-        .eq('is_active', true)
         .eq('user_id', user!.id)
+        .eq('is_active', false)
+        .is('challenge_start_date', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
-      if (error) throw error;
-      setGoal(data);
-    } catch (error) {
-      console.error('Error loading goal:', error);
-    } finally {
-      setLoading(false);
+      if (pendingError) throw pendingError;
+      resolvedPending = pending ?? null;
     }
+
+    const goalForActivities = resolvedGoal ?? resolvedPending;
+    let resolvedActivities: DailyActivity[] = [];
+    if (goalForActivities) {
+      const { data, error } = await supabase
+        .from('daily_activities')
+        .select('*')
+        .eq('goal_id', goalForActivities.id)
+        .order('order_position');
+      if (error) throw error;
+      resolvedActivities = data ?? [];
+    }
+
+    return { goal: resolvedGoal, pendingGoal: resolvedPending, activities: resolvedActivities };
   };
 
-  if (loading || !user) {
+  const { data: goalBundle, isLoading } = useQuery({
+    queryKey: ['goal-bundle', user?.id],
+    queryFn: fetchGoalBundle,
+    enabled: !!user,
+  });
+
+  const goal = goalBundle?.goal ?? null;
+
+  const refreshGoal = () => {
+    return queryClient.invalidateQueries({ queryKey: ['goal-bundle', user?.id] });
+  };
+
+  if (isLoading || !user) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -65,7 +89,7 @@ export default function CalendarScreen() {
   }
 
   if (goal.challenge_phase === 'keep_going') {
-    return <MonthCalendarView goal={goal} onRefresh={loadGoal} />;
+    return <MonthCalendarView goal={goal} onRefresh={refreshGoal} />;
   }
 
   return <CalendarView goal={goal} />;
@@ -85,6 +109,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
+    fontWeight: '600',
     textAlign: 'center',
   },
 });
