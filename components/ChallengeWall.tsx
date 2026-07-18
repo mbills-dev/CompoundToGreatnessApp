@@ -307,10 +307,12 @@ function DayTile({ day, currentDay, completed, isSelected, tileSize, isLight, in
 
 export default function ChallengeWall({ currentDay, isDayCompleted, isLight, onTilePress }: ChallengeWallProps) {
   const { width: windowWidth } = useWindowDimensions();
+  const APP_MAX_WIDTH = 480;
+  const effectiveWidth = Math.min(windowWidth, APP_MAX_WIDTH);
   const GRID_COLS = 7;
   const GRID_GAP = 6;
   const HORIZONTAL_PADDING = 48;
-  const containerWidth = windowWidth - HORIZONTAL_PADDING;
+  const containerWidth = effectiveWidth - HORIZONTAL_PADDING;
   const tileSize = Math.floor((containerWidth - (GRID_COLS - 1) * GRID_GAP) / GRID_COLS);
 
   const days = Array.from({ length: TOTAL_CHALLENGE_DAYS }, (_, i) => i + 1);

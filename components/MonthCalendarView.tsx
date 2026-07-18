@@ -152,10 +152,12 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
   const { firstDay, daysInMonth } = getMonthDays();
 
   const { width: windowWidth } = useWindowDimensions();
+  const APP_MAX_WIDTH = 480;
+  const effectiveWidth = Math.min(windowWidth, APP_MAX_WIDTH);
   const GRID_COLS = 7;
   const GRID_GAP = 6;
   const HORIZONTAL_PADDING = 32;
-  const containerWidth = windowWidth - HORIZONTAL_PADDING;
+  const containerWidth = effectiveWidth - HORIZONTAL_PADDING;
   const tileSize = Math.floor((containerWidth - (GRID_COLS - 1) * GRID_GAP) / GRID_COLS);
 
   const textMuted = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)';
