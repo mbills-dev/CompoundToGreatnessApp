@@ -15,7 +15,7 @@ import Animated, {
   withSpring,
   Easing,
 } from 'react-native-reanimated';
-import { X, Bell, BellOff, ChevronUp, ChevronDown } from 'lucide-react-native';
+import { X, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const DAYS = [
@@ -86,7 +86,6 @@ function NumberScroller({
     if (clamped !== selectedIndex) {
       onSelect(clamped);
     }
-    scrollRef.current?.scrollTo({ y: clamped * ITEM_HEIGHT, animated: true });
   };
 
   return (
@@ -101,7 +100,6 @@ function NumberScroller({
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
         onMomentumScrollEnd={handleScrollEnd}
-        onScrollEndDrag={handleScrollEnd}
         contentContainerStyle={{
           paddingVertical: ITEM_HEIGHT,
         }}
@@ -391,44 +389,6 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
               );
             })}
           </View>
-
-          <TouchableOpacity
-            style={[modalStyles.reminderRow, {
-              backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-              borderColor: reminder ? colors.primary + '40' : 'transparent',
-            }]}
-            onPress={() => setReminder(!reminder)}
-            activeOpacity={0.8}
-          >
-            <View style={[modalStyles.reminderIcon, {
-              backgroundColor: reminder ? colors.primary : (isDark ? colors.border : '#D0D0D0'),
-            }]}>
-              {reminder
-                ? <Bell size={16} color="#000000" strokeWidth={2.5} />
-                : <BellOff size={16} color={colors.textTertiary} strokeWidth={2} />
-              }
-            </View>
-            <View style={modalStyles.reminderTextCol}>
-              <Text style={[modalStyles.reminderTitle, { color: colors.text }]}>
-                {reminder ? 'Reminder on' : 'Set a reminder'}
-              </Text>
-              <Text style={[modalStyles.reminderSubtitle, { color: colors.textTertiary }]}>
-                {reminder
-                  ? allDay
-                    ? `You'll be notified at 9:00 AM`
-                    : `You'll be notified at ${hour}:${String(minute).padStart(2, '0')} ${period}`
-                  : 'Get a push notification at this time'}
-              </Text>
-            </View>
-            <View style={[modalStyles.reminderToggle, {
-              backgroundColor: reminder ? colors.primary : (isDark ? colors.border : '#D0D0D0'),
-            }]}>
-              <View style={[modalStyles.reminderToggleKnob, {
-                alignSelf: reminder ? 'flex-end' : 'flex-start',
-                backgroundColor: reminder ? '#000000' : '#FFFFFF',
-              }]} />
-            </View>
-          </TouchableOpacity>
 
           <TouchableOpacity
             style={[modalStyles.confirmBtn, { backgroundColor: colors.primary }]}
