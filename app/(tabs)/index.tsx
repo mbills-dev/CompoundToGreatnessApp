@@ -6,10 +6,12 @@ import { IdentityBuilder, IdentityBuilderResult } from '@/components/identity';
 import DailyDashboard from '@/components/DailyDashboard';
 import PaywallGate from '@/components/PaywallGate';
 import LockedDashboardPreview from '@/components/LockedDashboardPreview';
+import StartDateScreen from '@/components/StartDateScreen';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTabBarVisibility } from '@/contexts/TabBarVisibilityContext';
 import { useGoalBundle } from '@/hooks/useGoalBundle';
+import { parseLocalDate } from '@/lib/dateHelpers';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -17,6 +19,7 @@ export default function HomeScreen() {
   const { setVisible } = useTabBarVisibility();
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallCelebrate, setPaywallCelebrate] = useState(false);
+  const [showStartDate, setShowStartDate] = useState(false);
 
   const { goal, pendingGoal, activities, isLoading: loading, invalidate: loadGoal } = useGoalBundle(user?.id);
 
@@ -103,11 +106,12 @@ export default function HomeScreen() {
 
   const handleIdentityComplete = async (result: IdentityBuilderResult) => {
     await deletePendingGoals();
-    const created = await createGoalAndActivities(result, isSubscribed);
+    const created = await createGoalAndActivities(result, false);
     if (!created) return;
 
     if (isSubscribed) {
       loadGoal();
+      setShowStartDate(true);
     } else {
       loadGoal();
       setPaywallCelebrate(true);
@@ -115,11 +119,10 @@ export default function HomeScreen() {
     }
   };
 
-  const activatePendingGoal = async () => {
+  const activatePendingGoal = async (dateString: string) => {
     if (!pendingGoal) return;
     try {
-      const startDate = new Date();
-      startDate.setHours(0, 0, 0, 0);
+      const startDate = parseLocalDate(dateString);
 
       const { data: activated, error } = await supabase
         .from('goals')
@@ -127,6 +130,7 @@ export default function HomeScreen() {
           is_active: true,
           challenge_start_date: startDate.toISOString(),
           current_challenge_day: 0,
+          scheduled_start_date: dateString,
         })
         .eq('id', pendingGoal.id)
         .select()
@@ -154,8 +158,19 @@ export default function HomeScreen() {
     return (
       <PaywallGate
         onDismiss={() => { setShowPaywall(false); setPaywallCelebrate(false); }}
-        onSubscribeSuccess={activatePendingGoal}
+        onSubscribeSuccess={() => { setShowPaywall(false); setShowStartDate(true); }}
         celebrate={paywallCelebrate}
+      />
+    );
+  }
+
+  if (showStartDate) {
+    return (
+      <StartDateScreen
+        onSelect={async (dateString) => {
+          await activatePendingGoal(dateString);
+          setShowStartDate(false);
+        }}
       />
     );
   }
