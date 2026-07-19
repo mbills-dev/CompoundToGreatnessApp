@@ -19,7 +19,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChallengeWall from './ChallengeWall';
 import MonthWall from './MonthWall';
-import { getDateForChallengeDay, getTodayDateString, toLocalDateString } from '@/lib/dateHelpers';
+import { getDateForChallengeDay, getTodayDateString, toLocalDateString, parseLocalDate } from '@/lib/dateHelpers';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
 
 interface Activity {
@@ -37,6 +37,7 @@ interface JourneyData {
   goalTitle: string;
   lastCompletionDate: string | null;
   challengeStartDate: string | null;
+  scheduledStartDate: string | null;
   activities: Activity[];
   todayCompletedIds: string[];
   completionDates: string[];
@@ -84,7 +85,7 @@ export default function PublicJourneyPage({ username }: Props) {
 
       const { data: goal } = await supabase
         .from('goals')
-        .select('id, title, identity_statement, current_challenge_day, last_completion_date, challenge_start_date, challenge_phase, share_full_journey')
+        .select('id, title, identity_statement, current_challenge_day, last_completion_date, challenge_start_date, challenge_phase, share_full_journey, scheduled_start_date')
         .eq('user_id', profile.id)
         .eq('is_active', true)
         .maybeSingle();
@@ -145,6 +146,7 @@ export default function PublicJourneyPage({ username }: Props) {
         goalTitle: goal?.title || 'their 77-day journey',
         lastCompletionDate: goal?.last_completion_date || null,
         challengeStartDate: goal?.challenge_start_date || null,
+        scheduledStartDate: goal?.scheduled_start_date || null,
         activities,
         todayCompletedIds,
         completionDates,
@@ -224,6 +226,15 @@ export default function PublicJourneyPage({ username }: Props) {
     );
   }
 
+  const isPreStart = !!journey?.scheduledStartDate && journey.scheduledStartDate > getTodayDateString();
+  const preStartDaysUntil = (() => {
+    if (!journey?.scheduledStartDate) return 0;
+    const startDate = parseLocalDate(journey.scheduledStartDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.round((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  })();
+
   const firstName = journey?.displayName.split(' ')[0] || 'They';
   const lastActiveInfo = getLastActiveInfo();
 
@@ -263,13 +274,29 @@ export default function PublicJourneyPage({ username }: Props) {
             colors={['rgba(204, 255, 0, 0.1)', 'rgba(204, 255, 0, 0.03)']}
             style={styles.dayCardInner}
           >
-            <View style={styles.streakHeroRow}>
-              <Zap size={40} color="#CCFF00" fill="#CCFF00" strokeWidth={2} />
-              <Text style={[styles.streakNumber, { color: textPrimary }]}>
-                {journey?.realStreak ?? 0}
+            {isPreStart ? (
+              <View style={styles.preStartBadgeRow}>
+                <Zap size={32} color="#CCFF00" fill="#CCFF00" strokeWidth={2} />
+                <Text style={[styles.preStartBadgeText, { color: textPrimary }]}>
+                  STARTS IN {preStartDaysUntil} {preStartDaysUntil === 1 ? 'DAY' : 'DAYS'}
+                </Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.streakHeroRow}>
+                  <Zap size={40} color="#CCFF00" fill="#CCFF00" strokeWidth={2} />
+                  <Text style={[styles.streakNumber, { color: textPrimary }]}>
+                    {journey?.realStreak ?? 0}
+                  </Text>
+                </View>
+                <Text style={[styles.streakLabel, { color: textSecondary }]}>DAY STREAK</Text>
+              </>
+            )}
+            {isPreStart && journey?.scheduledStartDate && (
+              <Text style={[styles.streakLabel, { color: textSecondary, marginTop: 8 }]}>
+                {parseLocalDate(journey.scheduledStartDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
               </Text>
-            </View>
-            <Text style={[styles.streakLabel, { color: textSecondary }]}>DAY STREAK</Text>
+            )}
           </LinearGradient>
         </View>
 
@@ -280,7 +307,7 @@ export default function PublicJourneyPage({ username }: Props) {
           </View>
         ) : null}
 
-        {journey?.shareFullJourney && journey && journey.activities.length > 0 ? (
+        {!isPreStart && journey?.shareFullJourney && journey && journey.activities.length > 0 ? (
           <View style={[styles.stackCard, { backgroundColor: cardBg, borderColor }]}>
             <Text style={styles.stackLabel}>DAILY SUCCESS STACK</Text>
             {journey.activities.map((activity) => {
@@ -305,14 +332,16 @@ export default function PublicJourneyPage({ username }: Props) {
           </View>
         ) : null}
 
-        {journey?.challengePhase === 'keep_going' ? (
-          <MonthWall goalId={journey.goalId} isLight={!isDark} />
-        ) : (
-          <ChallengeWall
-            currentDay={journey?.currentDay || 0}
-            isDayCompleted={isDayCompleted}
-            isLight={!isDark}
-          />
+        {!isPreStart && (
+          journey?.challengePhase === 'keep_going' ? (
+            <MonthWall goalId={journey.goalId} isLight={!isDark} />
+          ) : (
+            <ChallengeWall
+              currentDay={journey?.currentDay || 0}
+              isDayCompleted={isDayCompleted}
+              isLight={!isDark}
+            />
+          )
         )}
 
         <View style={styles.ctaSection}>
@@ -660,6 +689,19 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     marginTop: 2,
     marginBottom: 4,
+  },
+  preStartBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  preStartBadgeText: {
+    fontSize: 28,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    letterSpacing: -0.5,
+    textAlign: 'center',
   },
   identitySection: {
     alignItems: 'center',

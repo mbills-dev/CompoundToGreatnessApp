@@ -14,7 +14,7 @@ import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
-import { getTodayDateString, toLocalDateString } from '@/lib/dateHelpers';
+import { getTodayDateString, toLocalDateString, parseLocalDate } from '@/lib/dateHelpers';
 
 interface Activity {
   id: string;
@@ -37,6 +37,7 @@ interface WatchedUser {
   watcherCount: number;
   activities: Activity[];
   todayCompletedIds: string[];
+  scheduledStartDate: string | null;
 }
 
 interface EarnedBadge {
@@ -103,7 +104,7 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           .maybeSingle(),
         supabase
           .from('goals')
-          .select('id, title, identity_statement, current_challenge_day, last_completion_date, share_full_journey, best_streak')
+          .select('id, title, identity_statement, current_challenge_day, last_completion_date, share_full_journey, best_streak, scheduled_start_date')
           .eq('user_id', watchedId)
           .eq('is_active', true)
           .maybeSingle(),
@@ -194,6 +195,7 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
         watcherCount: watchersCountRes.count || 0,
         activities,
         todayCompletedIds,
+        scheduledStartDate: goalRes.data?.scheduled_start_date || null,
       });
 
       setEarnedBadges((badgeRes.data as unknown as EarnedBadge[]) || []);
@@ -221,6 +223,15 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
       </View>
     );
   }
+
+  const isPreStart = !!watched?.scheduledStartDate && watched.scheduledStartDate > getTodayDateString();
+  const preStartDaysUntil = (() => {
+    if (!watched?.scheduledStartDate) return 0;
+    const startDate = parseLocalDate(watched.scheduledStartDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.round((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  })();
 
   return (
     <LinearGradient colors={rootGradient} style={styles.container}>
@@ -267,17 +278,25 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
               </View>
             ) : null}
 
-            <View style={styles.streakHeroRow}>
-              <Zap size={40} color="#CCFF00" fill="#CCFF00" strokeWidth={2} />
-              <Text style={[styles.streakNumber, { color: textPrimary }]}>{watched?.streak ?? 0}</Text>
-              <View style={styles.streakIconSpacer} />
-            </View>
-            <Text style={[styles.streakLabel, { color: textTertiary }]}>DAY STREAK</Text>
+            {isPreStart ? (
+              <View style={styles.preStartPill}>
+                <Text style={styles.preStartPillText}>STARTS IN {preStartDaysUntil} {preStartDaysUntil === 1 ? 'DAY' : 'DAYS'}</Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.streakHeroRow}>
+                  <Zap size={40} color="#CCFF00" fill="#CCFF00" strokeWidth={2} />
+                  <Text style={[styles.streakNumber, { color: textPrimary }]}>{watched?.streak ?? 0}</Text>
+                  <View style={styles.streakIconSpacer} />
+                </View>
+                <Text style={[styles.streakLabel, { color: textTertiary }]}>DAY STREAK</Text>
+              </>
+            )}
           </LinearGradient>
         </View>
 
-        {watched?.shareFullJourney && watched && watched.activities.length > 0 ? (
-          <View style={[styles.stackCard, { backgroundColor: cardBg, borderColor }]}>
+        {!isPreStart && watched?.shareFullJourney && watched && watched.activities.length > 0 ? (
+          <View style={[styles.stackCard, { backgroundColor: cardBg, borderColor}]}>
             <Text style={styles.stackLabel}>TODAY'S SUCCESS STACK</Text>
             {watched.activities.map((activity) => {
               const completed = watched.todayCompletedIds.includes(activity.id);
@@ -323,18 +342,20 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           )}
         </View>
 
-        <View style={styles.statsRow}>
-          <View style={[styles.statCard, { backgroundColor: cardBg, borderColor }]}>
-            <Flame size={20} color="#ccff00" strokeWidth={2} />
-            <Text style={[styles.statNumber, { color: textPrimary }]}>{watched?.bestStreak ?? 0}</Text>
-            <Text style={[styles.statLabel, { color: textTertiary }]}>Best Streak</Text>
+        {!isPreStart && (
+          <View style={styles.statsRow}>
+            <View style={[styles.statCard, { backgroundColor: cardBg, borderColor }]}>
+              <Flame size={20} color="#ccff00" strokeWidth={2} />
+              <Text style={[styles.statNumber, { color: textPrimary }]}>{watched?.bestStreak ?? 0}</Text>
+              <Text style={[styles.statLabel, { color: textTertiary }]}>Best Streak</Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: cardBg, borderColor }]}>
+              <Calendar size={20} color="#ccff00" strokeWidth={2} />
+              <Text style={[styles.statNumber, { color: textPrimary }]}>{watched?.lifetimeDays ?? 0}</Text>
+              <Text style={[styles.statLabel, { color: textTertiary }]}>Lifetime Days</Text>
+            </View>
           </View>
-          <View style={[styles.statCard, { backgroundColor: cardBg, borderColor }]}>
-            <Calendar size={20} color="#ccff00" strokeWidth={2} />
-            <Text style={[styles.statNumber, { color: textPrimary }]}>{watched?.lifetimeDays ?? 0}</Text>
-            <Text style={[styles.statLabel, { color: textTertiary }]}>Lifetime Days</Text>
-          </View>
-        </View>
+        )}
 
         <View style={[styles.watcherPill, { backgroundColor: cardBg, borderColor }]}>
           <Eye size={16} color="#ccff00" strokeWidth={2.5} />
@@ -508,6 +529,24 @@ const styles = StyleSheet.create({
   },
   streakIconSpacer: {
     width: 40,
+  },
+  preStartPill: {
+    backgroundColor: '#0A0A0A',
+    borderRadius: 999,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(204, 255, 0, 0.3)',
+    alignSelf: 'center',
+    marginVertical: 8,
+  },
+  preStartPillText: {
+    fontSize: 18,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    color: '#CCFF00',
+    letterSpacing: 1,
+    textAlign: 'center',
   },
   badgesSection: { marginBottom: 24 },
   sectionTitle: { fontSize: 18, fontWeight: '900', color: '#FFFFFF', marginBottom: 16 },
