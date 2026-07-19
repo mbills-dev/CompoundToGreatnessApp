@@ -21,6 +21,7 @@ import { Goal, DailyActivity } from '@/types/database';
 import { resetChallenge } from '@/lib/resetHelpers';
 import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Confetti from './Confetti';
 
@@ -54,6 +55,7 @@ export default function ChallengeCompleteScreen({
 }: ChallengeCompleteScreenProps) {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const shareCardRef = useRef<View>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [showConfetti, setShowConfetti] = useState(true);
@@ -130,6 +132,7 @@ export default function ChallengeCompleteScreen({
             try {
               await resetChallenge(goal, supabase, 'completed');
               wallPeeked = false;
+              router.setParams({ chooseStart: '1' });
               onRunItAgain();
             } catch (error) {
               console.error('Error running it again:', error);
@@ -158,10 +161,6 @@ export default function ChallengeCompleteScreen({
             setBusy(true);
             try {
               await archiveCurrentChallenge(goal, supabase, 'completed');
-              await supabase
-                .from('daily_activities')
-                .delete()
-                .eq('goal_id', goal.id);
               await supabase
                 .from('goals')
                 .update({ is_active: false })

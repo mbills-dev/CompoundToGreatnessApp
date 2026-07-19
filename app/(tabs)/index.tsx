@@ -10,6 +10,7 @@ import StartDateScreen from '@/components/StartDateScreen';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTabBarVisibility } from '@/contexts/TabBarVisibilityContext';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useGoalBundle } from '@/hooks/useGoalBundle';
 import { parseLocalDate, getTodayDateString } from '@/lib/dateHelpers';
 import PreStartScreen from '@/components/PreStartScreen';
@@ -22,6 +23,9 @@ export default function HomeScreen() {
   const [paywallCelebrate, setPaywallCelebrate] = useState(false);
   const [showStartDate, setShowStartDate] = useState(false);
   const [rescheduling, setRescheduling] = useState(false);
+  const [showRestartChooser, setShowRestartChooser] = useState(false);
+  const router = useRouter();
+  const { chooseStart } = useLocalSearchParams();
 
   const { goal, pendingGoal, activities, isLoading: loading, invalidate: loadGoal } = useGoalBundle(user?.id);
 
@@ -30,6 +34,13 @@ export default function HomeScreen() {
   useEffect(() => {
     setVisible(!!goal);
   }, [goal]);
+
+  useEffect(() => {
+    if (chooseStart === '1' && goal && goal.challenge_start_date === null) {
+      setShowRestartChooser(true);
+      router.setParams({ chooseStart: undefined });
+    }
+  }, [chooseStart, goal, router]);
 
   const deletePendingGoals = async () => {
     // Remove any previously-saved pending goals (is_active=false, start=null)
@@ -205,6 +216,17 @@ export default function HomeScreen() {
         onSelect={async (dateString) => {
           await updateStartDate(dateString);
           setRescheduling(false);
+        }}
+      />
+    );
+  }
+
+  if (showRestartChooser && goal) {
+    return (
+      <StartDateScreen
+        onSelect={async (dateString) => {
+          await updateStartDate(dateString);
+          setShowRestartChooser(false);
         }}
       />
     );

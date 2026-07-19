@@ -158,6 +158,7 @@ export default function SettingsScreen() {
           })
           .eq('id', activeGoal.id);
         await loadActiveGoal();
+        router.replace({ pathname: '/', params: { chooseStart: '1' } });
       } catch (err) {
         console.error('Error running again:', err);
       } finally {

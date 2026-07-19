@@ -33,6 +33,7 @@ export async function resetChallenge(
     .update({
       current_challenge_day: 0,
       challenge_start_date: null,
+      scheduled_start_date: null,
       last_completion_date: null,
       total_restarts: (goal.total_restarts || 0) + 1,
       grace_period_prompted_date: toLocalDateString(new Date()),
