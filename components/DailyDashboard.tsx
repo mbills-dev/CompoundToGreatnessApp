@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { completionsKey } from '@/hooks/useCompletions';
 import { useStreakSummary } from '@/hooks/useStreakSummary';
 import {
   View,
@@ -225,6 +227,8 @@ export default function DailyDashboard({
   const [gracePeriodMode, setGracePeriodMode] = useState<'grace' | 'reset'>('grace');
 
   const { streak, perfectDays, phase2ThisMonth, invalidate: refreshStreakSummary } = useStreakSummary(goal.id);
+  const queryClient = useQueryClient();
+  const refreshCompletions = () => queryClient.invalidateQueries({ queryKey: completionsKey(goal.id) });
 
   useEffect(() => {
     if (streak > bestStreak) {
@@ -469,6 +473,7 @@ export default function DailyDashboard({
       })
       .eq('id', goal.id);
 
+    refreshCompletions();
     onRefresh();
   };
 
@@ -577,6 +582,7 @@ export default function DailyDashboard({
           })
           .eq('id', goal.id);
 
+        refreshCompletions();
         refreshStreakSummary();
         onRefresh();
         return;
@@ -610,6 +616,7 @@ export default function DailyDashboard({
           .update(updates)
           .eq('id', goal.id);
 
+        refreshCompletions();
         refreshStreakSummary();
         if (user) {
           try {
@@ -634,6 +641,7 @@ export default function DailyDashboard({
           }
         });
       }
+      refreshCompletions();
       refreshStreakSummary();
       onRefresh();
     } catch (error) {
@@ -692,6 +700,7 @@ export default function DailyDashboard({
           .eq('id', completion.id);
       }
 
+      refreshCompletions();
       onRefresh();
     } catch (error) {
       console.error('Error deleting activity:', error);
