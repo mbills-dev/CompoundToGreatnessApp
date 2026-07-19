@@ -12,6 +12,7 @@ export interface Goal {
   created_at: string;
   is_active: boolean;
   challenge_start_date: string | null;
+  scheduled_start_date: string | null;
   current_challenge_day: number;
   challenge_phase: 'challenge' | 'keep_going';
   last_completion_date: string | null;

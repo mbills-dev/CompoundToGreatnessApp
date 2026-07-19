@@ -11,7 +11,8 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTabBarVisibility } from '@/contexts/TabBarVisibilityContext';
 import { useGoalBundle } from '@/hooks/useGoalBundle';
-import { parseLocalDate } from '@/lib/dateHelpers';
+import { parseLocalDate, getTodayDateString } from '@/lib/dateHelpers';
+import PreStartScreen from '@/components/PreStartScreen';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -20,8 +21,11 @@ export default function HomeScreen() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallCelebrate, setPaywallCelebrate] = useState(false);
   const [showStartDate, setShowStartDate] = useState(false);
+  const [rescheduling, setRescheduling] = useState(false);
 
   const { goal, pendingGoal, activities, isLoading: loading, invalidate: loadGoal } = useGoalBundle(user?.id);
+
+  const isPreStart = !!goal?.scheduled_start_date && goal.scheduled_start_date > getTodayDateString();
 
   useEffect(() => {
     setVisible(!!goal);
@@ -146,6 +150,26 @@ export default function HomeScreen() {
     }
   };
 
+  const updateStartDate = async (dateString: string) => {
+    if (!goal) return;
+    try {
+      const startDate = parseLocalDate(dateString);
+      const { error } = await supabase
+        .from('goals')
+        .update({
+          challenge_start_date: startDate.toISOString(),
+          scheduled_start_date: dateString,
+        })
+        .eq('id', goal.id);
+      if (error) throw error;
+      await loadGoal();
+    } catch (error) {
+      console.error('Error updating start date:', error);
+    }
+  };
+
+  const onStartNow = () => updateStartDate(getTodayDateString());
+
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
@@ -171,6 +195,29 @@ export default function HomeScreen() {
           await activatePendingGoal(dateString);
           setShowStartDate(false);
         }}
+      />
+    );
+  }
+
+  if (rescheduling) {
+    return (
+      <StartDateScreen
+        onSelect={async (dateString) => {
+          await updateStartDate(dateString);
+          setRescheduling(false);
+        }}
+      />
+    );
+  }
+
+  if (goal && isPreStart) {
+    return (
+      <PreStartScreen
+        goal={goal}
+        activities={activities}
+        onStartNow={onStartNow}
+        onChangeDate={() => setRescheduling(true)}
+        onActivitiesChanged={loadGoal}
       />
     );
   }
