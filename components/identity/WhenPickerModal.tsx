@@ -15,7 +15,7 @@ import Animated, {
   withSpring,
   Easing,
 } from 'react-native-reanimated';
-import { X, ChevronUp, ChevronDown } from 'lucide-react-native';
+import { X, ChevronUp, ChevronDown, Bell } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const DAYS = [
@@ -32,12 +32,22 @@ const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
 const MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 const PERIODS = ['AM', 'PM'] as const;
 
+const REMINDER_OFFSETS = [
+  { value: 0, label: 'At time' },
+  { value: 5, label: '5 min' },
+  { value: 10, label: '10 min' },
+  { value: 15, label: '15 min' },
+  { value: 30, label: '30 min' },
+  { value: 60, label: '1 hr' },
+];
+
 export interface WhenPickerValue {
   hour: number;
   minute: number;
   period: 'AM' | 'PM';
   days: string[];
   reminder: boolean;
+  reminderOffset: number;
   allDay?: boolean;
 }
 
@@ -175,6 +185,7 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
     initialValue?.days ?? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   );
   const [reminder, setReminder] = useState(initialValue?.reminder ?? false);
+  const [reminderOffset, setReminderOffset] = useState(initialValue?.reminderOffset ?? 0);
   const [allDay, setAllDay] = useState(initialValue?.allDay ?? false);
 
   const backdropOpacity = useSharedValue(0);
@@ -216,6 +227,14 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
     setSelectedDays(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
   };
 
+  const toggleReminder = () => {
+    setReminder(prev => {
+      const next = !prev;
+      if (!next) setReminderOffset(0);
+      return next;
+    });
+  };
+
   const hourIndex = HOURS.indexOf(hour);
   const minuteIndex = MINUTES.indexOf(minute);
 
@@ -225,7 +244,7 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
     ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].every(d => selectedDays.includes(d));
 
   const handleConfirm = () => {
-    onConfirm({ hour, minute, period, days: selectedDays, reminder, allDay });
+    onConfirm({ hour, minute, period, days: selectedDays, reminder, reminderOffset, allDay });
   };
 
   if (!visible) return null;
@@ -389,6 +408,66 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
               );
             })}
           </View>
+
+          <Text style={[modalStyles.sectionLabel, { color: colors.textTertiary }]}>REMINDER</Text>
+
+          <TouchableOpacity
+            style={[modalStyles.reminderRow, {
+              backgroundColor: reminder
+                ? (isDark ? 'rgba(204,255,0,0.08)' : 'rgba(204,255,0,0.10)')
+                : (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'),
+              borderColor: reminder ? colors.primary + '60' : 'transparent',
+            }]}
+            onPress={toggleReminder}
+            activeOpacity={0.8}
+          >
+            <View style={[modalStyles.reminderIcon, {
+              backgroundColor: reminder ? colors.primary + '20' : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'),
+            }]}>
+              <Bell size={18} color={reminder ? colors.primary : colors.textSecondary} strokeWidth={2} />
+            </View>
+            <View style={modalStyles.reminderTextCol}>
+              <Text style={[modalStyles.reminderTitle, { color: reminder ? colors.primary : colors.text }]}>
+                Set a reminder
+              </Text>
+              <Text style={[modalStyles.reminderSubtitle, { color: colors.textTertiary }]}>
+                Get a push notification
+              </Text>
+            </View>
+            <View style={[modalStyles.reminderToggle, {
+              backgroundColor: reminder ? colors.primary : (isDark ? colors.border : '#D0D0D0'),
+            }]}>
+              <View style={[modalStyles.reminderToggleKnob, {
+                alignSelf: reminder ? 'flex-end' : 'flex-start',
+                backgroundColor: reminder ? '#000000' : '#FFFFFF',
+              }]} />
+            </View>
+          </TouchableOpacity>
+
+          {reminder && (
+            <View style={modalStyles.offsetPillsRow}>
+              {REMINDER_OFFSETS.map(opt => {
+                const selected = reminderOffset === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[modalStyles.offsetPill, {
+                      backgroundColor: selected
+                        ? colors.primary + '20'
+                        : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                      borderColor: selected ? colors.primary : 'transparent',
+                    }]}
+                    onPress={() => setReminderOffset(opt.value)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[modalStyles.offsetPillText, {
+                      color: selected ? colors.primary : colors.textSecondary,
+                    }]}>{opt.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
 
           <TouchableOpacity
             style={[modalStyles.confirmBtn, { backgroundColor: colors.primary }]}
@@ -571,6 +650,22 @@ const modalStyles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
+  },
+  offsetPillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  offsetPill: {
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  offsetPillText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   confirmBtn: {
     paddingVertical: 16,
