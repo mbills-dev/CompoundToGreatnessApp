@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { getTodayDateString } from '@/lib/dateHelpers';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -155,12 +156,19 @@ export async function resyncAllReminders(userId: string) {
   // Per-input reminders from the active goal's daily activities
   const { data: goal } = await supabase
     .from('goals')
-    .select('id')
+    .select('id, scheduled_start_date')
     .eq('user_id', userId)
     .eq('is_active', true)
     .maybeSingle();
 
   if (!goal) return;
+
+  // During pre-start (scheduled_start_date in the future), suppress per-input
+  // reminders — general morning/evening reminders still fire. Compare as plain
+  // YYYY-MM-DD strings so no Date/timezone parsing is involved.
+  if (goal.scheduled_start_date && goal.scheduled_start_date > getTodayDateString()) {
+    return;
+  }
 
   const { data: activities } = await supabase
     .from('daily_activities')
