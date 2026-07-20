@@ -2,6 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Goal, ArchiveReason } from '@/types/database';
 import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import { toLocalDateString } from '@/lib/dateHelpers';
+import { resyncAllReminders } from '@/lib/notifications';
 
 /**
  * Full reset sequence:
@@ -46,5 +47,6 @@ export async function resetChallenge(
     console.error('Error resetting challenge:', error);
     return null;
   }
+  if (goal.user_id) await resyncAllReminders(goal.user_id);
   return data;
 }

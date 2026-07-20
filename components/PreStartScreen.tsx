@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyActivity } from '@/types/database';
 import { parseLocalDate } from '@/lib/dateHelpers';
+import { resyncAllReminders } from '@/lib/notifications';
 
 const LIME = '#CCFF00';
 
@@ -125,6 +126,7 @@ export default function PreStartScreen({
 
       setEditMode(false);
       onActivitiesChanged();
+      if (goal.user_id) await resyncAllReminders(goal.user_id);
     } catch (e) {
       console.error('PreStartScreen saveEdits failed:', e);
     } finally {

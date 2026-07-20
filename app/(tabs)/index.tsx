@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useGoalBundle } from '@/hooks/useGoalBundle';
 import { parseLocalDate, getTodayDateString } from '@/lib/dateHelpers';
 import PreStartScreen from '@/components/PreStartScreen';
+import { resyncAllReminders } from '@/lib/notifications';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -123,6 +124,7 @@ export default function HomeScreen() {
     await deletePendingGoals();
     const created = await createGoalAndActivities(result, false);
     if (!created) return;
+    await resyncAllReminders(user!.id);
 
     if (isSubscribed) {
       loadGoal();
@@ -173,6 +175,7 @@ export default function HomeScreen() {
         })
         .eq('id', goal.id);
       if (error) throw error;
+      await resyncAllReminders(user!.id);
       await loadGoal();
     } catch (error) {
       console.error('Error updating start date:', error);

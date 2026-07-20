@@ -54,7 +54,7 @@ import {
 } from '@/components/SettingsComponents';
 import {
   requestNotificationPermissions,
-  scheduleDailyReminders,
+  resyncAllReminders,
 } from '@/lib/notifications';
 import { CHALLENGE_RULES } from '@/constants/challengeRules';
 import { PRIVACY_POLICY, PRIVACY_POLICY_UPDATED, TERMS_OF_SERVICE, TERMS_UPDATED } from '@/constants/legalDocs';
@@ -302,8 +302,8 @@ export default function SettingsScreen() {
     setMorningNotifications(value);
     saveSettings({ morning_notifications: value });
     const granted = await requestNotificationPermissions();
-    if (granted) {
-      await scheduleDailyReminders(value, eveningNotifications);
+    if (granted && user) {
+      await resyncAllReminders(user.id);
     }
   };
 
@@ -311,8 +311,8 @@ export default function SettingsScreen() {
     setEveningNotifications(value);
     saveSettings({ evening_notifications: value });
     const granted = await requestNotificationPermissions();
-    if (granted) {
-      await scheduleDailyReminders(morningNotifications, value);
+    if (granted && user) {
+      await resyncAllReminders(user.id);
     }
   };
 
