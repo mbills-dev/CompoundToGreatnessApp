@@ -40,8 +40,8 @@ export async function scheduleDailyReminders(
   if (morningEnabled) {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Are we running today?',
-        body: 'Start your day strong. Complete your daily tasks.',
+        title: 'LEAVE YOURSELF IN THE DUST',
+        body: "Today's inputs are waiting. Go stack the win.",
         sound: true,
       },
       trigger: {
@@ -55,8 +55,8 @@ export async function scheduleDailyReminders(
   if (eveningEnabled) {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Still time to complete today',
-        body: "Don't break your streak. Finish your daily tasks now.",
+        title: "DON'T LET TODAY SLIP",
+        body: 'Close out your inputs before the streak resets.',
         sound: true,
       },
       trigger: {
