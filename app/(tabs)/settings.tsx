@@ -55,7 +55,9 @@ import {
 import {
   requestNotificationPermissions,
   resyncAllReminders,
+  sendImmediateNotification,
 } from '@/lib/notifications';
+import * as Notifications from 'expo-notifications';
 import { CHALLENGE_RULES } from '@/constants/challengeRules';
 import { PRIVACY_POLICY, PRIVACY_POLICY_UPDATED, TERMS_OF_SERVICE, TERMS_UPDATED } from '@/constants/legalDocs';
 import { BookOpen } from 'lucide-react-native';
@@ -443,6 +445,12 @@ export default function SettingsScreen() {
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+
+  // DEBUG: NOTIFICATIONS — dev-only diagnostic state
+  const [debugTestResult, setDebugTestResult] = useState<string | null>(null);
+  const [debugPermissionStatus, setDebugPermissionStatus] = useState<any | null>(null);
+  const [debugScheduled, setDebugScheduled] = useState<Notifications.NotificationRequest[] | null>(null);
+  const [debugResyncError, setDebugResyncError] = useState<string | null>(null);
 
   const handleSignOut = () => {
     if (Platform.OS !== 'web') {
@@ -854,6 +862,90 @@ export default function SettingsScreen() {
             </GlassPanel>
           )}
 
+          {__DEV__ && (
+            <View style={[styles.debugSection, { borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]}>
+              <Text style={[styles.debugTitle, { color: colors.primary }]}>DEBUG: NOTIFICATIONS</Text>
+
+              <TouchableOpacity
+                style={[styles.debugBtn, { backgroundColor: colors.primary }]}
+                onPress={async () => {
+                  try {
+                    await sendImmediateNotification('Test', 'If you see this, delivery works.');
+                    setDebugTestResult('Sent successfully');
+                  } catch (err: any) {
+                    setDebugTestResult(`Error: ${err?.message ?? String(err)}`);
+                  }
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.debugBtnText}>Send Test Notification Now</Text>
+              </TouchableOpacity>
+              {debugTestResult && (
+                <Text style={[styles.debugResult, { color: colors.textSecondary }]}>{debugTestResult}</Text>
+              )}
+
+              <TouchableOpacity
+                style={[styles.debugBtn, { backgroundColor: colors.primary }]}
+                onPress={async () => {
+                  try {
+                    const status = await Notifications.getPermissionsAsync();
+                    setDebugPermissionStatus(status);
+                  } catch (err: any) {
+                    setDebugPermissionStatus({ error: err?.message ?? String(err) });
+                  }
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.debugBtnText}>Check Permission Status</Text>
+              </TouchableOpacity>
+              {debugPermissionStatus && (
+                <Text style={[styles.debugResult, { color: colors.textSecondary }]}>
+                  {JSON.stringify(debugPermissionStatus, null, 2)}
+                </Text>
+              )}
+
+              <TouchableOpacity
+                style={[styles.debugBtn, { backgroundColor: colors.primary }]}
+                onPress={async () => {
+                  if (!user) {
+                    setDebugResyncError('No user in scope');
+                    return;
+                  }
+                  setDebugResyncError(null);
+                  try {
+                    await resyncAllReminders(user.id);
+                  } catch (err: any) {
+                    setDebugResyncError(`resync error: ${err?.message ?? String(err)}`);
+                  }
+                  try {
+                    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+                    setDebugScheduled(scheduled);
+                  } catch (err: any) {
+                    setDebugResyncError(`list error: ${err?.message ?? String(err)}`);
+                  }
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.debugBtnText}>Force Resync + List Scheduled</Text>
+              </TouchableOpacity>
+              {debugResyncError && (
+                <Text style={[styles.debugResult, { color: colors.error }]}>{debugResyncError}</Text>
+              )}
+              {debugScheduled && (
+                <View>
+                  <Text style={[styles.debugResult, { color: colors.textSecondary }]}>
+                    Scheduled count: {debugScheduled.length}
+                  </Text>
+                  {debugScheduled.map((n, i) => (
+                    <Text key={i} style={[styles.debugResult, { color: colors.textSecondary }]}>
+                      [{i}] title={n.content.title ?? '(none)'} trigger={JSON.stringify(n.trigger)}
+                    </Text>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
           <Text style={[styles.footerText, { color: colors.textTertiary }]}>
             COMPOUND TO GREATNESS v1.0
           </Text>
@@ -1012,6 +1104,34 @@ const styles = StyleSheet.create({
     marginTop: -8,
     marginBottom: 16,
     marginLeft: 4,
+  },
+  debugSection: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 24,
+    marginBottom: 8,
+    gap: 8,
+  },
+  debugTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  debugBtn: {
+    paddingVertical: 11,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  debugBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#000000',
+  },
+  debugResult: {
+    fontSize: 12,
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'web' ? 'monospace' : undefined,
   },
 });
 
