@@ -45,10 +45,10 @@ export async function scheduleDailyReminders(
         sound: true,
       },
       trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
         hour: 8,
         minute: 0,
-        repeats: true,
-      } as any,
+      },
     });
   }
 
@@ -60,10 +60,10 @@ export async function scheduleDailyReminders(
         sound: true,
       },
       trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
         hour: 20,
         minute: 0,
-        repeats: true,
-      } as any,
+      },
     });
   }
 }
@@ -208,7 +208,7 @@ export async function resyncAllReminders(userId: string) {
       const titleIdx = stableHashIndex(activity.id, BRAND_LINES.length);
       await Notifications.scheduleNotificationAsync({
         content: { title: BRAND_LINES[titleIdx], body, sound: true },
-        trigger: { hour: fireHour, minute: fireMinute, repeats: true } as any,
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: fireHour, minute: fireMinute },
       });
     } else {
       for (const day of days) {
@@ -220,7 +220,7 @@ export async function resyncAllReminders(userId: string) {
         const titleIdx = weekday - 1;
         await Notifications.scheduleNotificationAsync({
           content: { title: BRAND_LINES[titleIdx], body, sound: true },
-          trigger: { weekday, hour: fireHour, minute: fireMinute, repeats: true } as any,
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday, hour: fireHour, minute: fireMinute },
         });
       }
     }
