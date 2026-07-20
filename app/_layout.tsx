@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { requestNotificationPermissions, scheduleDailyReminders } from '@/lib/notifications';
+import { requestNotificationPermissions, resyncAllReminders } from '@/lib/notifications';
 import AuthScreen from '@/components/AuthScreen';
 import SignupSplashScreen from '@/components/SignupSplashScreen';
 import UsernamePicker from '@/components/UsernamePicker';
@@ -33,7 +33,7 @@ function AppContent() {
       const initNotifications = async () => {
         const granted = await requestNotificationPermissions();
         if (granted) {
-          await scheduleDailyReminders();
+          await resyncAllReminders(session.user.id);
         }
       };
       initNotifications();

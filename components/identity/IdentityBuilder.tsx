@@ -36,7 +36,6 @@ import Animated, {
 import { ArrowLeft, Check } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { IdentityBuilderResult, RawInputEntry, Dimension } from './types';
-import { scheduleTaskReminder } from './notifications';
 import { WhenPickerValue } from './WhenPickerModal';
 import { DecodePath, FlowGoal, AnchoredInput, LockedGoal } from './flow/types';
 import { WelcomeSeriesScreen } from './flow/WelcomeScreens';
@@ -583,9 +582,6 @@ export default function IdentityBuilder({ onComplete }: Props) {
   ) => {
     const goal = goals[goalIdx];
     const goalLabel = formatGoalLabel(goal, goalLabelOverrides);
-    if (schedule?.reminder) {
-      scheduleTaskReminder(schedule, dailyInput);
-    }
     setLocked(prev => [
       ...prev.filter(l => l.goalId !== goal.id),
       {
@@ -600,9 +596,6 @@ export default function IdentityBuilder({ onComplete }: Props) {
 
   const handleAddInputDone = (goalIdx: number, inp: AnchoredInput) => {
     const goal = goals[goalIdx];
-    if (inp.schedule?.reminder) {
-      scheduleTaskReminder(inp.schedule, inp.dailyInput);
-    }
     setLocked(prev => prev.map(l => l.goalId === goal.id ? { ...l, additionalInputs: [...l.additionalInputs, inp] } : l));
     navigate({ kind: 'locked', goalIdx, dailyInput: inp.dailyInput });
   };
