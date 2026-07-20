@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
   Text,
@@ -61,28 +61,42 @@ interface Props {
 const ITEM_HEIGHT = 44;
 const VISIBLE_ITEMS = 3;
 
-function NumberScroller({
-  items,
-  selectedIndex,
-  onSelect,
-  formatItem,
-  colors,
-  isDark,
-}: {
+export interface NumberScrollerHandle {
+  getCurrentIndex: () => number;
+}
+
+type NumberScrollerProps = {
   items: number[];
   selectedIndex: number;
   onSelect: (index: number) => void;
   formatItem: (item: number) => string;
   colors: any;
   isDark: boolean;
-}) {
+};
+
+const NumberScroller = forwardRef<NumberScrollerHandle, NumberScrollerProps>(function NumberScroller({
+  items,
+  selectedIndex,
+  onSelect,
+  formatItem,
+  colors,
+  isDark,
+}, ref) {
   const scrollRef = useRef<ScrollView>(null);
   const isUserScrolling = useRef(false);
+  const liveOffsetY = useRef(0);
+
+  useImperativeHandle(ref, () => ({
+    getCurrentIndex: () =>
+      Math.max(0, Math.min(Math.round(liveOffsetY.current / ITEM_HEIGHT), items.length - 1)),
+  }));
 
   useEffect(() => {
+    const targetY = selectedIndex * ITEM_HEIGHT;
+    liveOffsetY.current = targetY;
     const timeout = setTimeout(() => {
       scrollRef.current?.scrollTo({
-        y: selectedIndex * ITEM_HEIGHT,
+        y: targetY,
         animated: false,
       });
     }, 50);
@@ -98,6 +112,10 @@ function NumberScroller({
     }
   };
 
+  const handleScroll = (event: any) => {
+    liveOffsetY.current = event.nativeEvent.contentOffset.y;
+  };
+
   return (
     <View style={scrollerStyles.container}>
       <View style={[scrollerStyles.highlight, {
@@ -109,6 +127,8 @@ function NumberScroller({
         showsVerticalScrollIndicator={false}
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
+        scrollEventThrottle={16}
+        onScroll={handleScroll}
         onMomentumScrollEnd={handleScrollEnd}
         contentContainerStyle={{
           paddingVertical: ITEM_HEIGHT,
@@ -144,7 +164,7 @@ function NumberScroller({
       </ScrollView>
     </View>
   );
-}
+});
 
 const scrollerStyles = StyleSheet.create({
   container: {
@@ -187,6 +207,9 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
   const [reminder, setReminder] = useState(initialValue?.reminder ?? false);
   const [reminderOffset, setReminderOffset] = useState(initialValue?.reminderOffset ?? 0);
   const [allDay, setAllDay] = useState(initialValue?.allDay ?? false);
+
+  const hourScrollerRef = useRef<NumberScrollerHandle>(null);
+  const minuteScrollerRef = useRef<NumberScrollerHandle>(null);
 
   const backdropOpacity = useSharedValue(0);
   const sheetTranslate = useSharedValue(400);
@@ -244,7 +267,11 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
     ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].every(d => selectedDays.includes(d));
 
   const handleConfirm = () => {
-    onConfirm({ hour, minute, period, days: selectedDays, reminder, reminderOffset, allDay });
+    const hIdx = hourScrollerRef.current?.getCurrentIndex();
+    const mIdx = minuteScrollerRef.current?.getCurrentIndex();
+    const confirmedHour = hIdx !== undefined ? HOURS[hIdx] : hour;
+    const confirmedMinute = mIdx !== undefined ? MINUTES[mIdx] : minute;
+    onConfirm({ hour: confirmedHour, minute: confirmedMinute, period, days: selectedDays, reminder, reminderOffset, allDay });
   };
 
   if (!visible) return null;
@@ -307,6 +334,7 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
             pointerEvents={allDay ? 'none' : 'auto'}>
             <View style={modalStyles.scrollerWrapper}>
               <NumberScroller
+                ref={hourScrollerRef}
                 items={HOURS}
                 selectedIndex={hourIndex >= 0 ? hourIndex : 0}
                 onSelect={(i) => setHour(HOURS[i])}
@@ -320,6 +348,7 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
 
             <View style={modalStyles.scrollerWrapper}>
               <NumberScroller
+                ref={minuteScrollerRef}
                 items={MINUTES}
                 selectedIndex={minuteIndex >= 0 ? minuteIndex : 0}
                 onSelect={(i) => setMinute(MINUTES[i])}
