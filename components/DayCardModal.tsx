@@ -15,7 +15,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import { Camera, X, Share2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
