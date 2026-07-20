@@ -124,7 +124,7 @@ export default function HomeScreen() {
     await deletePendingGoals();
     const created = await createGoalAndActivities(result, false);
     if (!created) return;
-    await resyncAllReminders(user!.id);
+    resyncAllReminders(user!.id).catch(err => console.error('resyncAllReminders failed:', err));
 
     if (isSubscribed) {
       loadGoal();
@@ -175,7 +175,7 @@ export default function HomeScreen() {
         })
         .eq('id', goal.id);
       if (error) throw error;
-      await resyncAllReminders(user!.id);
+      resyncAllReminders(user!.id).catch(err => console.error('resyncAllReminders failed:', err));
       await loadGoal();
     } catch (error) {
       console.error('Error updating start date:', error);

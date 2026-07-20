@@ -126,7 +126,7 @@ export default function PreStartScreen({
 
       setEditMode(false);
       onActivitiesChanged();
-      if (goal.user_id) await resyncAllReminders(goal.user_id);
+      if (goal.user_id) resyncAllReminders(goal.user_id).catch(err => console.error('resyncAllReminders failed:', err));
     } catch (e) {
       console.error('PreStartScreen saveEdits failed:', e);
     } finally {

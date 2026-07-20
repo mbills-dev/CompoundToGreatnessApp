@@ -47,6 +47,6 @@ export async function resetChallenge(
     console.error('Error resetting challenge:', error);
     return null;
   }
-  if (goal.user_id) await resyncAllReminders(goal.user_id);
+  if (goal.user_id) resyncAllReminders(goal.user_id).catch(err => console.error('resyncAllReminders failed:', err));
   return data;
 }
