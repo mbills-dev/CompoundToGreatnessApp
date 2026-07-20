@@ -155,6 +155,7 @@ export default function HomeScreen() {
 
       if (error) throw error;
 
+      resyncAllReminders(user!.id).catch(err => console.error('resyncAllReminders failed:', err));
       await loadGoal();
       setShowPaywall(false);
       setPaywallCelebrate(false);
