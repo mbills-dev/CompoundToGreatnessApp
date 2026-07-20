@@ -862,7 +862,7 @@ export default function SettingsScreen() {
             </GlassPanel>
           )}
 
-          // TEMP: forcing visible for TestFlight beta debugging — revert to {__DEV__ && ( once notification issues are confirmed resolved.
+          {/* TEMP: forcing visible for TestFlight beta debugging — revert to __DEV__ once notification issues are confirmed resolved */}
           {(__DEV__ || true) && (
             <View style={[styles.debugSection, { borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]}>
               <Text style={[styles.debugTitle, { color: colors.primary }]}>DEBUG: NOTIFICATIONS</Text>
