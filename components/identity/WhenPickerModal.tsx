@@ -103,6 +103,18 @@ const NumberScroller = forwardRef<NumberScrollerHandle, NumberScrollerProps>(fun
     return () => clearTimeout(timeout);
   }, []);
 
+  // Snap scroll position when selectedIndex changes externally (e.g. modal
+  // resync on reopen). Only force a scroll when the live offset is far enough
+  // from the target that the wheel is visibly stale; this avoids yanking the
+  // position while the user is actively scrolling.
+  useEffect(() => {
+    const targetY = selectedIndex * ITEM_HEIGHT;
+    if (Math.abs(liveOffsetY.current - targetY) > ITEM_HEIGHT / 2) {
+      liveOffsetY.current = targetY;
+      scrollRef.current?.scrollTo({ y: targetY, animated: false });
+    }
+  }, [selectedIndex]);
+
   const handleScrollEnd = (event: any) => {
     const y = event.nativeEvent.contentOffset.y;
     const index = Math.round(y / ITEM_HEIGHT);
@@ -223,6 +235,18 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
       sheetTranslate.value = withTiming(400, { duration: 250 });
     }
   }, [visible]);
+
+  useEffect(() => {
+    if (visible) {
+      setHour(initialValue?.hour ?? 7);
+      setMinute(initialValue?.minute ?? 0);
+      setPeriod(initialValue?.period ?? 'AM');
+      setSelectedDays(initialValue?.days ?? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+      setReminder(initialValue?.reminder ?? false);
+      setReminderOffset(initialValue?.reminderOffset ?? 0);
+      setAllDay(initialValue?.allDay ?? false);
+    }
+  }, [visible, initialValue]);
 
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
