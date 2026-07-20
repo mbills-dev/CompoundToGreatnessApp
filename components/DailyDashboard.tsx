@@ -23,7 +23,7 @@ import Animated, {
   withSequence,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CircleCheck as CheckCircle, Circle, Flame, Award, TrendingUp, Check, Plus, Lock, Eye, X, Zap } from 'lucide-react-native';
+import { CircleCheck as CheckCircle, Circle, Flame, Award, TrendingUp, Check, Plus, Lock, Eye, X, Zap, Bell } from 'lucide-react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -42,6 +42,8 @@ import { checkAndAwardBadges } from '@/lib/badgeHelpers';
 import { useAuth } from '@/contexts/AuthContext';
 import CoachCard from './CoachCard';
 import { useRacingBorder } from '@/contexts/RacingBorderContext';
+import WhenPickerModal, { WhenPickerValue } from './identity/WhenPickerModal';
+import { resyncAllReminders } from '@/lib/notifications';
 import { useCelebration } from '@/contexts/CelebrationContext';
 import { checkForNewReactions, markReactionsRead, ReactionGroup } from '@/lib/reactionHelpers';
 import ReactionBurst from './ReactionBurst';
@@ -70,6 +72,7 @@ interface ActivityItemProps {
   isDayLocked: boolean;
   onPress: () => void;
   onDelete: () => void;
+  onEditSchedule: () => void;
 }
 
 function ActivityItem({
@@ -79,6 +82,7 @@ function ActivityItem({
   isDayLocked,
   onPress,
   onDelete,
+  onEditSchedule,
 }: ActivityItemProps) {
   const { colors } = useTheme();
   const checkScale = useSharedValue(isCompleted ? 1 : 0);
@@ -173,11 +177,16 @@ function ActivityItem({
           )}
 
           {editMode && (
-            <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
-              <View style={styles.deleteButtonInner}>
-                <X size={12} color="#FFFFFF" strokeWidth={2.5} />
-              </View>
-            </TouchableOpacity>
+            <View style={styles.editControlsRow}>
+              <TouchableOpacity style={styles.scheduleButton} onPress={onEditSchedule}>
+                <Bell size={16} color={colors.textTertiary} strokeWidth={2.5} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
+                <View style={styles.deleteButtonInner}>
+                  <X size={12} color="#FFFFFF" strokeWidth={2.5} />
+                </View>
+              </TouchableOpacity>
+            </View>
           )}
         </TouchableOpacity>
       </Animated.View>
@@ -223,6 +232,7 @@ export default function DailyDashboard({
   const [watcherCount, setWatcherCount] = useState(0);
   const [bestStreak, setBestStreak] = useState(goal.best_streak || 0);
   const [showGracePeriodModal, setShowGracePeriodModal] = useState(false);
+  const [editingScheduleFor, setEditingScheduleFor] = useState<DailyActivity | null>(null);
   const [gracePeriodDaysMissed, setGracePeriodDaysMissed] = useState(0);
   const [gracePeriodMode, setGracePeriodMode] = useState<'grace' | 'reset'>('grace');
 
@@ -955,6 +965,7 @@ export default function DailyDashboard({
                     isDayLocked={isDayLocked}
                     onPress={() => toggleActivity(activity.id)}
                     onDelete={() => deleteActivity(activity.id)}
+                    onEditSchedule={() => setEditingScheduleFor(activity)}
                   />
                 );
               })}
@@ -1050,6 +1061,47 @@ export default function DailyDashboard({
         mode={gracePeriodMode}
         onKeepGoing={handleGraceKeepGoing}
         onStartOver={handleGraceStartOver}
+      />
+
+      <WhenPickerModal
+        visible={editingScheduleFor !== null}
+        onClose={() => setEditingScheduleFor(null)}
+        onConfirm={async (value) => {
+          const target = editingScheduleFor;
+          setEditingScheduleFor(null);
+          if (!target) return;
+          const { error } = await supabase
+            .from('daily_activities')
+            .update({ schedule: value })
+            .eq('id', target.id);
+          if (error) {
+            console.error('Error updating schedule:', error);
+            return;
+          }
+          setLocalActivities(prev => prev.map(a => a.id === target.id ? { ...a, schedule: value } : a));
+          if (goal.user_id) {
+            resyncAllReminders(goal.user_id).catch(err => console.error('resyncAllReminders failed:', err));
+          }
+        }}
+        initialValue={editingScheduleFor?.schedule
+          ? {
+              hour: editingScheduleFor.schedule.hour ?? 9,
+              minute: editingScheduleFor.schedule.minute ?? 0,
+              period: editingScheduleFor.schedule.period ?? 'AM',
+              days: editingScheduleFor.schedule.days ?? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+              reminder: editingScheduleFor.schedule.reminder ?? false,
+              reminderOffset: editingScheduleFor.schedule.reminderOffset ?? 0,
+              allDay: editingScheduleFor.schedule.allDay ?? false,
+            }
+          : {
+              hour: 9,
+              minute: 0,
+              period: 'AM',
+              days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+              reminder: false,
+              reminderOffset: 0,
+            }
+        }
       />
     </View>
   );
@@ -1381,6 +1433,16 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  editControlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  scheduleButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 32,
+    height: 32,
   },
   deleteButtonInner: {
     width: 20,
