@@ -246,7 +246,7 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
       setReminderOffset(initialValue?.reminderOffset ?? 0);
       setAllDay(initialValue?.allDay ?? false);
     }
-  }, [visible, initialValue]);
+  }, [visible]);
 
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
