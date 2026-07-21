@@ -32,6 +32,7 @@ import Animated, {
   withTiming,
   withSpring,
   Easing,
+  runOnJS,
 } from 'react-native-reanimated';
 import { ArrowLeft, Check } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -490,28 +491,30 @@ export default function IdentityBuilder({ onComplete }: Props) {
 
   const navigate = (next: Phase) => {
     setHistory(prev => [...prev, phase]);
-    screenAnim.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.ease) });
+    screenAnim.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.ease) }, (finished) => {
+      if (finished) {
+        runOnJS(setPhase)(next);
+        slideAnim.value = 30;
+        screenAnim.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.ease) });
+        slideAnim.value = withSpring(0, { damping: 20, stiffness: 160 });
+      }
+    });
     slideAnim.value = withTiming(-20, { duration: 220 });
-    setTimeout(() => {
-      setPhase(next);
-      slideAnim.value = 30;
-      screenAnim.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.ease) });
-      slideAnim.value = withSpring(0, { damping: 20, stiffness: 160 });
-    }, 230);
   };
 
   const goBack = () => {
     if (history.length === 0) return;
     const prev = history[history.length - 1];
     setHistory(h => h.slice(0, -1));
-    screenAnim.value = withTiming(0, { duration: 180, easing: Easing.in(Easing.ease) });
+    screenAnim.value = withTiming(0, { duration: 180, easing: Easing.in(Easing.ease) }, (finished) => {
+      if (finished) {
+        runOnJS(setPhase)(prev);
+        slideAnim.value = -30;
+        screenAnim.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.ease) });
+        slideAnim.value = withSpring(0, { damping: 20, stiffness: 160 });
+      }
+    });
     slideAnim.value = withTiming(20, { duration: 180 });
-    setTimeout(() => {
-      setPhase(prev);
-      slideAnim.value = -30;
-      screenAnim.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.ease) });
-      slideAnim.value = withSpring(0, { damping: 20, stiffness: 160 });
-    }, 190);
   };
 
   const handleDecodeDone = (
