@@ -480,6 +480,7 @@ export default function SettingsScreen() {
   const handleConfirmSignOut = async () => {
     setConfirmingSignOut(false);
     try {
+      await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
       await authSignOut();
     } catch (error) {
       console.error('Error signing out:', error);
@@ -497,6 +498,7 @@ export default function SettingsScreen() {
     setDeletingAccount(true);
     setDeleteError(null);
     try {
+      await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
       const { error } = await supabase.functions.invoke('delete-account');
       if (error) throw error;
       await authSignOut();

@@ -133,7 +133,26 @@ function stableHashIndex(id: string, mod: number): number {
   return sum % mod;
 }
 
-export async function resyncAllReminders(userId: string) {
+let resyncInFlight: Promise<void> | null = null;
+let resyncQueuedUserId: string | null = null;
+
+export function resyncAllReminders(userId: string): Promise<void> {
+  if (resyncInFlight) {
+    resyncQueuedUserId = userId;
+    return resyncInFlight;
+  }
+  resyncInFlight = doResync(userId).finally(() => {
+    resyncInFlight = null;
+    if (resyncQueuedUserId) {
+      const next = resyncQueuedUserId;
+      resyncQueuedUserId = null;
+      resyncAllReminders(next);
+    }
+  });
+  return resyncInFlight;
+}
+
+async function doResync(userId: string) {
   if (Platform.OS === 'web') return;
 
   const { status } = await Notifications.getPermissionsAsync();
