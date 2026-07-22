@@ -29,12 +29,11 @@ function ReactionParticle({ cfg, onDone }: { cfg: ParticleConfig; onDone?: () =>
     const animations: Animated.CompositeAnimation[] = [];
 
     animations.push(
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 150,
-        delay: cfg.delay,
-        useNativeDriver: true,
-      }),
+      Animated.sequence([
+        Animated.delay(cfg.delay),
+        Animated.timing(opacity, { toValue: 1, duration: 150, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0, duration: cfg.duration - 150, useNativeDriver: true }),
+      ]),
     );
 
     animations.push(
@@ -60,15 +59,6 @@ function ReactionParticle({ cfg, onDone }: { cfg: ParticleConfig; onDone?: () =>
         toValue: cfg.rotationDir * cfg.rotation,
         duration: cfg.duration,
         delay: cfg.delay,
-        useNativeDriver: true,
-      }),
-    );
-
-    animations.push(
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: cfg.duration - 150,
-        delay: cfg.delay + 150,
         useNativeDriver: true,
       }),
     );
