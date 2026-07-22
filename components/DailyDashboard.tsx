@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { completionsKey } from '@/hooks/useCompletions';
 import { useStreakSummary } from '@/hooks/useStreakSummary';
@@ -25,7 +25,7 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { CircleCheck as CheckCircle, Circle, Flame, Award, TrendingUp, Check, Plus, Lock, Eye, X, Zap, Bell } from 'lucide-react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyActivity, DailyCompletion } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -226,8 +226,8 @@ export default function DailyDashboard({
   });
   const [confettiCompleted, setConfettiCompleted] = useState(false);
   const [reactionBursts, setReactionBursts] = useState<ReactionGroup[]>([]);
-  const [currentBurstIdx, setCurrentBurstIdx] = useState(0);
   const isFocusedRef = useRef(true);
+  const playedCountRef = useRef(0);
   const { celebrationOpen, openCelebration, closeCelebration } = useCelebration();
   const [watcherCount, setWatcherCount] = useState(0);
   const [bestStreak, setBestStreak] = useState(goal.best_streak || 0);
@@ -281,7 +281,7 @@ export default function DailyDashboard({
   // Re-present the celebration when returning to the Today tab
   // while it's still pending (not yet seen). Tab screens stay mounted,
   // so the mount effect above won't re-run on tab focus.
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     isFocusedRef.current = true;
 
     const celebrationPending =
@@ -296,17 +296,18 @@ export default function DailyDashboard({
       checkForNewReactions(user.id).then((groups) => {
         if (groups.length > 0) {
           setReactionBursts(groups);
-          setCurrentBurstIdx(0);
         }
       }).catch((err) => {
         console.error('checkForNewReactions failed:', err);
       });
     }
 
+    loadWatcherCount();
+
     return () => {
       isFocusedRef.current = false;
     };
-  }, [goal.challenge_phase, goal.current_challenge_day, goal.celebration_seen, user?.id, celebrationOpen, openCelebration]);
+  }, [goal.challenge_phase, goal.current_challenge_day, goal.celebration_seen, user?.id, celebrationOpen, openCelebration]));
 
   // Real-time subscription for new reactions while the app is open
   useEffect(() => {
@@ -332,9 +333,11 @@ export default function DailyDashboard({
           // before the user ever sees it.
           if (!isFocusedRef.current) return;
           setReactionBursts((prev) => {
-            const next = [...prev, { emoji, count: 1 }];
-            if (prev.length === 0) setCurrentBurstIdx(0);
-            return next;
+            const last = prev[prev.length - 1];
+            if (last && last.emoji === emoji && prev.length > 1) {
+              return [...prev.slice(0, -1), { ...last, count: last.count + 1 }];
+            }
+            return [...prev, { emoji, count: 1 }];
           });
         }
       )
@@ -344,8 +347,37 @@ export default function DailyDashboard({
         }
       });
 
+    const watcherChannel = supabase
+      .channel('watcher-count')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'watchers',
+          filter: `watched_id=eq.${user.id}`,
+        },
+        () => loadWatcherCount()
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'watchers',
+          filter: `watched_id=eq.${user.id}`,
+        },
+        () => loadWatcherCount()
+      )
+      .subscribe((status) => {
+        if (status !== 'SUBSCRIBED') {
+          console.warn('[watcher-count] subscription status:', status);
+        }
+      });
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(watcherChannel);
     };
   }, [user?.id]);
 
@@ -993,24 +1025,22 @@ export default function DailyDashboard({
         </LinearGradient>
       </ScrollView>
 
-      {reactionBursts.length > 0 && currentBurstIdx < reactionBursts.length && (
+      {reactionBursts.length > 0 && (
         <ReactionBurst
-          key={currentBurstIdx}
-          emoji={reactionBursts[currentBurstIdx].emoji}
-          count={reactionBursts[currentBurstIdx].count}
+          key={playedCountRef.current}
+          emoji={reactionBursts[0].emoji}
+          count={reactionBursts[0].count}
           onComplete={() => {
-            const nextIdx = currentBurstIdx + 1;
-            if (nextIdx < reactionBursts.length) {
-              setCurrentBurstIdx(nextIdx);
-            } else {
-              setReactionBursts([]);
-              setCurrentBurstIdx(0);
-              if (user?.id) {
-                markReactionsRead(user.id).catch((err) => {
-                  console.error('markReactionsRead failed:', err);
-                });
+            playedCountRef.current += 1;
+            setReactionBursts((prev) => {
+              const next = prev.slice(1);
+              if (next.length === 0 && user?.id) {
+                markReactionsRead(user.id).catch((err) =>
+                  console.error('markReactionsRead failed:', err)
+                );
               }
-            }
+              return next;
+            });
           }}
         />
       )}
