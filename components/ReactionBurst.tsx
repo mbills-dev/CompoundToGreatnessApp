@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 function randomBetween(min: number, max: number) {
   return min + Math.random() * (max - min);
@@ -28,11 +28,16 @@ function ReactionParticle({ cfg, onDone }: { cfg: ParticleConfig; onDone?: () =>
   useEffect(() => {
     const animations: Animated.CompositeAnimation[] = [];
 
+    const fadeIn = 120;
+    const holdDuration = Math.max(0, cfg.duration * 0.65 - fadeIn);
+    const fadeOut = cfg.duration * 0.35;
+
     animations.push(
       Animated.sequence([
         Animated.delay(cfg.delay),
-        Animated.timing(opacity, { toValue: 1, duration: 150, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0, duration: cfg.duration - 150, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: fadeIn, useNativeDriver: true }),
+        Animated.delay(holdDuration),
+        Animated.timing(opacity, { toValue: 0, duration: fadeOut, useNativeDriver: true }),
       ]),
     );
 
@@ -89,7 +94,7 @@ function ReactionParticle({ cfg, onDone }: { cfg: ParticleConfig; onDone?: () =>
           transform: [
             { translateX },
             { translateY },
-            { rotate: rotate.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] }) },
+            { rotate: rotate.interpolate({ inputRange: [-40, 40], outputRange: ['-40deg', '40deg'] }) },
             { scale },
           ],
           opacity,
@@ -110,19 +115,22 @@ interface ReactionBurstProps {
 
 export default function ReactionBurst({ emoji, count, onComplete }: ReactionBurstProps) {
   const doneCalledRef = useRef(false);
+  const { width, height } = useWindowDimensions();
 
-  const particles: ParticleConfig[] = Array.from({ length: count }, () => {
-    const duration = randomBetween(1800, 2500);
-    const delay = randomBetween(0, 400);
+  const particleCount = Math.min(14 + count * 6, 34);
+
+  const particles: ParticleConfig[] = Array.from({ length: particleCount }, () => {
+    const duration = randomBetween(1700, 2600);
+    const delay = randomBetween(0, 550);
     return {
       emoji,
-      startX: randomBetween(140, 180),
-      startY: randomBetween(300, 400),
-      driftX: randomBetween(-120, 120),
-      driftY: randomBetween(-280, -180),
-      rotation: randomBetween(180, 540),
+      startX: randomBetween(10, width - 46),
+      startY: height - randomBetween(30, 160),
+      driftX: randomBetween(-50, 50),
+      driftY: -(height * randomBetween(0.6, 0.95)),
+      rotation: randomBetween(15, 40),
       rotationDir: Math.random() > 0.5 ? 1 : -1,
-      scale: randomBetween(0.8, 1.3),
+      scale: Math.random() < 0.2 ? randomBetween(1.5, 2.0) : randomBetween(0.6, 1.5),
       delay,
       duration,
     };
