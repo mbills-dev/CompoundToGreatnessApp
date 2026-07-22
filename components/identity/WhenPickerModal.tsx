@@ -85,6 +85,8 @@ const NumberScroller = forwardRef<NumberScrollerHandle, NumberScrollerProps>(fun
   const scrollRef = useRef<ScrollView>(null);
   const isUserScrolling = useRef(false);
   const liveOffsetY = useRef(0);
+  const selectedIndexRef = useRef(selectedIndex);
+  selectedIndexRef.current = selectedIndex;
 
   useImperativeHandle(ref, () => ({
     getCurrentIndex: () =>
@@ -92,9 +94,9 @@ const NumberScroller = forwardRef<NumberScrollerHandle, NumberScrollerProps>(fun
   }));
 
   useEffect(() => {
-    const targetY = selectedIndex * ITEM_HEIGHT;
-    liveOffsetY.current = targetY;
     const timeout = setTimeout(() => {
+      const targetY = selectedIndexRef.current * ITEM_HEIGHT;
+      liveOffsetY.current = targetY;
       scrollRef.current?.scrollTo({
         y: targetY,
         animated: false,
