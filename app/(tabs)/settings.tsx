@@ -160,6 +160,7 @@ export default function SettingsScreen() {
           })
           .eq('id', activeGoal.id);
         await loadActiveGoal();
+        queryClient.invalidateQueries({ queryKey: ['goal-bundle', user?.id] });
         router.replace({ pathname: '/', params: { chooseStart: '1' } });
       } catch (err) {
         console.error('Error running again:', err);
@@ -194,6 +195,7 @@ export default function SettingsScreen() {
           .eq('id', activeGoal.id);
         await AsyncStorage.removeItem(`${ONBOARDING_KEY}_${user.id}`);
         setActiveGoal(null);
+        queryClient.invalidateQueries({ queryKey: ['goal-bundle', user?.id] });
       } catch (err) {
         console.error('Error starting fresh:', err);
       } finally {
