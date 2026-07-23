@@ -196,6 +196,7 @@ export default function SettingsScreen() {
         await AsyncStorage.removeItem(`${ONBOARDING_KEY}_${user.id}`);
         setActiveGoal(null);
         queryClient.invalidateQueries({ queryKey: ['goal-bundle', user?.id] });
+        router.replace('/');
       } catch (err) {
         console.error('Error starting fresh:', err);
       } finally {
