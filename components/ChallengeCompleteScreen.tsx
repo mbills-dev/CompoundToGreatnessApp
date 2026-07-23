@@ -19,6 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyActivity } from '@/types/database';
 import { resetChallenge } from '@/lib/resetHelpers';
+import { useQueryClient } from '@tanstack/react-query';
 import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
@@ -56,6 +57,7 @@ export default function ChallengeCompleteScreen({
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const shareCardRef = useRef<View>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [showConfetti, setShowConfetti] = useState(true);
@@ -131,6 +133,7 @@ export default function ChallengeCompleteScreen({
             setBusy(true);
             try {
               await resetChallenge(goal, supabase, 'completed');
+              queryClient.invalidateQueries({ queryKey: ['goal-bundle', goal.user_id] });
               wallPeeked = false;
               router.setParams({ chooseStart: '1' });
               onRunItAgain();
@@ -165,6 +168,7 @@ export default function ChallengeCompleteScreen({
                 .from('goals')
                 .update({ is_active: false })
                 .eq('id', goal.id);
+              queryClient.invalidateQueries({ queryKey: ['goal-bundle', goal.user_id] });
               wallPeeked = false;
               onStartFresh();
             } catch (error) {
