@@ -235,6 +235,7 @@ export default function DailyDashboard({
   const [editingScheduleFor, setEditingScheduleFor] = useState<DailyActivity | null>(null);
   const [gracePeriodDaysMissed, setGracePeriodDaysMissed] = useState(0);
   const [gracePeriodMode, setGracePeriodMode] = useState<'grace' | 'reset'>('grace');
+  const [burstDebug, setBurstDebug] = useState({ subStatus: 'none', lastEvent: 'never', lastGuard: '-' }); // TEMP-BURST-DEBUG
 
   const { streak, perfectDays, phase2ThisMonth, invalidate: refreshStreakSummary } = useStreakSummary(goal.id);
   const queryClient = useQueryClient();
@@ -324,6 +325,7 @@ export default function DailyDashboard({
           filter: `to_user_id=eq.${user.id}`,
         },
         (payload) => {
+          setBurstDebug(prev => ({ ...prev, lastEvent: new Date().toLocaleTimeString(), lastGuard: String(isFocusedRef.current) })); // TEMP-BURST-DEBUG
           const row = payload.new as any;
           if (row.message !== null) return;
           const emoji = row.emoji;
@@ -342,6 +344,7 @@ export default function DailyDashboard({
         }
       )
       .subscribe((status) => {
+        setBurstDebug(prev => ({ ...prev, subStatus: String(status) })); // TEMP-BURST-DEBUG
         if (status !== 'SUBSCRIBED') {
           console.warn('[reaction-bursts] subscription status:', status);
         }
@@ -815,6 +818,11 @@ export default function DailyDashboard({
 
   return (
     <View style={{ flex: 1 }}>
+      <View pointerEvents="none" style={{ position: 'absolute', top: 60, left: 8, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 4 }}> // TEMP-BURST-DEBUG
+        <Text style={{ color: '#00FF00', fontSize: 10, fontFamily: 'monospace' }}>
+          {`focus:${String(isFocusedRef.current)} q:${reactionBursts.length}\nsub:${burstDebug.subStatus} ev:${burstDebug.lastEvent} g:${burstDebug.lastGuard}`}
+        </Text>
+      </View>
       <ScrollView
         ref={scrollViewRef}
         style={[styles.container, { backgroundColor: colors.background }]}
