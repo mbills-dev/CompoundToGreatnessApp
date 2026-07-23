@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Animated, StyleSheet, View, useWindowDimensions, Platform } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 function randomBetween(min: number, max: number) {
   return min + Math.random() * (max - min);
@@ -116,6 +117,21 @@ interface ReactionBurstProps {
 export default function ReactionBurst({ emoji, count, onComplete }: ReactionBurstProps) {
   const doneCalledRef = useRef(false);
   const { width, height } = useWindowDimensions();
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    const t1 = setTimeout(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    }, 200);
+    const t2 = setTimeout(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    }, 450);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, []);
 
   const particleCount = Math.min(14 + count * 6, 34);
 

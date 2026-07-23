@@ -13,6 +13,7 @@ import {
   Alert,
   Modal,
   Platform,
+  AppState,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -236,6 +237,8 @@ export default function DailyDashboard({
   const [gracePeriodDaysMissed, setGracePeriodDaysMissed] = useState(0);
   const [gracePeriodMode, setGracePeriodMode] = useState<'grace' | 'reset'>('grace');
   const [burstDebug, setBurstDebug] = useState({ subStatus: 'none', lastEvent: 'never', lastGuard: '-' }); // TEMP-BURST-DEBUG
+  const [realtimeGen, setRealtimeGen] = useState(0);
+  const prevAppStateRef = useRef<string>('active');
 
   const { streak, perfectDays, phase2ThisMonth, invalidate: refreshStreakSummary } = useStreakSummary(goal.id);
   const queryClient = useQueryClient();
@@ -381,6 +384,33 @@ export default function DailyDashboard({
     return () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(watcherChannel);
+    };
+  }, [user?.id, realtimeGen]);
+
+  // Force a clean rebuild of realtime channels on every foreground transition.
+  // iOS suspends websockets when the app is backgrounded; on resume the
+  // channels can report SUBSCRIBED but deliver nothing (zombie state).
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      const prev = prevAppStateRef.current;
+      prevAppStateRef.current = nextAppState;
+      if (nextAppState === 'active' && (prev === 'background' || prev === 'inactive')) {
+        setRealtimeGen(g => g + 1);
+        loadWatcherCount();
+        if (user?.id) {
+          checkForNewReactions(user.id).then((groups) => {
+            if (groups.length > 0) {
+              setReactionBursts(groups);
+            }
+          }).catch((err) => {
+            console.error('checkForNewReactions failed:', err);
+          });
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
     };
   }, [user?.id]);
 
