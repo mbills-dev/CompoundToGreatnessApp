@@ -818,7 +818,8 @@ export default function DailyDashboard({
 
   return (
     <View style={{ flex: 1 }}>
-      <View pointerEvents="none" style={{ position: 'absolute', top: 60, left: 8, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 4 }}> // TEMP-BURST-DEBUG
+      {/* TEMP-BURST-DEBUG overlay */}
+      <View pointerEvents="none" style={{ position: 'absolute', top: 60, left: 8, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 4 }}>
         <Text style={{ color: '#00FF00', fontSize: 10, fontFamily: 'monospace' }}>
           {`focus:${String(isFocusedRef.current)} q:${reactionBursts.length}\nsub:${burstDebug.subStatus} ev:${burstDebug.lastEvent} g:${burstDebug.lastGuard}`}
         </Text>
