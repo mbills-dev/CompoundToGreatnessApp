@@ -31,11 +31,11 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/c2g-wordmark-light.png",
+          "image": "./assets/images/c2g-wordmark-dark.png",
           "resizeMode": "contain",
           "backgroundColor": "#000000",
           "dark": {
-            "image": "./assets/images/c2g-wordmark-light.png",
+            "image": "./assets/images/c2g-wordmark-dark.png",
             "backgroundColor": "#000000"
           }
         }
