@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.lumiereholdings.compoundtogreatness"
+      "bundleIdentifier": "com.lumiereholdings.compoundtogreatness",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "web": {
       "bundler": "metro",
@@ -31,6 +34,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "92b8566a-bd54-48ee-8297-fd3e5f23ab24"
+      }
     }
   }
 }
