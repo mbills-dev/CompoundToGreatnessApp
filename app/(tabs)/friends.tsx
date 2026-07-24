@@ -235,11 +235,19 @@ export default function FriendsScreen() {
       if (insErr) throw insErr;
       const senderName = myDisplayName || 'Someone';
       const hasMessage = !!encouragementMessage.trim();
+      const trimmedMessage = encouragementMessage.trim();
+      const pushBody = hasMessage
+        ? trimmedMessage.length > 40
+          ? `"${trimmedMessage.slice(0, 40)}..."`
+          : `"${trimmedMessage}"`
+        : `Tap to see it in the app.`;
       supabase.functions.invoke('send-push', {
         body: {
           recipientUserId: friendId,
-          title: `${senderName} fired you up`,
-          body: hasMessage ? `${senderName} sent you a message` : `${senderName} just sent you ${emoji}`,
+          title: hasMessage
+            ? `${senderName} sent you a message`
+            : `${senderName} sent you ${emoji}`,
+          body: pushBody,
           data: { type: 'reaction' },
         },
       }).catch(() => {});
@@ -266,8 +274,8 @@ export default function FriendsScreen() {
       supabase.functions.invoke('send-push', {
         body: {
           recipientUserId: friendId,
-          title: `${senderName} fired you up`,
-          body: `${senderName} just sent you ${emoji}`,
+          title: `${senderName} sent you ${emoji}`,
+          body: `Tap to see it in the app.`,
           data: { type: 'reaction' },
         },
       }).catch(() => {});
