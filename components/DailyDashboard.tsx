@@ -45,6 +45,7 @@ import CoachCard from './CoachCard';
 import { useRacingBorder } from '@/contexts/RacingBorderContext';
 import WhenPickerModal, { WhenPickerValue } from './identity/WhenPickerModal';
 import { resyncAllReminders } from '@/lib/notifications';
+import { focusState } from '@/lib/focusState';
 import { useCelebration } from '@/contexts/CelebrationContext';
 import { checkForNewReactions, markReactionsRead, ReactionGroup } from '@/lib/reactionHelpers';
 import ReactionBurst from './ReactionBurst';
@@ -286,6 +287,7 @@ export default function DailyDashboard({
   // so the mount effect above won't re-run on tab focus.
   useFocusEffect(useCallback(() => {
     isFocusedRef.current = true;
+    focusState.isTodayFocused = true;
 
     const celebrationPending =
       goal.challenge_phase === 'challenge' &&
@@ -309,6 +311,7 @@ export default function DailyDashboard({
 
     return () => {
       isFocusedRef.current = false;
+      focusState.isTodayFocused = false;
     };
   }, [goal.challenge_phase, goal.current_challenge_day, goal.celebration_seen, user?.id, celebrationOpen, openCelebration]));
 

@@ -11,6 +11,7 @@ import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { requestNotificationPermissions, resyncAllReminders } from '@/lib/notifications';
+import { registerPushToken } from '@/lib/pushTokens';
 import AuthScreen from '@/components/AuthScreen';
 import { useGoalBundle } from '@/hooks/useGoalBundle';
 import SignupSplashScreen from '@/components/SignupSplashScreen';
@@ -38,6 +39,7 @@ function AppContent() {
         const granted = await requestNotificationPermissions();
         if (granted) {
           await resyncAllReminders(session.user.id);
+          registerPushToken(session.user.id).catch(() => {});
         }
       };
       initNotifications();

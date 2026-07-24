@@ -3,14 +3,20 @@ import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { getTodayDateString } from '@/lib/dateHelpers';
 
+import { focusState } from '@/lib/focusState';
+
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    const isReactionPush = notification.request.content.data?.type === 'reaction';
+    const suppress = isReactionPush && focusState.isTodayFocused;
+    return {
+      shouldShowAlert: !suppress,
+      shouldPlaySound: !suppress,
+      shouldSetBadge: true,
+      shouldShowBanner: !suppress,
+      shouldShowList: !suppress,
+    };
+  },
 });
 
 export async function requestNotificationPermissions(): Promise<boolean> {
