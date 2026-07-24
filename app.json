@@ -35,10 +35,12 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/c2g-wordmark-dark.png",
+          "imageWidth": 260,
           "resizeMode": "contain",
           "backgroundColor": "#000000",
           "dark": {
             "image": "./assets/images/c2g-wordmark-dark.png",
+            "imageWidth": 260,
             "backgroundColor": "#000000"
           }
         }

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { View, StyleSheet, Platform, Image, Text } from 'react-native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -12,6 +12,7 @@ import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { requestNotificationPermissions, resyncAllReminders } from '@/lib/notifications';
 import AuthScreen from '@/components/AuthScreen';
+import { useGoalBundle } from '@/hooks/useGoalBundle';
 import SignupSplashScreen from '@/components/SignupSplashScreen';
 import UsernamePicker from '@/components/UsernamePicker';
 import WatcherHomeScreen from '@/components/WatcherHomeScreen';
@@ -28,6 +29,8 @@ SplashScreen.preventAutoHideAsync();
 function AppContent() {
   const { isDark, colors } = useTheme();
   const { session, loading, isNewSignup, clearNewSignup, isWatcher, watchedUserId, user, signOut, needsUsername, clearNeedsUsername } = useAuth();
+  const { isLoading: goalLoading } = useGoalBundle(session?.user?.id);
+  const splashMountTime = useRef(Date.now());
 
   useEffect(() => {
     if (session) {
@@ -42,10 +45,15 @@ function AppContent() {
   }, [session]);
 
   useEffect(() => {
-    if (!loading) {
+    const appReady = !loading && (!session || !goalLoading);
+    if (!appReady) return;
+    const elapsed = Date.now() - splashMountTime.current;
+    const remaining = Math.max(0, 700 - elapsed);
+    const timer = setTimeout(() => {
       SplashScreen.hideAsync().catch(() => {});
-    }
-  }, [loading]);
+    }, remaining);
+    return () => clearTimeout(timer);
+  }, [loading, session, goalLoading]);
 
   if (loading) {
     return (
