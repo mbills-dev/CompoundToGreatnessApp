@@ -27,6 +27,18 @@
           "icon": "./assets/images/logo-mark.png",
           "color": "#CCFF00"
         }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/c2g-wordmark-light.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#000000",
+          "dark": {
+            "image": "./assets/images/c2g-wordmark-light.png",
+            "backgroundColor": "#000000"
+          }
+        }
       ]
     ],
     "experiments": {

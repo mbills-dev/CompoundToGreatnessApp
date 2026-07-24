@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { View, StyleSheet, Platform, Image, Text } from 'react-native';
-import { Stack, SplashScreen } from 'expo-router';
+import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts, Inter_900Black, Inter_700Bold } from '@expo-google-fonts/inter';
@@ -39,6 +40,12 @@ function AppContent() {
       initNotifications();
     }
   }, [session]);
+
+  useEffect(() => {
+    if (!loading) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [loading]);
 
   if (loading) {
     return (
