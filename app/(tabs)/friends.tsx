@@ -47,6 +47,7 @@ export default function FriendsScreen() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
+  const [myDisplayName, setMyDisplayName] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const queryClient = useQueryClient();
@@ -72,6 +73,19 @@ export default function FriendsScreen() {
         // silently fail — inbox is non-critical
       }
     })();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.display_name) setMyDisplayName(data.display_name);
+      })
+      .catch(() => {});
   }, [user]);
 
   const handleMarkInboxRead = async (item: InboxItem) => {
@@ -180,6 +194,15 @@ export default function FriendsScreen() {
           .from('watchers')
           .insert({ watcher_id: user.id, watched_id: friendId });
         if (insErr) throw insErr;
+        const senderName = myDisplayName || 'Someone';
+        supabase.functions.invoke('send-push', {
+          body: {
+            recipientUserId: friendId,
+            title: `${senderName} is watching`,
+            body: `${senderName} just started watching your journey`,
+            data: { type: 'watcher' },
+          },
+        }).catch(() => {});
       }
     } catch (e: any) {
       // Revert on failure
@@ -210,6 +233,16 @@ export default function FriendsScreen() {
           message: encouragementMessage.trim() || null,
         });
       if (insErr) throw insErr;
+      const senderName = myDisplayName || 'Someone';
+      const hasMessage = !!encouragementMessage.trim();
+      supabase.functions.invoke('send-push', {
+        body: {
+          recipientUserId: friendId,
+          title: `${senderName} fired you up`,
+          body: hasMessage ? `${senderName} sent you a message` : `${senderName} just sent you ${emoji}`,
+          data: { type: 'reaction' },
+        },
+      }).catch(() => {});
       setSelectedFriend(null);
       setEncouragementMessage('');
     } catch (e: any) {
@@ -229,6 +262,15 @@ export default function FriendsScreen() {
           message: null,
         });
       if (insErr) throw insErr;
+      const senderName = myDisplayName || 'Someone';
+      supabase.functions.invoke('send-push', {
+        body: {
+          recipientUserId: friendId,
+          title: `${senderName} fired you up`,
+          body: `${senderName} just sent you ${emoji}`,
+          data: { type: 'reaction' },
+        },
+      }).catch(() => {});
     } catch (e: any) {
       setError(e.message || 'Failed to send reaction');
     }
