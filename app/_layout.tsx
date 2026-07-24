@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
-import { Stack, SplashScreen } from 'expo-router';
+import { View, StyleSheet, Platform, Image, Text } from 'react-native';
+import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts, Inter_900Black, Inter_700Bold } from '@expo-google-fonts/inter';
@@ -40,10 +41,25 @@ function AppContent() {
     }
   }, [session]);
 
+  useEffect(() => {
+    if (!loading) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [loading]);
+
   if (loading) {
     return (
-      <View style={[styles.loading, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={[styles.loading, { backgroundColor: '#000000' }]}>
+        <Image
+          source={require('@/assets/images/logo-mark.png')}
+          style={{ width: 72, height: 72, resizeMode: 'contain', marginBottom: 16 }}
+        />
+        <Text style={{ fontFamily: 'Inter-Black', fontSize: 22, color: '#FFFFFF', textAlign: 'center' }}>
+          COMPOUND TO
+        </Text>
+        <Text style={{ fontFamily: 'Inter-Black', fontSize: 22, color: '#CCFF00', textAlign: 'center', fontStyle: 'italic' }}>
+          GREATNESS
+        </Text>
       </View>
     );
   }
@@ -123,12 +139,6 @@ export default function RootLayout() {
     'Inter-Black': Inter_900Black,
     'Inter-Bold': Inter_700Bold,
   });
-
-  useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) {
     return null;
