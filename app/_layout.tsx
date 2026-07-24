@@ -140,12 +140,6 @@ export default function RootLayout() {
     'Inter-Bold': Inter_700Bold,
   });
 
-  useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError]);
-
   if (!fontsLoaded && !fontError) {
     return null;
   }
