@@ -36,7 +36,7 @@ import EvidenceLogSection from './EvidenceLog';
 import CompassCard from './CompassCard';
 import GracePeriodModal from './GracePeriodModal';
 import ChallengeCompleteScreen from './ChallengeCompleteScreen';
-import { isDateLocked, toLocalDateString, parseLocalDate, getDayNumberFromChallengeStart } from '@/lib/dateHelpers';
+import { isDateLocked, toLocalDateString, parseLocalDate, getDayNumberFromChallengeStart, toLocalMidnight } from '@/lib/dateHelpers';
 import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import { resetChallenge } from '@/lib/resetHelpers';
 import { checkAndAwardBadges } from '@/lib/badgeHelpers';
@@ -461,7 +461,27 @@ export default function DailyDashboard({
   const checkForMissedDays = async () => {
     if (onLockedInteraction) return;
     if (isKeepGoing) return;
-    if (!goal.last_completion_date) return;
+    if (!goal.last_completion_date) {
+      if (!goal.challenge_start_date) return;
+      const startDate = toLocalMidnight(goal.challenge_start_date);
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+      const daysSinceStart = Math.floor((todayDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysSinceStart <= 0) return;
+      const todayStr = toLocalDateString(todayDate);
+      if (goal.grace_period_prompted_date === todayStr) return;
+      if (daysSinceStart === 1) {
+        setGracePeriodMode('grace');
+        setGracePeriodDaysMissed(1);
+        setShowGracePeriodModal(true);
+        return;
+      }
+      await performReset();
+      setGracePeriodMode('reset');
+      setGracePeriodDaysMissed(daysSinceStart);
+      setShowGracePeriodModal(true);
+      return;
+    }
 
     const lastDate = parseLocalDate(goal.last_completion_date);
     const todayDate = new Date();
