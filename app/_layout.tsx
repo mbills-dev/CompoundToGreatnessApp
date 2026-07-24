@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, Image, Text } from 'react-native';
 import { Stack, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -42,8 +42,17 @@ function AppContent() {
 
   if (loading) {
     return (
-      <View style={[styles.loading, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={[styles.loading, { backgroundColor: '#000000' }]}>
+        <Image
+          source={require('@/assets/images/logo-mark.png')}
+          style={{ width: 72, height: 72, resizeMode: 'contain', marginBottom: 16 }}
+        />
+        <Text style={{ fontFamily: 'Inter-Black', fontSize: 22, color: '#FFFFFF', textAlign: 'center' }}>
+          COMPOUND TO
+        </Text>
+        <Text style={{ fontFamily: 'Inter-Black', fontSize: 22, color: '#CCFF00', textAlign: 'center', fontStyle: 'italic' }}>
+          GREATNESS
+        </Text>
       </View>
     );
   }
