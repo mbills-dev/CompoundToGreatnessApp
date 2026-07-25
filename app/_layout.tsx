@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { View, StyleSheet, Platform, Image, Text } from 'react-native';
+import { Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -17,6 +17,7 @@ import { useGoalBundle } from '@/hooks/useGoalBundle';
 import SignupSplashScreen from '@/components/SignupSplashScreen';
 import UsernamePicker from '@/components/UsernamePicker';
 import WatcherHomeScreen from '@/components/WatcherHomeScreen';
+import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
 
 function isWatchInviteUrl(): boolean {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -58,20 +59,7 @@ function AppContent() {
   }, [loading, session, goalLoading]);
 
   if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: '#000000' }]}>
-        <Image
-          source={require('@/assets/images/logo-mark.png')}
-          style={{ width: 72, height: 72, resizeMode: 'contain', marginBottom: 16 }}
-        />
-        <Text style={{ fontFamily: 'Inter-Black', fontSize: 22, color: '#FFFFFF', textAlign: 'center' }}>
-          COMPOUND TO
-        </Text>
-        <Text style={{ fontFamily: 'Inter-Black', fontSize: 22, color: '#CCFF00', textAlign: 'center', fontStyle: 'italic' }}>
-          GREATNESS
-        </Text>
-      </View>
-    );
+    return <BrandedLoadingScreen />;
   }
 
   const onWatchRoute = isWatchInviteUrl();
@@ -169,10 +157,4 @@ export default function RootLayout() {
   );
 }
 
-const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});
+

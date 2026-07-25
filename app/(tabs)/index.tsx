@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyActivity } from '@/types/database';
 import { IdentityBuilder, IdentityBuilderResult } from '@/components/identity';
@@ -14,6 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useGoalBundle } from '@/hooks/useGoalBundle';
 import { parseLocalDate, getTodayDateString } from '@/lib/dateHelpers';
 import PreStartScreen from '@/components/PreStartScreen';
+import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
 import { resyncAllReminders } from '@/lib/notifications';
 
 export default function HomeScreen() {
@@ -186,11 +186,7 @@ export default function HomeScreen() {
   const onStartNow = () => updateStartDate(getTodayDateString());
 
   if (loading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <BrandedLoadingScreen />;
   }
 
   if (showPaywall) {
@@ -271,10 +267,4 @@ export default function HomeScreen() {
   return <IdentityBuilder onComplete={handleIdentityComplete} />;
 }
 
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});
+
