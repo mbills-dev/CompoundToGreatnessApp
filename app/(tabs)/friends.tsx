@@ -38,7 +38,10 @@ export default function FriendsScreen() {
   const insets = useSafeAreaInsets();
   const { user, isSubscribed } = useAuth();
   const router = useRouter();
-  const [friends, setFriends] = useState<FriendWithStreak[]>([]);
+  const queryClient = useQueryClient();
+  const [friends, setFriends] = useState<FriendWithStreak[]>(
+    () => (queryClient.getQueryData(friendsKey(user?.id)) as FriendWithStreak[] | undefined) ?? []
+  );
   const [searchUsername, setSearchUsername] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -50,7 +53,6 @@ export default function FriendsScreen() {
   const [myDisplayName, setMyDisplayName] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const queryClient = useQueryClient();
   const { data: friendsData, isLoading: loading, error: friendsLoadError } = useQuery({
     queryKey: friendsKey(user?.id),
     queryFn: () => fetchFriends(user!.id),
