@@ -80,6 +80,41 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
     checkForMissedDays();
   }, [completions, goal]);
 
+  // Longest streak across the current goal and all archived challenges.
+  const { data: longestStreak } = useQuery({
+    queryKey: ['longest-streak', goal.user_id],
+    enabled: !!goal.user_id,
+    queryFn: async () => {
+      const [archiveResult] = await Promise.all([
+        supabase
+          .from('challenge_archives')
+          .select('best_streak')
+          .eq('user_id', goal.user_id!)
+          .order('best_streak', { ascending: false })
+          .limit(1),
+      ]);
+      if (archiveResult.error) throw archiveResult.error;
+      const archiveBest = archiveResult.data?.[0]?.best_streak ?? 0;
+      return Math.max(goal.best_streak ?? 0, archiveBest);
+    },
+    initialData: goal.best_streak ?? 0,
+  });
+
+  // Total badges earned by this user.
+  const { data: badgeCount } = useQuery({
+    queryKey: ['badge-count', goal.user_id],
+    enabled: !!goal.user_id,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('user_badges')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', goal.user_id!);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    initialData: 0,
+  });
+
   const initializeChallenge = async () => {
     if (!goal.challenge_start_date) {
       try {
@@ -512,6 +547,21 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
               </View>
             </View>
           </View>
+          <View style={[styles.statsRowExtra, !isDark && styles.shareStatsRowBoxed]}>
+            <View style={styles.shareStat}>
+              <Text style={[styles.shareStatValue, { color: LIME }]}>{longestStreak ?? 0}</Text>
+              <Text style={[styles.shareStatLabel, { color: isDark ? textMuted : 'rgba(255,255,255,0.4)' }]}>LONGEST STREAK</Text>
+            </View>
+            <View style={[styles.shareStatDivider, { backgroundColor: isDark ? borderColor : 'rgba(255,255,255,0.15)' }]} />
+            <TouchableOpacity
+              style={styles.shareStat}
+              activeOpacity={0.7}
+              onPress={() => router.push('/badges')}
+            >
+              <Text style={[styles.shareStatValue, { color: LIME }]}>{badgeCount ?? 0}</Text>
+              <Text style={[styles.shareStatLabel, { color: isDark ? textMuted : 'rgba(255,255,255,0.4)' }]}>BADGES EARNED</Text>
+            </TouchableOpacity>
+          </View>
           <ChallengeWall
             currentDay={displayDay}
             isDayCompleted={isDayCompleted}
@@ -806,6 +856,12 @@ const styles = StyleSheet.create({
     width: 1,
     height: 40,
     marginHorizontal: 24,
+  },
+  statsRowExtra: {
+    flexDirection: 'row',
+    marginTop: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   shareFooter: {
     display: 'none',
