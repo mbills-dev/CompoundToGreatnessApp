@@ -180,7 +180,7 @@ export async function checkAndAwardBadges(userId: string, goal: Goal): Promise<s
   return newKeys;
 }
 
-export async function awardWatcherBadges(watchedUserId: string): Promise<void> {
+export async function awardWatcherBadges(watchedUserId: string): Promise<string[]> {
   const { count, error } = await supabase
     .from('watchers')
     .select('id', { count: 'exact', head: true })
@@ -190,7 +190,15 @@ export async function awardWatcherBadges(watchedUserId: string): Promise<void> {
   const keys: string[] = [];
   if (count === 1) keys.push('watcher_first');
   if ((count ?? 0) >= 5) keys.push('watcher_5');
-  if (keys.length === 0) return;
+  if (keys.length === 0) return [];
+
+  const { data: existing, error: existingErr } = await supabase
+    .from('user_badges')
+    .select('badge_key')
+    .eq('user_id', watchedUserId);
+  if (existingErr) throw existingErr;
+  const existingSet = new Set((existing || []).map((b) => b.badge_key));
+  const newKeys = keys.filter((k) => !existingSet.has(k));
 
   const { error: upsertErr } = await supabase
     .from('user_badges')
@@ -199,16 +207,26 @@ export async function awardWatcherBadges(watchedUserId: string): Promise<void> {
       { onConflict: 'user_id,badge_key', ignoreDuplicates: true }
     );
   if (upsertErr) throw upsertErr;
+
+  return newKeys;
 }
 
-export async function awardEncouragementBadge(fromUserId: string): Promise<void> {
+export async function awardEncouragementBadge(fromUserId: string): Promise<string[]> {
   const { count, error } = await supabase
     .from('encouragements')
     .select('id', { count: 'exact', head: true })
     .eq('from_user_id', fromUserId);
   if (error) throw error;
 
-  if ((count ?? 0) < 10) return;
+  if ((count ?? 0) < 10) return [];
+
+  const { data: existing, error: existingErr } = await supabase
+    .from('user_badges')
+    .select('badge_key')
+    .eq('user_id', fromUserId);
+  if (existingErr) throw existingErr;
+  const existingSet = new Set((existing || []).map((b) => b.badge_key));
+  const newKeys = existingSet.has('encourage_10') ? [] : ['encourage_10'];
 
   const { error: upsertErr } = await supabase
     .from('user_badges')
@@ -217,9 +235,11 @@ export async function awardEncouragementBadge(fromUserId: string): Promise<void>
       { onConflict: 'user_id,badge_key', ignoreDuplicates: true }
     );
   if (upsertErr) throw upsertErr;
+
+  return newKeys;
 }
 
-export async function awardInviteBadge(inviterId: string): Promise<void> {
+export async function awardInviteBadge(inviterId: string): Promise<string[]> {
   const { count, error } = await supabase
     .from('watcher_invitations')
     .select('id', { count: 'exact', head: true })
@@ -227,7 +247,15 @@ export async function awardInviteBadge(inviterId: string): Promise<void> {
     .not('accepted_by', 'is', null);
   if (error) throw error;
 
-  if ((count ?? 0) < 1) return;
+  if ((count ?? 0) < 1) return [];
+
+  const { data: existing, error: existingErr } = await supabase
+    .from('user_badges')
+    .select('badge_key')
+    .eq('user_id', inviterId);
+  if (existingErr) throw existingErr;
+  const existingSet = new Set((existing || []).map((b) => b.badge_key));
+  const newKeys = existingSet.has('invite_accepted') ? [] : ['invite_accepted'];
 
   const { error: upsertErr } = await supabase
     .from('user_badges')
@@ -236,9 +264,19 @@ export async function awardInviteBadge(inviterId: string): Promise<void> {
       { onConflict: 'user_id,badge_key', ignoreDuplicates: true }
     );
   if (upsertErr) throw upsertErr;
+
+  return newKeys;
 }
 
-export async function awardSignedBadge(userId: string): Promise<void> {
+export async function awardSignedBadge(userId: string): Promise<string[]> {
+  const { data: existing, error: existingErr } = await supabase
+    .from('user_badges')
+    .select('badge_key')
+    .eq('user_id', userId);
+  if (existingErr) throw existingErr;
+  const existingSet = new Set((existing || []).map((b) => b.badge_key));
+  const newKeys = existingSet.has('signed') ? [] : ['signed'];
+
   const { error } = await supabase
     .from('user_badges')
     .upsert(
@@ -246,4 +284,6 @@ export async function awardSignedBadge(userId: string): Promise<void> {
       { onConflict: 'user_id,badge_key', ignoreDuplicates: true }
     );
   if (error) throw error;
+
+  return newKeys;
 }

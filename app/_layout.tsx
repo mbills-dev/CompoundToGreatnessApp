@@ -18,6 +18,7 @@ import SignupSplashScreen from '@/components/SignupSplashScreen';
 import UsernamePicker from '@/components/UsernamePicker';
 import WatcherHomeScreen from '@/components/WatcherHomeScreen';
 import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
+import { BadgeCelebrationProvider } from '@/contexts/BadgeCelebrationContext';
 
 function isWatchInviteUrl(): boolean {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -148,7 +149,9 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <ThemeProvider>
             <AuthProvider>
-            <AppContent />
+            <BadgeCelebrationProvider>
+              <AppContent />
+            </BadgeCelebrationProvider>
           </AuthProvider>
         </ThemeProvider>
       </GestureHandlerRootView>

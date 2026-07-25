@@ -40,6 +40,7 @@ import { isDateLocked, toLocalDateString, parseLocalDate, getDayNumberFromChalle
 import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import { resetChallenge } from '@/lib/resetHelpers';
 import { checkAndAwardBadges } from '@/lib/badgeHelpers';
+import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import CoachCard from './CoachCard';
 import { useRacingBorder } from '@/contexts/RacingBorderContext';
@@ -231,6 +232,7 @@ export default function DailyDashboard({
   const isFocusedRef = useRef(true);
   const playedCountRef = useRef(0);
   const { celebrationOpen, openCelebration, closeCelebration } = useCelebration();
+  const { celebrateBadge } = useBadgeCelebration();
   const [watcherCount, setWatcherCount] = useState(0);
   const [bestStreak, setBestStreak] = useState(goal.best_streak || 0);
   const [showGracePeriodModal, setShowGracePeriodModal] = useState(false);
@@ -729,7 +731,8 @@ export default function DailyDashboard({
         refreshStreakSummary();
         if (user) {
           try {
-            await checkAndAwardBadges(user.id, goal);
+            const newBadges = await checkAndAwardBadges(user.id, goal);
+            newBadges.forEach((key) => celebrateBadge(key));
           } catch (err) {
             console.error('Badge check failed:', err);
           }

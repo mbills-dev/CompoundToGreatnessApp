@@ -16,10 +16,12 @@ import PreStartScreen from '@/components/PreStartScreen';
 import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
 import { resyncAllReminders } from '@/lib/notifications';
 import { awardSignedBadge } from '@/lib/badgeHelpers';
+import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
   const { user, isSubscribed } = useAuth();
+  const { celebrateBadge } = useBadgeCelebration();
   const { setVisible } = useTabBarVisibility();
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallCelebrate, setPaywallCelebrate] = useState(false);
@@ -125,7 +127,7 @@ export default function HomeScreen() {
     await deletePendingGoals();
     const created = await createGoalAndActivities(result, false);
     if (!created) return;
-    awardSignedBadge(user!.id).catch(() => {});
+    awardSignedBadge(user!.id).then((keys) => keys.forEach((key) => celebrateBadge(key))).catch(() => {});
     resyncAllReminders(user!.id).catch(err => console.error('resyncAllReminders failed:', err));
 
     if (isSubscribed) {

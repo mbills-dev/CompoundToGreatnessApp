@@ -26,6 +26,7 @@ import { Animated } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchFriends, friendsKey, FriendWithStreak } from '@/hooks/useFriends';
 import { awardWatcherBadges, awardEncouragementBadge } from '@/lib/badgeHelpers';
+import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
 
 interface SearchResult {
   id: string;
@@ -45,6 +46,7 @@ export default function FriendsScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const { user, isSubscribed } = useAuth();
+  const { celebrateBadge } = useBadgeCelebration();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [friends, setFriends] = useState<FriendWithStreak[]>(
@@ -297,7 +299,7 @@ export default function FriendsScreen() {
           .from('watchers')
           .insert({ watcher_id: user.id, watched_id: friendId });
         if (insErr) throw insErr;
-        awardWatcherBadges(friendId).catch(() => {});
+        awardWatcherBadges(friendId).then((keys) => keys.forEach((key) => celebrateBadge(key))).catch(() => {});
         const senderName = myDisplayName || 'Someone';
         supabase.functions.invoke('send-push', {
           body: {
@@ -337,7 +339,7 @@ export default function FriendsScreen() {
           message: encouragementMessage.trim() || null,
         });
       if (insErr) throw insErr;
-      awardEncouragementBadge(user.id).catch(() => {});
+      awardEncouragementBadge(user.id).then((keys) => keys.forEach((key) => celebrateBadge(key))).catch(() => {});
       const senderName = myDisplayName || 'Someone';
       const hasMessage = !!encouragementMessage.trim();
       const trimmedMessage = encouragementMessage.trim();
@@ -375,7 +377,7 @@ export default function FriendsScreen() {
           message: null,
         });
       if (insErr) throw insErr;
-      awardEncouragementBadge(user.id).catch(() => {});
+      awardEncouragementBadge(user.id).then((keys) => keys.forEach((key) => celebrateBadge(key))).catch(() => {});
       const senderName = myDisplayName || 'Someone';
       supabase.functions.invoke('send-push', {
         body: {

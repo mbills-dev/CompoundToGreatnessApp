@@ -15,6 +15,7 @@ import { Eye, ArrowRight, Zap } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { awardInviteBadge } from '@/lib/badgeHelpers';
+import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -35,6 +36,7 @@ interface Props {
 
 export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStartOwn }: Props) {
   const { colors, isDark } = useTheme();
+  const { celebrateBadge } = useBadgeCelebration();
   const insets = useSafeAreaInsets();
   const bg = isDark ? '#000000' : colors.background;
   const cardBg = isDark ? '#0A0A0A' : colors.card;
@@ -150,7 +152,7 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
         .update({ accepted_by: userId, accepted_at: new Date().toISOString() })
         .eq('invite_code', inviteCode);
 
-      awardInviteBadge(inviter.inviterId).catch(() => {});
+      awardInviteBadge(inviter.inviterId).then((keys) => keys.forEach((key) => celebrateBadge(key))).catch(() => {});
 
       await AsyncStorage.setItem(`@onboarding_completed_${userId}`, 'true');
 
