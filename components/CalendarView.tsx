@@ -56,6 +56,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
   const containerOriginRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const statsCarouselRef = useRef<ScrollView>(null);
   const [statsPage, setStatsPage] = useState(0);
+  const [carouselWidth, setCarouselWidth] = useState(0);
 
   const queryClient = useQueryClient();
   const [completions, setCompletions] = useState<DailyCompletion[]>(
@@ -507,7 +508,6 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
             </View>
           ) : null}
           <Text style={[styles.dayTitle, { color: textPrimary }]}>DAY {displayDay}</Text>
-          <Text style={[styles.challengeSubtitle, { color: challengeSubtitleColor }]}>77-DAY CHALLENGE</Text>
         </View>
 
         <View ref={shareViewRef} style={[styles.shareContainer, { backgroundColor: bg }]} collapsable={false}>
@@ -539,29 +539,46 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
           <ScrollView
             ref={statsCarouselRef}
             horizontal
-            pagingEnabled
+            snapToInterval={carouselWidth || undefined}
+            decelerationRate="fast"
             showsHorizontalScrollIndicator={false}
             scrollEventThrottle={16}
+            onLayout={(e) => setCarouselWidth(e.nativeEvent.layout.width)}
             onMomentumScrollEnd={(e) => {
-              const page = Math.round(e.nativeEvent.contentOffset.x / e.nativeEvent.layoutMeasurement.width);
+              const page = Math.round(e.nativeEvent.contentOffset.x / (carouselWidth || e.nativeEvent.layoutMeasurement.width));
               setStatsPage(page);
             }}
             style={styles.statsCarousel}
           >
-            <View style={styles.statsCarouselPage}>
+            <View style={[styles.statsCarouselPage, { width: carouselWidth || '100%' }]}>
               <View style={[styles.statsCarouselCard, { backgroundColor: colors.card }]}>
                 <Text style={[styles.shareStatValue, { color: colors.primary }]}>{completedDays}</Text>
-                <Text style={[styles.shareStatLabel, { color: textMuted }]}>DAYS COMPLETED</Text>
+                <Text
+                  style={[styles.shareStatLabel, { color: textMuted }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                >DAYS COMPLETED</Text>
               </View>
               <View style={[styles.statsCarouselCard, { backgroundColor: colors.card }]}>
                 <Text style={[styles.shareStatValue, { color: colors.primary }]}>{Math.round((completedDays / TOTAL_CHALLENGE_DAYS) * 100)}%</Text>
-                <Text style={[styles.shareStatLabel, { color: textMuted }]}>PROGRESS</Text>
+                <Text
+                  style={[styles.shareStatLabel, { color: textMuted }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                >PROGRESS</Text>
               </View>
             </View>
-            <View style={styles.statsCarouselPage}>
+            <View style={[styles.statsCarouselPage, { width: carouselWidth || '100%' }]}>
               <View style={[styles.statsCarouselCard, { backgroundColor: colors.card }]}>
                 <Text style={[styles.shareStatValue, { color: LIME }]}>{longestStreak ?? 0}</Text>
-                <Text style={[styles.shareStatLabel, { color: textMuted }]}>LONGEST STREAK</Text>
+                <Text
+                  style={[styles.shareStatLabel, { color: textMuted }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                >LONGEST STREAK</Text>
               </View>
               <TouchableOpacity
                 style={[styles.statsCarouselCard, { backgroundColor: colors.card }]}
@@ -569,7 +586,12 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
                 onPress={() => router.push('/badges')}
               >
                 <Text style={[styles.shareStatValue, { color: LIME }]}>{badgeCount ?? 0}</Text>
-                <Text style={[styles.shareStatLabel, { color: textMuted }]}>BADGES EARNED</Text>
+                <Text
+                  style={[styles.shareStatLabel, { color: textMuted }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                >BADGES EARNED</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -728,7 +750,7 @@ const styles = StyleSheet.create({
   header: {
     padding: 24,
     paddingTop: 70,
-    paddingBottom: 12,
+    paddingBottom: 8,
     alignItems: 'center',
     position: 'relative',
   },
@@ -801,7 +823,7 @@ const styles = StyleSheet.create({
   },
   shareHeader: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 0,
   },
   shareTitle: {
     fontSize: 24,
@@ -839,10 +861,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
   },
   statsCarousel: {
-    marginTop: 24,
+    marginTop: 20,
   },
   statsCarouselPage: {
-    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -850,10 +871,12 @@ const styles = StyleSheet.create({
   },
   statsCarouselCard: {
     flex: 1,
+    height: 96,
     borderRadius: 24,
     paddingVertical: 16,
     paddingHorizontal: 8,
     alignItems: 'center',
+    justifyContent: 'center',
     marginHorizontal: 6,
   },
   statsDots: {
@@ -861,6 +884,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginTop: 12,
+    marginBottom: 20,
   },
   statsDot: {
     width: 6,
@@ -880,7 +904,7 @@ const styles = StyleSheet.create({
   shareStatLabel: {
     fontSize: 10,
     fontWeight: '600',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     fontFamily: 'Inter-Bold',
     textAlign: 'center',
   },
