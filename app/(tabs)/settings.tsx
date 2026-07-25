@@ -33,6 +33,7 @@ import {
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
@@ -70,6 +71,7 @@ export default function SettingsScreen() {
   const { theme, toggleTheme, colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const { user, signOut: authSignOut } = useAuth();
+  const { celebrateBadge } = useBadgeCelebration();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
@@ -888,6 +890,24 @@ export default function SettingsScreen() {
           {(__DEV__ || true) && (
             <View style={[styles.debugSection, { borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)' }]}>
               <Text style={[styles.debugTitle, { color: colors.primary }]}>DEBUG: NOTIFICATIONS</Text>
+
+              {/* TEMP-BADGE-PREVIEW: dev-only — queues every badge for celebration preview. Remove before release. */}
+              <TouchableOpacity
+                style={[styles.debugBtn, { backgroundColor: colors.primary }]}
+                onPress={async () => {
+                  try {
+                    const { data, error } = await supabase
+                      .from('badges')
+                      .select('key')
+                      .order('key', { ascending: true });
+                    if (error) throw error;
+                    (data || []).forEach((b) => celebrateBadge(b.key));
+                  } catch {}
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.debugBtnText}>Preview All Badges</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.debugBtn, { backgroundColor: colors.primary }]}
