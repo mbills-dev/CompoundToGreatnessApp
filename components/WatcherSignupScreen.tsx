@@ -60,42 +60,23 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
 
   const loadInvite = async () => {
     try {
-      const { data: invite } = await supabase
-        .from('watcher_invitations')
-        .select('inviter_id')
-        .eq('invite_code', inviteCode)
+      const { data } = await supabase
+        .rpc('lookup_watcher_invitation', { p_code: inviteCode })
         .maybeSingle();
 
-      if (!invite) {
+      if (!data) {
         setNotFound(true);
         setLoading(false);
         return;
       }
 
-      const { data: settings } = await supabase
-        .from('user_settings')
-        .select('first_name, last_name')
-        .eq('user_id', invite.inviter_id)
-        .maybeSingle();
-
-      const { data: goal } = await supabase
-        .from('goals')
-        .select('title, identity_statement, current_challenge_day, last_completion_date')
-        .eq('user_id', invite.inviter_id)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      const displayName = settings
-        ? `${settings.first_name || ''} ${settings.last_name || ''}`.trim()
-        : 'Someone';
-
       setInviter({
-        displayName: displayName || 'Someone',
-        currentDay: goal?.current_challenge_day || 1,
-        identityStatement: goal?.identity_statement || '',
-        goalTitle: goal?.title || 'their journey',
-        streak: goal?.current_challenge_day || 1,
-        inviterId: invite.inviter_id,
+        displayName: data.inviter_display_name || 'Someone',
+        currentDay: data.current_challenge_day || 1,
+        identityStatement: data.identity_statement || '',
+        goalTitle: data.goal_title || 'their journey',
+        streak: data.current_challenge_day || 1,
+        inviterId: data.inviter_id,
       });
     } catch {
       setNotFound(true);
