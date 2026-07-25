@@ -115,15 +115,17 @@ export default function BadgeCelebrationModal({ badge, onDone }: BadgeCelebratio
   const descriptionOpacity = useSharedValue(0);
   const shareButtonOpacity = useSharedValue(0);
   const shareButtonScale = useSharedValue(0.85);
+  const backgroundOpacity = useSharedValue(0);
 
   useEffect(() => {
     const easing = Easing.out(Easing.cubic);
-    badgeVisualOpacity.value = withTiming(1, { duration: 300, easing });
-    badgeVisualTranslateY.value = withTiming(0, { duration: 300, easing });
-    titleOpacity.value = withDelay(150, withTiming(1, { duration: 250, easing }));
-    descriptionOpacity.value = withDelay(250, withTiming(1, { duration: 250, easing }));
-    shareButtonOpacity.value = withDelay(350, withTiming(1, { duration: 200, easing }));
-    shareButtonScale.value = withDelay(350, withTiming(1, { duration: 200, easing }));
+    backgroundOpacity.value = withTiming(1, { duration: 500, easing });
+    badgeVisualOpacity.value = withTiming(1, { duration: 700, easing });
+    badgeVisualTranslateY.value = withTiming(0, { duration: 700, easing });
+    titleOpacity.value = withDelay(400, withTiming(1, { duration: 500, easing }));
+    descriptionOpacity.value = withDelay(650, withTiming(1, { duration: 500, easing }));
+    shareButtonOpacity.value = withDelay(900, withTiming(1, { duration: 400, easing }));
+    shareButtonScale.value = withDelay(900, withTiming(1, { duration: 400, easing }));
   }, []);
 
   const badgeVisualStyle = useAnimatedStyle(() => ({
@@ -136,6 +138,7 @@ export default function BadgeCelebrationModal({ badge, onDone }: BadgeCelebratio
     opacity: shareButtonOpacity.value,
     transform: [{ scale: shareButtonScale.value }],
   }));
+  const backgroundStyle = useAnimatedStyle(() => ({ opacity: backgroundOpacity.value }));
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -191,7 +194,7 @@ export default function BadgeCelebrationModal({ badge, onDone }: BadgeCelebratio
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="auto">
-      <View ref={cardRef} collapsable={false} style={[StyleSheet.absoluteFill, { backgroundColor: badge.color }]}>
+      <Animated.View ref={cardRef} collapsable={false} style={[StyleSheet.absoluteFill, { backgroundColor: badge.color }, backgroundStyle]}>
         <Confetti count={60} />
 
         <View style={styles.content}>
@@ -242,7 +245,7 @@ export default function BadgeCelebrationModal({ badge, onDone }: BadgeCelebratio
             </TouchableOpacity>
           </Animated.View>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 }
