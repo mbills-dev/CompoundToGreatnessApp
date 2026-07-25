@@ -311,7 +311,7 @@ export default function ChallengeWall({ currentDay, isDayCompleted, isLight, onT
   const effectiveWidth = Math.min(windowWidth, APP_MAX_WIDTH);
   const GRID_COLS = 7;
   const GRID_GAP = 6;
-  const HORIZONTAL_PADDING = 48;
+  const HORIZONTAL_PADDING = 88;
   const containerWidth = effectiveWidth - HORIZONTAL_PADDING;
   const tileSize = Math.floor((containerWidth - (GRID_COLS - 1) * GRID_GAP) / GRID_COLS);
 

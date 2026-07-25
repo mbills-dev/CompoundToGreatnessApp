@@ -54,6 +54,8 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
   const shareViewRef = useRef<View>(null);
   const rootWrapperRef = useRef<View>(null);
   const containerOriginRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const statsCarouselRef = useRef<ScrollView>(null);
+  const [statsPage, setStatsPage] = useState(0);
 
   const queryClient = useQueryClient();
   const [completions, setCompletions] = useState<DailyCompletion[]>(
@@ -314,6 +316,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
     try {
       setIsSharing(true);
 
+      statsCarouselRef.current?.scrollTo({ x: 0, animated: false });
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       const uri = await captureRef(shareViewRef, {
@@ -508,16 +511,12 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
         </View>
 
         <View ref={shareViewRef} style={[styles.shareContainer, { backgroundColor: bg }]} collapsable={false}>
-          {isSharing && (
-            <>
-              <Image
-                source={isDark ? require('@/assets/images/c2g-wordmark-dark.png') : require('@/assets/images/c2g-wordmark-light.png')}
-                style={styles.shareWordmark}
-                resizeMode="contain"
-              />
-              <Text style={[styles.challengeSubtitle, { color: challengeSubtitleColor }]}>77-DAY CHALLENGE</Text>
-            </>
-          )}
+          <Image
+            source={isDark ? require('@/assets/images/c2g-wordmark-dark.png') : require('@/assets/images/c2g-wordmark-light.png')}
+            style={styles.shareWordmark}
+            resizeMode="contain"
+          />
+          <Text style={[styles.challengeSubtitle, { color: challengeSubtitleColor }]}>77-DAY CHALLENGE</Text>
           <View style={styles.shareHeader}>
             <View style={styles.progressBarContainer}>
               <View style={[styles.progressBarTrack, { backgroundColor: progressTrackBg }]}>
@@ -535,32 +534,48 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
                 DAY {displayDay} of {TOTAL_CHALLENGE_DAYS}
               </Text>
             </View>
-            <View style={[styles.shareStatsRow, !isDark && styles.shareStatsRowBoxed]}>
-              <View style={styles.shareStat}>
-                <Text style={[styles.shareStatValue, { color: colors.primary }]}>{completedDays}</Text>
-                <Text style={[styles.shareStatLabel, { color: isDark ? textMuted : 'rgba(255,255,255,0.4)' }]}>DAYS COMPLETED</Text>
-              </View>
-              <View style={[styles.shareStatDivider, { backgroundColor: isDark ? borderColor : 'rgba(255,255,255,0.15)' }]} />
-              <View style={styles.shareStat}>
-                <Text style={[styles.shareStatValue, { color: colors.primary }]}>{Math.round((completedDays / TOTAL_CHALLENGE_DAYS) * 100)}%</Text>
-                <Text style={[styles.shareStatLabel, { color: isDark ? textMuted : 'rgba(255,255,255,0.4)' }]}>PROGRESS</Text>
-              </View>
-            </View>
           </View>
-          <View style={[styles.statsRowExtra, !isDark && styles.shareStatsRowBoxed]}>
-            <View style={styles.shareStat}>
-              <Text style={[styles.shareStatValue, { color: LIME }]}>{longestStreak ?? 0}</Text>
-              <Text style={[styles.shareStatLabel, { color: isDark ? textMuted : 'rgba(255,255,255,0.4)' }]}>LONGEST STREAK</Text>
+
+          <ScrollView
+            ref={statsCarouselRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onMomentumScrollEnd={(e) => {
+              const page = Math.round(e.nativeEvent.contentOffset.x / e.nativeEvent.layoutMeasurement.width);
+              setStatsPage(page);
+            }}
+            style={styles.statsCarousel}
+          >
+            <View style={styles.statsCarouselPage}>
+              <View style={[styles.statsCarouselCard, { backgroundColor: colors.card }]}>
+                <Text style={[styles.shareStatValue, { color: colors.primary }]}>{completedDays}</Text>
+                <Text style={[styles.shareStatLabel, { color: textMuted }]}>DAYS COMPLETED</Text>
+              </View>
+              <View style={[styles.statsCarouselCard, { backgroundColor: colors.card }]}>
+                <Text style={[styles.shareStatValue, { color: colors.primary }]}>{Math.round((completedDays / TOTAL_CHALLENGE_DAYS) * 100)}%</Text>
+                <Text style={[styles.shareStatLabel, { color: textMuted }]}>PROGRESS</Text>
+              </View>
             </View>
-            <View style={[styles.shareStatDivider, { backgroundColor: isDark ? borderColor : 'rgba(255,255,255,0.15)' }]} />
-            <TouchableOpacity
-              style={styles.shareStat}
-              activeOpacity={0.7}
-              onPress={() => router.push('/badges')}
-            >
-              <Text style={[styles.shareStatValue, { color: LIME }]}>{badgeCount ?? 0}</Text>
-              <Text style={[styles.shareStatLabel, { color: isDark ? textMuted : 'rgba(255,255,255,0.4)' }]}>BADGES EARNED</Text>
-            </TouchableOpacity>
+            <View style={styles.statsCarouselPage}>
+              <View style={[styles.statsCarouselCard, { backgroundColor: colors.card }]}>
+                <Text style={[styles.shareStatValue, { color: LIME }]}>{longestStreak ?? 0}</Text>
+                <Text style={[styles.shareStatLabel, { color: textMuted }]}>LONGEST STREAK</Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.statsCarouselCard, { backgroundColor: colors.card }]}
+                activeOpacity={0.7}
+                onPress={() => router.push('/badges')}
+              >
+                <Text style={[styles.shareStatValue, { color: LIME }]}>{badgeCount ?? 0}</Text>
+                <Text style={[styles.shareStatLabel, { color: textMuted }]}>BADGES EARNED</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+          <View style={styles.statsDots}>
+            <View style={[styles.statsDot, statsPage === 0 && styles.statsDotActive]} />
+            <View style={[styles.statsDot, statsPage === 1 && styles.statsDotActive]} />
           </View>
           <ChallengeWall
             currentDay={displayDay}
@@ -823,21 +838,38 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     fontFamily: 'Inter-Bold',
   },
-  shareStatsRow: {
-    flexDirection: 'row',
+  statsCarousel: {
     marginTop: 24,
+  },
+  statsCarouselPage: {
+    width: '100%',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 24,
   },
-  shareStatsRowBoxed: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-  },
-  shareStat: {
+  statsCarouselCard: {
     flex: 1,
+    borderRadius: 24,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
     alignItems: 'center',
+    marginHorizontal: 6,
+  },
+  statsDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  statsDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(128,128,128,0.3)',
+  },
+  statsDotActive: {
+    backgroundColor: LIME,
   },
   shareStatValue: {
     fontSize: 36,
@@ -851,17 +883,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     fontFamily: 'Inter-Bold',
     textAlign: 'center',
-  },
-  shareStatDivider: {
-    width: 1,
-    height: 40,
-    marginHorizontal: 24,
-  },
-  statsRowExtra: {
-    flexDirection: 'row',
-    marginTop: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   shareFooter: {
     display: 'none',
