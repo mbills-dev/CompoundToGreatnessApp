@@ -8,6 +8,7 @@ export interface BadgeInfo {
   description: string;
   icon: string;
   color: string;
+  image_url: string | null;
 }
 
 type BadgeCelebrationContextType = {
@@ -41,7 +42,7 @@ export function BadgeCelebrationProvider({ children }: { children: React.ReactNo
     Promise.resolve(
       supabase
         .from('badges')
-        .select('key, title, description, icon, color')
+        .select('key, title, description, icon, color, image_url')
         .eq('key', headKey)
         .maybeSingle()
     )

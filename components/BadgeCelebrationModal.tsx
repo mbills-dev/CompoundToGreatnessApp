@@ -7,7 +7,15 @@ import {
   Platform,
   useWindowDimensions,
   Alert,
+  Image,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  Easing,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
@@ -86,6 +94,7 @@ interface BadgeCelebrationModalProps {
     description: string;
     icon: string;
     color: string;
+    image_url?: string | null;
   };
   onDone: () => void;
 }
@@ -98,6 +107,35 @@ export default function BadgeCelebrationModal({ badge, onDone }: BadgeCelebratio
   const textColor = getReadableTextColor(badge.color);
   const IconComponent = ICON_MAP[badge.icon] || Award;
   const iconSize = Math.min(width, height) * 0.28;
+  const hasImage = !!badge.image_url;
+
+  const badgeVisualOpacity = useSharedValue(0);
+  const badgeVisualTranslateY = useSharedValue(40);
+  const titleOpacity = useSharedValue(0);
+  const descriptionOpacity = useSharedValue(0);
+  const shareButtonOpacity = useSharedValue(0);
+  const shareButtonScale = useSharedValue(0.85);
+
+  useEffect(() => {
+    const easing = Easing.out(Easing.cubic);
+    badgeVisualOpacity.value = withTiming(1, { duration: 300, easing });
+    badgeVisualTranslateY.value = withTiming(0, { duration: 300, easing });
+    titleOpacity.value = withDelay(150, withTiming(1, { duration: 250, easing }));
+    descriptionOpacity.value = withDelay(250, withTiming(1, { duration: 250, easing }));
+    shareButtonOpacity.value = withDelay(350, withTiming(1, { duration: 200, easing }));
+    shareButtonScale.value = withDelay(350, withTiming(1, { duration: 200, easing }));
+  }, []);
+
+  const badgeVisualStyle = useAnimatedStyle(() => ({
+    opacity: badgeVisualOpacity.value,
+    transform: [{ translateY: badgeVisualTranslateY.value }],
+  }));
+  const titleStyle = useAnimatedStyle(() => ({ opacity: titleOpacity.value }));
+  const descriptionStyle = useAnimatedStyle(() => ({ opacity: descriptionOpacity.value }));
+  const shareButtonAnimStyle = useAnimatedStyle(() => ({
+    opacity: shareButtonOpacity.value,
+    transform: [{ scale: shareButtonScale.value }],
+  }));
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -157,21 +195,28 @@ export default function BadgeCelebrationModal({ badge, onDone }: BadgeCelebratio
         <Confetti count={60} />
 
         <View style={styles.content}>
-          <View style={styles.badgeWrap}>
-            <IconComponent
-              size={iconSize}
-              color={textColor}
-              strokeWidth={1.75}
-              absoluteStrokeWidth={false}
-            />
-          </View>
+          <Animated.View style={[styles.badgeWrap, badgeVisualStyle]}>
+            {hasImage ? (
+              <Image
+                source={{ uri: badge.image_url! }}
+                style={{ width: 180, height: 180, resizeMode: 'contain' }}
+              />
+            ) : (
+              <IconComponent
+                size={iconSize}
+                color={textColor}
+                strokeWidth={1.75}
+                absoluteStrokeWidth={false}
+              />
+            )}
+          </Animated.View>
 
-          <Text style={[styles.title, { color: textColor }]} numberOfLines={2}>
+          <Animated.Text style={[styles.title, { color: textColor }, titleStyle]} numberOfLines={2}>
             {badge.title}
-          </Text>
-          <Text style={[styles.description, { color: textColor }]} numberOfLines={3}>
+          </Animated.Text>
+          <Animated.Text style={[styles.description, { color: textColor }, descriptionStyle]} numberOfLines={3}>
             {badge.description}
-          </Text>
+          </Animated.Text>
         </View>
 
         <TouchableOpacity
@@ -184,16 +229,18 @@ export default function BadgeCelebrationModal({ badge, onDone }: BadgeCelebratio
         </TouchableOpacity>
 
         {Platform.OS !== 'web' && (
-          <TouchableOpacity
-            style={[styles.shareButton, { borderColor: textColor }]}
-            onPress={handleShare}
-            disabled={isSharing}
-            activeOpacity={0.6}
-          >
-            <Text style={[styles.shareText, { color: textColor }]}>
-              {isSharing ? 'Sharing…' : 'Share'}
-            </Text>
-          </TouchableOpacity>
+          <Animated.View style={[styles.shareButton, shareButtonAnimStyle]}>
+            <TouchableOpacity
+              style={[styles.shareButtonInner, { borderColor: textColor }]}
+              onPress={handleShare}
+              disabled={isSharing}
+              activeOpacity={0.6}
+            >
+              <Text style={[styles.shareText, { color: textColor }]}>
+                {isSharing ? 'Sharing…' : 'Share'}
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
         )}
       </View>
     </View>
@@ -241,6 +288,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 64,
     right: 32,
+  },
+  shareButtonInner: {
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderWidth: 1.5,
@@ -251,3 +300,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
+
+
+export default BadgeCelebrationModal
