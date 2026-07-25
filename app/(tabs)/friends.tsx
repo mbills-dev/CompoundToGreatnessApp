@@ -84,10 +84,12 @@ export default function FriendsScreen() {
       .select('display_name')
       .eq('id', user.id)
       .maybeSingle()
-      .then(({ data }) => {
-        if (data?.display_name) setMyDisplayName(data.display_name);
-      })
-      .catch(() => {});
+      .then(
+        ({ data }) => {
+          if (data?.display_name) setMyDisplayName(data.display_name);
+        },
+        () => {}
+      );
   }, [user]);
 
   const handleMarkInboxRead = async (item: InboxItem) => {
