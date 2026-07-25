@@ -26,6 +26,13 @@ import {
   Camera,
   Sunrise,
   Calendar,
+  ClipboardCheck,
+  BookOpen,
+  CalendarCheck,
+  Eye,
+  Megaphone,
+  UserPlus,
+  PenTool,
   Award,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -46,6 +53,13 @@ const ICON_MAP: Record<string, LucideIcon> = {
   camera: Camera,
   sunrise: Sunrise,
   calendar: Calendar,
+  'clipboard-check': ClipboardCheck,
+  'book-open': BookOpen,
+  'calendar-check': CalendarCheck,
+  eye: Eye,
+  megaphone: Megaphone,
+  'user-plus': UserPlus,
+  'pen-tool': PenTool,
   award: Award,
 };
 
