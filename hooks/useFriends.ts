@@ -10,28 +10,43 @@ export interface FriendWithStreak {
   goalId: string | null;
   watchers: number;
   isWatching: boolean;
+  status: 'pending' | 'accepted' | 'blocked';
   photo_url?: string | null;
 }
 
 export const friendsKey = (userId: string | undefined) => ['friends', userId];
 
 export async function fetchFriends(userId: string): Promise<FriendWithStreak[]> {
-  // Fetch accepted friendships where current user is on either side
+  // Fetch friendships where current user is on either side (exclude blocked)
   const { data: friendships, error: fErr } = await supabase
     .from('friendships')
     .select('user_id, friend_id, status')
     .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
-    .eq('status', 'accepted');
+    .neq('status', 'blocked');
 
   if (fErr) throw fErr;
-  if (!friendships || friendships.length === 0) {
+
+  // Show accepted friends (either direction) and outgoing pending requests.
+  // Incoming pending requests (friend_id = me) are handled separately in the
+  // Friend Requests section of the friends screen.
+  const visibleFriendships = (friendships || []).filter(
+    (f) => f.status === 'accepted' || (f.status === 'pending' && f.user_id === userId)
+  );
+
+  if (visibleFriendships.length === 0) {
     return [];
   }
 
   // Extract friend user IDs (the "other" person)
-  const friendIds = friendships.map((f) =>
+  const friendIds = visibleFriendships.map((f) =>
     f.user_id === userId ? f.friend_id : f.user_id
   );
+
+  const statusByFriendId = new Map<string, 'pending' | 'accepted' | 'blocked'>();
+  visibleFriendships.forEach((f) => {
+    const otherId = f.user_id === userId ? f.friend_id : f.user_id;
+    statusByFriendId.set(otherId, f.status as 'pending' | 'accepted' | 'blocked');
+  });
 
   // Fetch profiles for friends
   const { data: profiles, error: pErr } = await supabase
@@ -106,6 +121,7 @@ export async function fetchFriends(userId: string): Promise<FriendWithStreak[]> 
       goalId: goal?.id || null,
       watchers: watcherCountMap.get(p.id) || 0,
       isWatching: myWatchedIds.has(p.id),
+      status: statusByFriendId.get(p.id) || 'accepted',
       photo_url: p.photo_url || null,
     };
   });

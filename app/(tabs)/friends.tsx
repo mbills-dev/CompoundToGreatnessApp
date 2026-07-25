@@ -12,7 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heart, UserPlus, Eye, Share2, Zap } from 'lucide-react-native';
+import { Heart, UserPlus, Eye, Share2, Zap, Check, X, Ban, MoreVertical, Clock } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +27,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchFriends, friendsKey, FriendWithStreak } from '@/hooks/useFriends';
 
 interface SearchResult {
+  id: string;
+  username: string;
+  display_name: string;
+  photo_url?: string | null;
+}
+
+interface PendingRequest {
   id: string;
   username: string;
   display_name: string;
@@ -49,6 +56,9 @@ export default function FriendsScreen() {
   const [encouragementMessage, setEncouragementMessage] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
+  const [blockConfirmId, setBlockConfirmId] = useState<string | null>(null);
   const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
   const [myDisplayName, setMyDisplayName] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -91,6 +101,86 @@ export default function FriendsScreen() {
         () => {}
       );
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const { data, error: rErr } = await supabase
+          .from('friendships')
+          .select('id, user_id')
+          .eq('friend_id', user.id)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false });
+        if (rErr) throw rErr;
+        const rows = data || [];
+        if (rows.length === 0) {
+          setPendingRequests([]);
+          return;
+        }
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, username, display_name, photo_url')
+          .in('id', rows.map((r) => r.user_id));
+        const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+        setPendingRequests(
+          rows.map((r) => {
+            const p = profileMap.get(r.user_id);
+            return {
+              id: r.id,
+              username: p?.username || '',
+              display_name: p?.display_name || 'Unknown',
+              photo_url: p?.photo_url || null,
+            };
+          })
+        );
+      } catch {
+        // non-critical
+      }
+    })();
+  }, [user]);
+
+  const acceptRequest = async (requestId: string) => {
+    try {
+      const { error: uErr } = await supabase
+        .from('friendships')
+        .update({ status: 'accepted' })
+        .eq('id', requestId);
+      if (uErr) throw uErr;
+      setPendingRequests((prev) => prev.filter((r) => r.id !== requestId));
+      await loadFriends();
+    } catch (e: any) {
+      setError(e.message || 'Failed to accept request');
+    }
+  };
+
+  const declineRequest = async (requestId: string) => {
+    try {
+      const { error: dErr } = await supabase
+        .from('friendships')
+        .delete()
+        .eq('id', requestId);
+      if (dErr) throw dErr;
+      setPendingRequests((prev) => prev.filter((r) => r.id !== requestId));
+    } catch (e: any) {
+      setError(e.message || 'Failed to decline request');
+    }
+  };
+
+  const blockFriend = async (friendId: string) => {
+    if (!user) return;
+    try {
+      const { error: uErr } = await supabase
+        .from('friendships')
+        .update({ status: 'blocked' })
+        .or(`and(user_id.eq.${user.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${user.id})`);
+      if (uErr) throw uErr;
+      setBlockConfirmId(null);
+      await loadFriends();
+    } catch (e: any) {
+      setError(e.message || 'Failed to block user');
+    }
+  };
 
   const handleMarkInboxRead = async (item: InboxItem) => {
     setInboxItems((prev) =>
@@ -140,7 +230,6 @@ export default function FriendsScreen() {
   const addFriend = async (friendId: string) => {
     if (!user) return;
     try {
-      // Check if friendship already exists
       const { data: existing } = await supabase
         .from('friendships')
         .select('id, status')
@@ -148,31 +237,40 @@ export default function FriendsScreen() {
         .maybeSingle();
 
       if (existing) {
-        setError('Friend request already sent or you are already friends.');
+        if (existing.status === 'blocked') {
+          setError('Unable to send friend request.');
+        } else if (existing.status === 'pending') {
+          setError('Friend request already sent.');
+        } else {
+          setError('You are already friends.');
+        }
         return;
       }
 
-      // Frictionless: create as accepted directly
       const { error: insErr } = await supabase
         .from('friendships')
         .insert({
           user_id: user.id,
           friend_id: friendId,
-          status: 'accepted',
+          status: 'pending',
         });
       if (insErr) throw insErr;
 
       setSearchUsername('');
       setSearchResults([]);
+      setSuccessMessage('Friend request sent');
       await loadFriends();
+      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (e: any) {
-      setError(e.message || 'Failed to add friend');
+      setError(e.message || 'Failed to send friend request');
     }
   };
 
   const toggleWatch = async (friendId: string) => {
     if (!user) return;
-    const isCurrentlyWatching = friends.find((f) => f.id === friendId)?.isWatching;
+    const friend = friends.find((f) => f.id === friendId);
+    if (!friend || friend.status !== 'accepted') return;
+    const isCurrentlyWatching = friend.isWatching;
     // Optimistic update
     setFriends((prev) =>
       prev.map((f) =>
@@ -411,6 +509,60 @@ export default function FriendsScreen() {
           </View>
         ) : null}
 
+        {successMessage ? (
+          <View style={styles.successContainer}>
+            <Text style={styles.successText}>{successMessage}</Text>
+            <TouchableOpacity onPress={() => setSuccessMessage(null)}>
+              <Text style={[styles.successDismiss, { color: colors.primary }]}>Dismiss</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {pendingRequests.length > 0 && (
+          <View style={styles.requestsSection}>
+            <Text style={[styles.requestsLabel, { color: colors.textTertiary }]}>FRIEND REQUESTS</Text>
+            <View style={styles.requestsList}>
+              {pendingRequests.map((req) => (
+                <View key={req.id} style={[styles.requestRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  {req.photo_url ? (
+                    <Image source={{ uri: req.photo_url }} style={styles.requestAvatar} />
+                  ) : (
+                    <View style={[styles.requestAvatar, styles.avatarPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
+                      <Text style={styles.avatarText}>
+                        {(req.display_name || req.username || '?').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.requestInfo}>
+                    <Text style={[styles.requestName, { color: colors.text }]} numberOfLines={1}>
+                      {req.display_name}
+                    </Text>
+                    <Text style={[styles.requestUsername, { color: colors.textTertiary }]} numberOfLines={1}>
+                      @{req.username}
+                    </Text>
+                  </View>
+                  <View style={styles.requestActions}>
+                    <TouchableOpacity
+                      style={[styles.acceptButton, { backgroundColor: colors.primary }]}
+                      onPress={() => acceptRequest(req.id)}
+                    >
+                      <Check size={16} color="#000000" strokeWidth={2.5} />
+                      <Text style={styles.acceptButtonText}>Accept</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.declineButton, { borderColor: colors.border }]}
+                      onPress={() => declineRequest(req.id)}
+                    >
+                      <X size={16} color={colors.textTertiary} strokeWidth={2.5} />
+                      <Text style={[styles.declineButtonText, { color: colors.textTertiary }]}>Decline</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         <View style={styles.content}>
           <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
             {friends.length} {friends.length === 1 ? 'person' : 'people'} crushing their goals
@@ -461,14 +613,46 @@ export default function FriendsScreen() {
                         </View>
                       </TouchableOpacity>
 
-                      <View style={[styles.streakBadge, { backgroundColor: isDark ? '#000000' : '#1A1A1A' }]}>
-                        <Zap size={20} color={colors.primary} fill={colors.primary} strokeWidth={2.5} />
-                        <Text style={styles.streakNumber}>{friend.streak}</Text>
-                        <Text style={[styles.streakLabel, { color: colors.primary }]}>DAY STREAK</Text>
+                      <View style={styles.friendSideColumn}>
+                        <View style={[styles.streakBadge, { backgroundColor: isDark ? '#000000' : '#1A1A1A' }]}>
+                          <Zap size={20} color={colors.primary} fill={colors.primary} strokeWidth={2.5} />
+                          <Text style={styles.streakNumber}>{friend.streak}</Text>
+                          <Text style={[styles.streakLabel, { color: colors.primary }]}>DAY STREAK</Text>
+                        </View>
+                        {friend.status === 'accepted' && (
+                          <TouchableOpacity
+                            style={styles.overflowButton}
+                            onPress={() => setBlockConfirmId(blockConfirmId === friend.id ? null : friend.id)}
+                          >
+                            <MoreVertical size={18} color={colors.textTertiary} strokeWidth={2.5} />
+                          </TouchableOpacity>
+                        )}
                       </View>
                     </View>
 
-                    <View style={styles.encouragementSection}>
+                    {blockConfirmId === friend.id ? (
+                      <View style={[styles.blockConfirmRow, { borderColor: colors.border }]}>
+                        <Text style={[styles.blockConfirmText, { color: colors.textSecondary }]}>
+                          Block @{friend.username}? They won't be able to find or message you.
+                        </Text>
+                        <View style={styles.blockConfirmActions}>
+                          <TouchableOpacity
+                            style={styles.blockCancelButton}
+                            onPress={() => setBlockConfirmId(null)}
+                          >
+                            <Text style={[styles.blockCancelText, { color: colors.textTertiary }]}>Cancel</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.blockConfirmButton}
+                            onPress={() => blockFriend(friend.id)}
+                          >
+                            <Ban size={16} color="#FFFFFF" strokeWidth={2.5} />
+                            <Text style={styles.blockConfirmButtonText}>Block</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ) : friend.status === 'accepted' ? (
+                      <View style={styles.encouragementSection}>
                       {selectedFriend === friend.id ? (
                         <View style={styles.encouragementForm}>
                           <TextInput
@@ -551,6 +735,14 @@ export default function FriendsScreen() {
                         </View>
                       )}
                     </View>
+                    ) : (
+                      <View style={[styles.pendingNotice, { borderColor: colors.border }]}>
+                        <Clock size={16} color={colors.textTertiary} strokeWidth={2.5} />
+                        <Text style={[styles.pendingNoticeText, { color: colors.textTertiary }]}>
+                          Request sent — waiting for acceptance
+                        </Text>
+                      </View>
+                    )}
                   </LinearGradient>
                 </View>
               ))
@@ -1008,5 +1200,175 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     fontFamily: 'Inter-Black',
+  },
+  successContainer: {
+    marginHorizontal: 24,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(204,255,0,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(204,255,0,0.3)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  successText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Inter-Bold',
+    color: '#ccff00',
+  },
+  successDismiss: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
+  },
+  requestsSection: {
+    paddingHorizontal: 24,
+    marginBottom: 24,
+  },
+  requestsLabel: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    marginBottom: 12,
+    fontFamily: 'Inter-Black',
+  },
+  requestsList: {
+    gap: 10,
+  },
+  requestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+  },
+  requestAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  requestInfo: {
+    flex: 1,
+  },
+  requestName: {
+    fontSize: 15,
+    fontWeight: '800',
+    fontFamily: 'Inter-Black',
+  },
+  requestUsername: {
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: 'Inter-Bold',
+    marginTop: 2,
+  },
+  requestActions: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  acceptButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  acceptButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
+    fontFamily: 'Inter-Black',
+    color: '#000000',
+  },
+  declineButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+  },
+  declineButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
+  },
+  friendSideColumn: {
+    alignItems: 'center',
+    gap: 10,
+  },
+  overflowButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(128,128,128,0.1)',
+  },
+  blockConfirmRow: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(252,67,61,0.3)',
+    backgroundColor: 'rgba(252,67,61,0.06)',
+    gap: 12,
+  },
+  blockConfirmText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: 'Inter-Bold',
+    lineHeight: 18,
+  },
+  blockConfirmActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  blockCancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  blockCancelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
+  },
+  blockConfirmButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: '#fc433d',
+  },
+  blockConfirmButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+    fontFamily: 'Inter-Black',
+    color: '#FFFFFF',
+  },
+  pendingNotice: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  pendingNoticeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: 'Inter-Bold',
   },
 });
