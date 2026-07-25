@@ -179,3 +179,71 @@ export async function checkAndAwardBadges(userId: string, goal: Goal): Promise<s
 
   return newKeys;
 }
+
+export async function awardWatcherBadges(watchedUserId: string): Promise<void> {
+  const { count, error } = await supabase
+    .from('watchers')
+    .select('id', { count: 'exact', head: true })
+    .eq('watched_id', watchedUserId);
+  if (error) throw error;
+
+  const keys: string[] = [];
+  if (count === 1) keys.push('watcher_first');
+  if ((count ?? 0) >= 5) keys.push('watcher_5');
+  if (keys.length === 0) return;
+
+  const { error: upsertErr } = await supabase
+    .from('user_badges')
+    .upsert(
+      keys.map((badge_key) => ({ user_id: watchedUserId, badge_key })),
+      { onConflict: 'user_id,badge_key', ignoreDuplicates: true }
+    );
+  if (upsertErr) throw upsertErr;
+}
+
+export async function awardEncouragementBadge(fromUserId: string): Promise<void> {
+  const { count, error } = await supabase
+    .from('encouragements')
+    .select('id', { count: 'exact', head: true })
+    .eq('from_user_id', fromUserId);
+  if (error) throw error;
+
+  if ((count ?? 0) < 10) return;
+
+  const { error: upsertErr } = await supabase
+    .from('user_badges')
+    .upsert(
+      [{ user_id: fromUserId, badge_key: 'encourage_10' }],
+      { onConflict: 'user_id,badge_key', ignoreDuplicates: true }
+    );
+  if (upsertErr) throw upsertErr;
+}
+
+export async function awardInviteBadge(inviterId: string): Promise<void> {
+  const { count, error } = await supabase
+    .from('watcher_invitations')
+    .select('id', { count: 'exact', head: true })
+    .eq('inviter_id', inviterId)
+    .not('accepted_by', 'is', null);
+  if (error) throw error;
+
+  if ((count ?? 0) < 1) return;
+
+  const { error: upsertErr } = await supabase
+    .from('user_badges')
+    .upsert(
+      [{ user_id: inviterId, badge_key: 'invite_accepted' }],
+      { onConflict: 'user_id,badge_key', ignoreDuplicates: true }
+    );
+  if (upsertErr) throw upsertErr;
+}
+
+export async function awardSignedBadge(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('user_badges')
+    .upsert(
+      [{ user_id: userId, badge_key: 'signed' }],
+      { onConflict: 'user_id,badge_key', ignoreDuplicates: true }
+    );
+  if (error) throw error;
+}

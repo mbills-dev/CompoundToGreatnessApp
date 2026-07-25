@@ -15,6 +15,7 @@ import { parseLocalDate, getTodayDateString } from '@/lib/dateHelpers';
 import PreStartScreen from '@/components/PreStartScreen';
 import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
 import { resyncAllReminders } from '@/lib/notifications';
+import { awardSignedBadge } from '@/lib/badgeHelpers';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -124,6 +125,7 @@ export default function HomeScreen() {
     await deletePendingGoals();
     const created = await createGoalAndActivities(result, false);
     if (!created) return;
+    awardSignedBadge(user!.id).catch(() => {});
     resyncAllReminders(user!.id).catch(err => console.error('resyncAllReminders failed:', err));
 
     if (isSubscribed) {

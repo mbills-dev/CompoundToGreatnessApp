@@ -12,7 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heart, UserPlus, Eye, Share2, Zap, Check, X, Ban, MoreVertical, Clock } from 'lucide-react-native';
+import { Heart, UserPlus, Eye, Share2, Zap, Check, X, Ban, MoveVertical as MoreVertical, Clock } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,6 +25,7 @@ import { useRouter } from 'expo-router';
 import { Animated } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchFriends, friendsKey, FriendWithStreak } from '@/hooks/useFriends';
+import { awardWatcherBadges, awardEncouragementBadge } from '@/lib/badgeHelpers';
 
 interface SearchResult {
   id: string;
@@ -296,6 +297,7 @@ export default function FriendsScreen() {
           .from('watchers')
           .insert({ watcher_id: user.id, watched_id: friendId });
         if (insErr) throw insErr;
+        awardWatcherBadges(friendId).catch(() => {});
         const senderName = myDisplayName || 'Someone';
         supabase.functions.invoke('send-push', {
           body: {
@@ -335,6 +337,7 @@ export default function FriendsScreen() {
           message: encouragementMessage.trim() || null,
         });
       if (insErr) throw insErr;
+      awardEncouragementBadge(user.id).catch(() => {});
       const senderName = myDisplayName || 'Someone';
       const hasMessage = !!encouragementMessage.trim();
       const trimmedMessage = encouragementMessage.trim();
@@ -372,6 +375,7 @@ export default function FriendsScreen() {
           message: null,
         });
       if (insErr) throw insErr;
+      awardEncouragementBadge(user.id).catch(() => {});
       const senderName = myDisplayName || 'Someone';
       supabase.functions.invoke('send-push', {
         body: {

@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, ArrowRight, Zap } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
+import { awardInviteBadge } from '@/lib/badgeHelpers';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -148,6 +149,8 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
         .from('watcher_invitations')
         .update({ accepted_by: userId, accepted_at: new Date().toISOString() })
         .eq('invite_code', inviteCode);
+
+      awardInviteBadge(inviter.inviterId).catch(() => {});
 
       await AsyncStorage.setItem(`@onboarding_completed_${userId}`, 'true');
 
