@@ -46,10 +46,23 @@ export default function InboxItemCard({ item, onPress }: Props) {
           ) : (
             <Mail size={14} color={colors.primary} strokeWidth={2.5} />
           )}
-          <Text style={[styles.inboxSenderName, { color: colors.text }]} numberOfLines={1}>
-            {item.senderName}
-          </Text>
-          {item.emoji && <Text style={styles.inboxEmoji}>{item.emoji}</Text>}
+          {item.source === 'public' ? (
+            <View style={styles.publicHeaderContent}>
+              <View style={[styles.publicPill, { backgroundColor: isDark ? 'rgba(204,255,0,0.12)' : 'rgba(204,255,0,0.1)', borderColor: 'rgba(204,255,0,0.3)' }]}>
+                <Text style={styles.publicPillText}>PUBLIC PAGE VISITOR</Text>
+              </View>
+              <Text style={[styles.inboxSenderName, { color: colors.textSecondary, fontStyle: 'italic' }]} numberOfLines={1}>
+                "{item.visitorName || 'Anonymous'}" via your public page
+              </Text>
+            </View>
+          ) : (
+            <>
+              <Text style={[styles.inboxSenderName, { color: colors.text }]} numberOfLines={1}>
+                {item.senderName}
+              </Text>
+              {item.emoji && <Text style={styles.inboxEmoji}>{item.emoji}</Text>}
+            </>
+          )}
         </View>
         {isUnread && <View style={styles.unreadDot} />}
       </View>
@@ -88,6 +101,25 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontFamily: 'Inter-Black',
     flexShrink: 1,
+  },
+  publicHeaderContent: {
+    flex: 1,
+    flexShrink: 1,
+    gap: 4,
+  },
+  publicPill: {
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+  },
+  publicPillText: {
+    fontSize: 9,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 1,
+    color: '#CCFF00',
   },
   unreadDot: {
     width: 8,

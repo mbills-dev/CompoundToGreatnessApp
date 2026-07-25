@@ -20,6 +20,7 @@ import {
   BellOff,
   ImagePlus,
   LogOut,
+  Mail,
   Share2,
   RefreshCw,
   Sparkles,
@@ -83,6 +84,7 @@ export default function SettingsScreen() {
   const [morningNotifications, setMorningNotifications] = useState(true);
   const [eveningNotifications, setEveningNotifications] = useState(true);
   const [saveProgressPhotos, setSaveProgressPhotos] = useState(false);
+  const [allowPublicEncouragements, setAllowPublicEncouragements] = useState(true);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [activeGoal, setActiveGoal] = useState<Goal | null>(null);
@@ -124,6 +126,7 @@ export default function SettingsScreen() {
         setMorningNotifications(data.morning_notifications);
         setEveningNotifications(data.evening_notifications);
         setSaveProgressPhotos(data.save_progress_photos);
+        setAllowPublicEncouragements(data.allow_public_encouragements);
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -324,6 +327,11 @@ export default function SettingsScreen() {
   const handleSaveProgressPhotosToggle = (value: boolean) => {
     setSaveProgressPhotos(value);
     saveSettings({ save_progress_photos: value });
+  };
+
+  const handleAllowPublicEncouragementsToggle = (value: boolean) => {
+    setAllowPublicEncouragements(value);
+    saveSettings({ allow_public_encouragements: value });
   };
 
   const handleShareFullJourneyToggle = async (value: boolean) => {
@@ -698,6 +706,15 @@ export default function SettingsScreen() {
               colors={colors}
               isDark={isDark}
               isFirst
+            />
+            <ToggleRow
+              icon={<Mail size={18} color={colors.primary} strokeWidth={2} />}
+              title="Allow messages from your public page"
+              description="Visitors to your public journey page can leave you a message. Turn this off to disable it."
+              value={allowPublicEncouragements}
+              onValueChange={handleAllowPublicEncouragementsToggle}
+              colors={colors}
+              isDark={isDark}
               isLast
             />
           </GlassPanel>

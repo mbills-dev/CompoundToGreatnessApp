@@ -155,6 +155,7 @@ export interface UserSettings {
   morning_notifications: boolean;
   evening_notifications: boolean;
   save_progress_photos: boolean;
+  allow_public_encouragements: boolean;
   created_at: string;
   updated_at: string;
 }

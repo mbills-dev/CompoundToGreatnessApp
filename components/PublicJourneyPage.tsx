@@ -44,6 +44,7 @@ interface JourneyData {
   realStreak: number;
   challengePhase: string;
   shareFullJourney: boolean;
+  allowPublicEncouragements: boolean;
   photoUrl: string | null;
 }
 
@@ -79,7 +80,7 @@ export default function PublicJourneyPage({ username }: Props) {
 
       const { data: settings } = await supabase
         .from('user_settings')
-        .select('first_name, last_name')
+        .select('first_name, last_name, allow_public_encouragements')
         .eq('user_id', profile.id)
         .maybeSingle();
 
@@ -153,6 +154,7 @@ export default function PublicJourneyPage({ username }: Props) {
         realStreak,
         challengePhase: goal?.challenge_phase || 'challenge',
         shareFullJourney: goal?.share_full_journey ?? true,
+        allowPublicEncouragements: settings?.allow_public_encouragements ?? true,
         photoUrl: profile.photo_url || null,
       });
     } catch {
@@ -345,21 +347,25 @@ export default function PublicJourneyPage({ username }: Props) {
         )}
 
         <View style={styles.ctaSection}>
-          <TouchableOpacity
-            style={styles.encourageButton}
-            onPress={() => setShowEncourageModal(true)}
-          >
-            <LinearGradient colors={['#ccff00', '#aed900']} style={styles.encourageGradient}>
-              <Send size={20} color="#000000" strokeWidth={2.5} />
-              <Text style={styles.encourageText}>Send Encouragement</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+          {journey?.allowPublicEncouragements && (
+            <>
+              <TouchableOpacity
+                style={styles.encourageButton}
+                onPress={() => setShowEncourageModal(true)}
+              >
+                <LinearGradient colors={['#ccff00', '#aed900']} style={styles.encourageGradient}>
+                  <Send size={20} color="#000000" strokeWidth={2.5} />
+                  <Text style={styles.encourageText}>Send Encouragement</Text>
+                </LinearGradient>
+              </TouchableOpacity>
 
-          <View style={styles.divider}>
-            <View style={[styles.dividerLine, { backgroundColor: borderColor }]} />
-            <Text style={[styles.dividerText, { color: textTertiary }]}>or</Text>
-            <View style={[styles.dividerLine, { backgroundColor: borderColor }]} />
-          </View>
+              <View style={styles.divider}>
+                <View style={[styles.dividerLine, { backgroundColor: borderColor }]} />
+                <Text style={[styles.dividerText, { color: textTertiary }]}>or</Text>
+                <View style={[styles.dividerLine, { backgroundColor: borderColor }]} />
+              </View>
+            </>
+          )}
 
           <TouchableOpacity
             style={[styles.startOwnOutline, { borderColor }]}
@@ -380,12 +386,14 @@ export default function PublicJourneyPage({ username }: Props) {
         </View>
       </ScrollView>
 
-      <EncourageModal
-        visible={showEncourageModal}
-        onClose={() => setShowEncourageModal(false)}
-        watchedUserId={journey?.userId || ''}
-        watchedName={firstName}
-      />
+      {journey?.allowPublicEncouragements && (
+        <EncourageModal
+          visible={showEncourageModal}
+          onClose={() => setShowEncourageModal(false)}
+          watchedUserId={journey?.userId || ''}
+          watchedName={firstName}
+        />
+      )}
     </View>
   );
 }

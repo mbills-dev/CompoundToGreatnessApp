@@ -3,7 +3,8 @@ import { supabase } from '@/lib/supabase';
 export type InboxItem = {
   id: string;
   source: 'friend' | 'public';
-  senderName: string;
+  senderName?: string | null;
+  visitorName?: string | null;
   message: string | null;
   emoji: string | null;
   createdAt: string;
@@ -48,7 +49,7 @@ export async function getInboxItems(userId: string): Promise<InboxItem[]> {
   const publicItems: InboxItem[] = (leadsRes.data || []).map((row: any) => ({
     id: row.id,
     source: 'public' as const,
-    senderName: row.name || 'Anonymous',
+    visitorName: row.name || null,
     message: row.message,
     emoji: null,
     createdAt: row.created_at,
