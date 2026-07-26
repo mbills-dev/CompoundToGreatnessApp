@@ -27,6 +27,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchFriends, friendsKey, FriendWithStreak } from '@/hooks/useFriends';
 import { awardWatcherBadges, awardEncouragementBadge } from '@/lib/badgeHelpers';
 import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
+import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
 
 interface SearchResult {
   id: string;
@@ -391,11 +392,7 @@ export default function FriendsScreen() {
   const displayError = error ?? (friendsLoadError ? (friendsLoadError as Error).message || 'Failed to load friends' : null);
 
   if (loading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <BrandedLoadingScreen />;
   }
 
   return (
@@ -1065,7 +1062,7 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'column',
-    gap: 10,
+    gap: 16,
   },
   mainActionButtons: {
     flexDirection: 'row',

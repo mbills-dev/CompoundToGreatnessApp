@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   legend: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 14,
+    gap: 8,
     marginHorizontal: 24,
     marginTop: 20,
     marginBottom: 16,
@@ -419,8 +419,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   legendSwatch: {
-    width: 18,
-    height: 18,
+    width: 14,
+    height: 14,
     borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',

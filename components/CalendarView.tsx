@@ -115,7 +115,6 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
       if (error) throw error;
       return count ?? 0;
     },
-    initialData: 0,
   });
 
   const initializeChallenge = async () => {
@@ -474,6 +473,11 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
     ? ['#000000', '#0A0A0F', '#000000']
     : ['#F5F5F0', '#F0F0EB', '#F5F5F0'];
 
+  const carouselCardWidth = carouselWidth ? (carouselWidth - 48 - 24) / 2 : undefined;
+  const carouselCardStyle = carouselCardWidth != null
+    ? { width: carouselCardWidth, flexGrow: 0, flexShrink: 0 }
+    : { flex: 1 };
+
   return (
     <View
       ref={rootWrapperRef}
@@ -551,7 +555,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
             style={styles.statsCarousel}
           >
             <View style={[styles.statsCarouselPage, { width: carouselWidth || '100%' }]}>
-              <View style={[styles.statsCarouselCard, { backgroundColor: colors.card }]}>
+              <View style={[styles.statsCarouselCard, { backgroundColor: colors.card }, carouselCardStyle]}>
                 <Text style={[styles.shareStatValue, { color: colors.primary }]}>{completedDays}</Text>
                 <Text
                   style={[styles.shareStatLabel, { color: textMuted }]}
@@ -560,7 +564,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
                   minimumFontScale={0.7}
                 >DAYS COMPLETED</Text>
               </View>
-              <View style={[styles.statsCarouselCard, { backgroundColor: colors.card }]}>
+              <View style={[styles.statsCarouselCard, { backgroundColor: colors.card }, carouselCardStyle]}>
                 <Text style={[styles.shareStatValue, { color: colors.primary }]}>{Math.round((completedDays / TOTAL_CHALLENGE_DAYS) * 100)}%</Text>
                 <Text
                   style={[styles.shareStatLabel, { color: textMuted }]}
@@ -571,7 +575,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
               </View>
             </View>
             <View style={[styles.statsCarouselPage, { width: carouselWidth || '100%' }]}>
-              <View style={[styles.statsCarouselCard, { backgroundColor: colors.card }]}>
+              <View style={[styles.statsCarouselCard, { backgroundColor: colors.card }, carouselCardStyle]}>
                 <Text style={[styles.shareStatValue, { color: LIME }]}>{longestStreak ?? 0}</Text>
                 <Text
                   style={[styles.shareStatLabel, { color: textMuted }]}
@@ -581,7 +585,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
                 >LONGEST STREAK</Text>
               </View>
               <TouchableOpacity
-                style={[styles.statsCarouselCard, { backgroundColor: colors.card }]}
+                style={[styles.statsCarouselCard, { backgroundColor: colors.card }, carouselCardStyle]}
                 activeOpacity={0.7}
                 onPress={() => router.push('/badges')}
               >
@@ -823,7 +827,7 @@ const styles = StyleSheet.create({
   },
   shareHeader: {
     alignItems: 'center',
-    marginBottom: 0,
+    marginBottom: 20,
   },
   shareTitle: {
     fontSize: 24,
@@ -870,7 +874,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   statsCarouselCard: {
-    flex: 1,
     height: 96,
     borderRadius: 24,
     paddingVertical: 16,

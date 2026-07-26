@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import BadgeCelebrationModal from '@/components/BadgeCelebrationModal';
 
 export interface BadgeInfo {
@@ -20,6 +22,8 @@ const BadgeCelebrationContext = createContext<BadgeCelebrationContextType>({
 });
 
 export function BadgeCelebrationProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [queue, setQueue] = useState<string[]>([]);
   const [activeBadge, setActiveBadge] = useState<BadgeInfo | null>(null);
   const [loading, setLoading] = useState(false);
@@ -29,7 +33,10 @@ export function BadgeCelebrationProvider({ children }: { children: React.ReactNo
       if (prev.includes(badgeKey)) return prev;
       return [...prev, badgeKey];
     });
-  }, []);
+    if (user?.id) {
+      queryClient.invalidateQueries({ queryKey: ['badge-count', user.id] });
+    }
+  }, [user?.id, queryClient]);
 
   const headKey = queue[0] ?? null;
 
