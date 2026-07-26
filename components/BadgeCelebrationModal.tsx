@@ -19,57 +19,9 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
-import {
-  Flag,
-  Zap,
-  TrendingUp,
-  Star,
-  Shield,
-  Layers,
-  Trophy,
-  Flame,
-  Target,
-  Heart,
-  Users,
-  Camera,
-  Sunrise,
-  Calendar,
-  ClipboardCheck,
-  BookOpen,
-  CalendarCheck,
-  Eye,
-  Megaphone,
-  UserPlus,
-  PenTool,
-  Award,
-  type LucideIcon,
-} from 'lucide-react-native';
+import { Award } from 'lucide-react-native';
 import Confetti from '@/components/Confetti';
-
-const ICON_MAP: Record<string, LucideIcon> = {
-  flag: Flag,
-  zap: Zap,
-  'trending-up': TrendingUp,
-  star: Star,
-  shield: Shield,
-  layers: Layers,
-  trophy: Trophy,
-  flame: Flame,
-  target: Target,
-  heart: Heart,
-  users: Users,
-  camera: Camera,
-  sunrise: Sunrise,
-  calendar: Calendar,
-  'clipboard-check': ClipboardCheck,
-  'book-open': BookOpen,
-  'calendar-check': CalendarCheck,
-  eye: Eye,
-  megaphone: Megaphone,
-  'user-plus': UserPlus,
-  'pen-tool': PenTool,
-  award: Award,
-};
+import { ICON_MAP } from '@/lib/badgeIcons';
 
 function getReadableTextColor(hex: string): string {
   const normalized = hex.replace('#', '');

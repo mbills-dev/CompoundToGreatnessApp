@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type Theme = 'light' | 'dark';
 
-interface ThemeColors {
+export interface ThemeColors {
   background: string;
   backgroundSecondary: string;
   backgroundTertiary: string;
