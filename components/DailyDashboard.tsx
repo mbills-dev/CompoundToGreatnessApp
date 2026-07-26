@@ -50,6 +50,7 @@ import { focusState } from '@/lib/focusState';
 import { useCelebration } from '@/contexts/CelebrationContext';
 import { checkForNewReactions, markReactionsRead, ReactionGroup } from '@/lib/reactionHelpers';
 import ReactionBurst from './ReactionBurst';
+import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
 
 let Haptics: any = null;
 if (Platform.OS !== 'web') {
@@ -876,11 +877,7 @@ export default function DailyDashboard({
   };
 
   if (loading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <BrandedLoadingScreen />;
   }
 
   return (

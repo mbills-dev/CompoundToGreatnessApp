@@ -49,9 +49,12 @@ export default function FriendsScreen() {
   const { celebrateBadge } = useBadgeCelebration();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [friends, setFriends] = useState<FriendWithStreak[]>(
-    () => (queryClient.getQueryData(friendsKey(user?.id)) as FriendWithStreak[] | undefined) ?? []
-  );
+  const { data: friends = [], isLoading: loading, error: friendsLoadError } = useQuery({
+    queryKey: friendsKey(user?.id),
+    queryFn: () => fetchFriends(user!.id),
+    enabled: !!user,
+    initialData: () => queryClient.getQueryData(friendsKey(user?.id)),
+  });
   const [searchUsername, setSearchUsername] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -66,14 +69,7 @@ export default function FriendsScreen() {
   const [myDisplayName, setMyDisplayName] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { data: friendsData, isLoading: loading, error: friendsLoadError } = useQuery({
-    queryKey: friendsKey(user?.id),
-    queryFn: () => fetchFriends(user!.id),
-    enabled: !!user,
-  });
-  useEffect(() => {
-    if (friendsData) setFriends(friendsData);
-  }, [friendsData]);
+
   const loadFriends = () => {
     return queryClient.invalidateQueries({ queryKey: friendsKey(user?.id) });
   };
@@ -275,7 +271,7 @@ export default function FriendsScreen() {
     if (!friend || friend.status !== 'accepted') return;
     const isCurrentlyWatching = friend.isWatching;
     // Optimistic update
-    setFriends((prev) =>
+    queryClient.setQueryData<FriendWithStreak[]>(friendsKey(user?.id), (prev = []) =>
       prev.map((f) =>
         f.id === friendId
           ? {
@@ -312,7 +308,7 @@ export default function FriendsScreen() {
       }
     } catch (e: any) {
       // Revert on failure
-      setFriends((prev) =>
+      queryClient.setQueryData<FriendWithStreak[]>(friendsKey(user?.id), (prev = []) =>
         prev.map((f) =>
           f.id === friendId
             ? {
