@@ -96,10 +96,12 @@ export async function checkAndAwardBadges(userId: string, goal: Goal): Promise<s
   const completedSet = new Set((weekendCompletions || []).map((c) => c.completion_date));
   const weekends: { sat: string; sun: string }[] = [];
   const cursor = new Date(today);
-  while (weekends.length < 4) {
+  let iterations = 0;
+  const MAX_ITERATIONS = 3650; // ~10 years of daily steps, generous upper bound
+  while (weekends.length < 4 && iterations < MAX_ITERATIONS) {
+    iterations++;
     const dow = cursor.getDay();
     if (dow === 6) {
-      // cursor is Saturday
       const satStr = toLocalDateString(cursor);
       const sun = new Date(cursor);
       sun.setDate(cursor.getDate() + 1);
@@ -107,14 +109,9 @@ export async function checkAndAwardBadges(userId: string, goal: Goal): Promise<s
       if (completedSet.has(satStr) && completedSet.has(sunStr)) {
         weekends.push({ sat: satStr, sun: sunStr });
       }
-      // Jump back a week to the previous Saturday.
-      cursor.setDate(cursor.getDate() - 7);
-    } else {
-      // Step back to the previous Saturday.
-      cursor.setDate(cursor.getDate() - 1);
-      // Guard against infinite loop if data is sparse.
-      if (toLocalDateString(cursor) < '2000-01-01') break;
     }
+    cursor.setDate(cursor.getDate() - 1);
+    if (toLocalDateString(cursor) < '2000-01-01') break;
   }
   if (weekends.length >= 4) {
     badgeKeys.push('weekend_warrior');
