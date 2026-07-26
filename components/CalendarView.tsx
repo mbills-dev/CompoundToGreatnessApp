@@ -423,7 +423,6 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
     getTodayDateString()
   ));
   const isCompleted = goal.challenge_phase === 'keep_going' || currentDay > TOTAL_CHALLENGE_DAYS;
-  const isChallengePhase = goal.challenge_phase === 'challenge' && !isCompleted;
   const router = useRouter();
   const isCelebrationPending = goal.challenge_phase === 'challenge'
     && currentDay >= TOTAL_CHALLENGE_DAYS
@@ -455,7 +454,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
         emoji: getActivityEmoji(activity.activity_type, activity.activity_name),
         daysCompleted,
         totalDays: totalTrackedDays,
-        percentage: isChallengePhase ? 100 : percentage,
+        percentage,
       };
     });
   };
@@ -620,6 +619,31 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
               }
             }}
           />
+          {individualStats.length > 0 && (
+            <View style={styles.successStackSection}>
+              <Text style={[styles.successStackHeader, { color: textMuted }]}>
+                MY SUCCESS STACK
+              </Text>
+              <View style={styles.successStackList}>
+                {individualStats.map((stat) => (
+                  <View key={stat.id} style={[styles.successStackRow, { backgroundColor: colors.card }]}>
+                    <View style={styles.successStackRowLeft}>
+                      <Text style={styles.successStackEmoji}>{stat.emoji}</Text>
+                      <Text
+                        style={[styles.successStackName, { color: textPrimary }]}
+                        numberOfLines={1}
+                      >
+                        {stat.name}
+                      </Text>
+                    </View>
+                    <Text style={[styles.successStackDays, { color: colors.primary }]}>
+                      {stat.daysCompleted}/{stat.totalDays} days
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
         </View>
 
         <TouchableOpacity
@@ -1064,5 +1088,48 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
+  },
+  successStackSection: {
+    marginTop: 28,
+    alignItems: 'stretch',
+  },
+  successStackHeader: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    fontFamily: 'Inter-Bold',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  successStackList: {
+    gap: 8,
+  },
+  successStackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 16,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+  },
+  successStackRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    marginRight: 12,
+  },
+  successStackEmoji: {
+    fontSize: 18,
+  },
+  successStackName: {
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Inter-Bold',
+  },
+  successStackDays: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
   },
 });
