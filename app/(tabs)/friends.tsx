@@ -12,7 +12,8 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heart, UserPlus, Eye, Share2, Zap, Check, X, Ban, MoveVertical as MoreVertical, Clock } from 'lucide-react-native';
+import { Swipeable } from 'react-native-gesture-handler';
+import { Heart, UserPlus, Eye, Share2, Zap, Check, X, Ban, Clock } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -69,6 +70,7 @@ export default function FriendsScreen() {
   const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
   const [myDisplayName, setMyDisplayName] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const swipeableRefs = useRef<Record<string, Swipeable | null>>({});
 
 
   const loadFriends = () => {
@@ -581,6 +583,22 @@ export default function FriendsScreen() {
                     colors={colors.cardGradient as [string, string, ...string[]]}
                     style={[styles.friendCardGradient, { backgroundColor: colors.card }]}
                   >
+                    <Swipeable
+                      ref={(ref) => { swipeableRefs.current[friend.id] = ref; }}
+                      renderRightActions={friend.status === 'accepted' ? () => (
+                        <TouchableOpacity
+                          style={styles.swipeBlockAction}
+                          onPress={() => {
+                            setBlockConfirmId(friend.id);
+                            swipeableRefs.current[friend.id]?.close();
+                          }}
+                        >
+                          <Ban size={20} color="#FFFFFF" strokeWidth={2.5} />
+                          <Text style={styles.swipeBlockText}>Block</Text>
+                        </TouchableOpacity>
+                      ) : undefined}
+                      overshootRight={false}
+                    >
                     <View style={styles.friendHeader}>
                       <TouchableOpacity
                         style={[styles.friendInfo, !friend.isWatching && { opacity: 0.6 }]}
@@ -618,16 +636,9 @@ export default function FriendsScreen() {
                           <Text style={styles.streakNumber}>{friend.streak}</Text>
                           <Text style={[styles.streakLabel, { color: colors.primary }]}>DAY STREAK</Text>
                         </View>
-                        {friend.status === 'accepted' && (
-                          <TouchableOpacity
-                            style={styles.overflowButton}
-                            onPress={() => setBlockConfirmId(blockConfirmId === friend.id ? null : friend.id)}
-                          >
-                            <MoreVertical size={18} color={colors.textTertiary} strokeWidth={2.5} />
-                          </TouchableOpacity>
-                        )}
                       </View>
                     </View>
+                    </Swipeable>
 
                     {blockConfirmId === friend.id ? (
                       <View style={[styles.blockConfirmRow, { borderColor: colors.border }]}>
@@ -1303,13 +1314,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  overflowButton: {
-    width: 32,
-    height: 32,
+  swipeBlockAction: {
+    width: 80,
+    backgroundColor: '#fc433d',
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(128,128,128,0.1)',
+    gap: 4,
+  },
+  swipeBlockText: {
+    fontSize: 13,
+    fontWeight: '800',
+    fontFamily: 'Inter-Bold',
+    color: '#FFFFFF',
   },
   blockConfirmRow: {
     marginTop: 16,
