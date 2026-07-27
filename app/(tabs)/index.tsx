@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyActivity } from '@/types/database';
 import { IdentityBuilder, IdentityBuilderResult } from '@/components/identity';
@@ -23,6 +23,7 @@ export default function HomeScreen() {
   const { user, isSubscribed } = useAuth();
   const { celebrateBadge } = useBadgeCelebration();
   const { setVisible } = useTabBarVisibility();
+  const pendingBadgeCelebrationsRef = useRef<string[]>([]);
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallCelebrate, setPaywallCelebrate] = useState(false);
   const [showStartDate, setShowStartDate] = useState(false);
@@ -127,7 +128,7 @@ export default function HomeScreen() {
     await deletePendingGoals();
     const created = await createGoalAndActivities(result, false);
     if (!created) return;
-    awardSignedBadge(user!.id).then((keys) => keys.forEach((key) => celebrateBadge(key))).catch(() => {});
+    awardSignedBadge(user!.id).then((keys) => { pendingBadgeCelebrationsRef.current = keys; }).catch(() => {});
     resyncAllReminders(user!.id).catch(err => console.error('resyncAllReminders failed:', err));
 
     if (isSubscribed) {
@@ -163,6 +164,13 @@ export default function HomeScreen() {
       await loadGoal();
       setShowPaywall(false);
       setPaywallCelebrate(false);
+      if (pendingBadgeCelebrationsRef.current.length > 0) {
+        const keys = pendingBadgeCelebrationsRef.current;
+        pendingBadgeCelebrationsRef.current = [];
+        setTimeout(() => {
+          keys.forEach((key) => celebrateBadge(key));
+        }, 500);
+      }
     } catch (error) {
       console.error('Error activating goal:', error);
     }
