@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet, Image, Dimensions } from 'react-native';
 
 export default function BrandedLoadingScreen() {
   return (
@@ -13,11 +13,17 @@ export default function BrandedLoadingScreen() {
   );
 }
 
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const styles = StyleSheet.create({
   loading: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#000000',
+    zIndex: 999,
   },
 });
