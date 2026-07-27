@@ -6,7 +6,10 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts, Inter_900Black, Inter_700Bold } from '@expo-google-fonts/inter';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -131,6 +134,11 @@ const queryClient = new QueryClient({
   },
 });
 
+const asyncStoragePersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  key: 'C2G_QUERY_CACHE',
+});
+
 export default function RootLayout() {
   useFrameworkReady();
 
@@ -143,8 +151,18 @@ export default function RootLayout() {
     return null;
   }
 
+  // NOTE: All current queries (friends, badges, goal bundles) are safe to persist to disk.
+  // If a future query returns sensitive data (e.g. payment details), exclude it via
+  // persistOptions.dehydrateOptions.shouldDehydrateQuery before it lands in AsyncStorage.
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister: asyncStoragePersister,
+        maxAge: 1000 * 60 * 60 * 24,
+        buster: 'v1',
+      }}
+    >
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <ThemeProvider>
@@ -156,7 +174,7 @@ export default function RootLayout() {
         </ThemeProvider>
       </GestureHandlerRootView>
       </SafeAreaProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
 

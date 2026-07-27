@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { computeCurrentStreak } from '@/lib/streakHelpers';
+import { computeStreaksForGoals } from '@/lib/streakHelpers';
 
 export interface FriendWithStreak {
   id: string;
@@ -95,20 +95,15 @@ export async function fetchFriends(userId: string): Promise<FriendWithStreak[]> 
     }
   });
 
-  // Compute streaks in parallel
   const profileList = profiles || [];
-  const streakPromises = profileList.map(async (p) => {
+  const goalIdsForStreaks = profileList
+    .map((p) => goalMap.get(p.id)?.id)
+    .filter((id): id is string => !!id);
+  const streakMap = await computeStreaksForGoals(goalIdsForStreaks);
+  const streaks = profileList.map((p) => {
     const goal = goalMap.get(p.id);
-    if (goal) {
-      try {
-        return await computeCurrentStreak(goal.id);
-      } catch {
-        return 0;
-      }
-    }
-    return 0;
+    return goal ? (streakMap.get(goal.id) ?? 0) : 0;
   });
-  const streaks = await Promise.all(streakPromises);
 
   const friendsData: FriendWithStreak[] = profileList.map((p, i) => {
     const goal = goalMap.get(p.id);
