@@ -10,7 +10,7 @@ import {
   Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Share2, Lock, ArrowUpFromLine } from 'lucide-react-native';
+import { Share2, Lock, ArrowUpFromLine, CircleCheck } from 'lucide-react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -451,7 +451,6 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
       return {
         id: activity.id,
         name: activity.activity_name,
-        emoji: getActivityEmoji(activity.activity_type, activity.activity_name),
         daysCompleted,
         totalDays: totalTrackedDays,
         percentage,
@@ -628,7 +627,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
                 {individualStats.map((stat) => (
                   <View key={stat.id} style={[styles.successStackRow, { backgroundColor: colors.card }]}>
                     <View style={styles.successStackRowLeft}>
-                      <Text style={styles.successStackEmoji}>{stat.emoji}</Text>
+                      <CircleCheck size={20} color="#FF4400" strokeWidth={2.5} />
                       <Text
                         style={[styles.successStackName, { color: textPrimary }]}
                         numberOfLines={1}
@@ -636,9 +635,6 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
                         {stat.name}
                       </Text>
                     </View>
-                    <Text style={[styles.successStackDays, { color: colors.primary }]}>
-                      {stat.daysCompleted}/{stat.totalDays} days
-                    </Text>
                   </View>
                 ))}
               </View>
@@ -851,6 +847,7 @@ const styles = StyleSheet.create({
   },
   shareHeader: {
     alignItems: 'center',
+    marginTop: 20,
     marginBottom: 20,
   },
   shareTitle: {
@@ -1119,17 +1116,9 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
-  successStackEmoji: {
-    fontSize: 18,
-  },
   successStackName: {
     fontSize: 14,
     fontWeight: '600',
-    fontFamily: 'Inter-Bold',
-  },
-  successStackDays: {
-    fontSize: 13,
-    fontWeight: '700',
     fontFamily: 'Inter-Bold',
   },
 });
