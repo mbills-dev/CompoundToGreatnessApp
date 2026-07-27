@@ -21,6 +21,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { FlowGoal, DecodePath } from './types';
 import { GoalBadge } from './AnchorScreens';
 import styles from './styles';
+import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
 
 // ─── Math helpers ─────────────────────────────────────────────────────────────
 
@@ -267,6 +268,7 @@ function ChipGroup({
             keyboardType={keyboardType}
             autoFocus
             returnKeyType="done"
+            inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
             onSubmitEditing={commit}
           />
           <TouchableOpacity
@@ -408,12 +410,7 @@ export function PathNumbers({
     daily >= 10000 ? 36 : daily >= 1000 ? 44 : 56;
 
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.decodeScroll}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
-    >
+    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
       {targetStr.trim() ? (
         <View
           style={[
@@ -457,6 +454,7 @@ export function PathNumbers({
                   keyboardType="default"
                   autoFocus
                   returnKeyType="done"
+                  inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
                   onSubmitEditing={() => {
                     const trimmed = targetDraft.trim();
                     if (trimmed) {
@@ -660,7 +658,7 @@ export function PathNumbers({
           </TouchableOpacity>
         </Animated.View>
       )}
-    </ScrollView>
+    </KeyboardStepWrapper>
   );
 }
 
@@ -757,12 +755,7 @@ export function PathPractice({
   }));
 
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.decodeScroll}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
-    >
+    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
       <ChipGroup
         label="Total hours to mastery"
         options={hourChips}
@@ -818,6 +811,7 @@ export function PathPractice({
             placeholder="e.g. listen to a French podcast"
             placeholderTextColor={colors.textTertiary}
             returnKeyType="done"
+            inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
           />
         </View>
       )}
@@ -881,7 +875,7 @@ export function PathPractice({
           </TouchableOpacity>
         </Animated.View>
       )}
-    </ScrollView>
+    </KeyboardStepWrapper>
   );
 }
 
@@ -914,12 +908,7 @@ export function PathStarting({
   const finishLine = (doneLooksText ?? '').trim() || resolvedLabel;
 
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.decodeScroll}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
-    >
+    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
       <View
         style={[
           styles.finishLineCard,
@@ -965,6 +954,7 @@ export function PathStarting({
         returnKeyType="done"
         blurOnSubmit={true}
         autoCapitalize="sentences"
+        inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
       />
 
       {seedPrefill.trim().length > 0 && (
@@ -1013,7 +1003,7 @@ export function PathStarting({
           Lock This In
         </Text>
       </TouchableOpacity>
-    </ScrollView>
+    </KeyboardStepWrapper>
   );
 }
 

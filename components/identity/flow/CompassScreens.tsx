@@ -17,6 +17,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { FlowGoal, LockedGoal } from './types';
 import { formatGoalLabel, displayGoalLabel } from './AnchorScreens';
 import styles from './styles';
+import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
 
 // ─── CompassStoryScreen ───────────────────────────────────────────────────────
 
@@ -336,7 +337,7 @@ export function CompassMechanismScreen({
       </View>
 
       {/* Content */}
-      <View style={[styles.compassPinnedContent, { gap: 16 }]}>
+      <KeyboardStepWrapper contentContainerStyle={{ paddingTop: 24, gap: 16 }}>
         {/* Example row */}
         <View style={[styles.compassExampleRow, { borderColor: colors.border, backgroundColor: isDark ? colors.backgroundSecondary : '#F5F5F5' }]}>
           <Text style={[styles.compassExampleLabel, { color: colors.textTertiary }]}>e.g.</Text>
@@ -363,6 +364,7 @@ export function CompassMechanismScreen({
           blurOnSubmit={true}
           autoCapitalize="sentences"
           textAlignVertical="top"
+          inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
           autoFocus
         />
 
@@ -381,7 +383,7 @@ export function CompassMechanismScreen({
             </Text>
           </View>
         )}
-      </View>
+      </KeyboardStepWrapper>
 
       {/* Pinned bottom */}
       <View style={styles.compassPinnedBottom}>

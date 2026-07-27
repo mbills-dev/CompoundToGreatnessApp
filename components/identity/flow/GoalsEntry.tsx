@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   TextInput,
-  ScrollView,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -16,6 +15,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { FlowGoal, DecodePath } from './types';
 import { GoalBadge, formatGoalLabel } from './AnchorScreens';
 import styles from './styles';
+import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -70,13 +70,7 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
   };
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={styles.screen}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
-    >
+    <KeyboardStepWrapper contentContainerStyle={[styles.screen, { backgroundColor: colors.background }]}>
       <Animated.View style={[fadeStyle, { flex: 1 }]}>
         <TouchableOpacity onPress={onBack} style={[styles.backBtn, { marginBottom: 20 }]}>
           <ArrowLeft size={20} color={colors.text} strokeWidth={2.5} />
@@ -107,6 +101,7 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
             blurOnSubmit={true}
             autoCapitalize="sentences"
             textAlignVertical="top"
+            inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
           />
         </View>
 
@@ -122,7 +117,7 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
           </TouchableOpacity>
         </View>
       </Animated.View>
-    </ScrollView>
+    </KeyboardStepWrapper>
   );
 }
 
@@ -155,13 +150,7 @@ export function GoalFuelRedirectScreen({
   const canFuel = fuelText.trim().length > 0;
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={styles.screen}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
-    >
+    <KeyboardStepWrapper contentContainerStyle={[styles.screen, { backgroundColor: colors.background }]}>
       <Animated.View style={[fadeStyle, { flex: 1 }]}>
         <TouchableOpacity onPress={onBack} style={[styles.backBtn, { marginBottom: 16 }]}>
           <ArrowLeft size={20} color={colors.text} strokeWidth={2.5} />
@@ -192,6 +181,7 @@ export function GoalFuelRedirectScreen({
             blurOnSubmit={true}
             autoCapitalize="sentences"
             textAlignVertical="top"
+            inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
           />
 
           {showFuelMode && (
@@ -230,6 +220,7 @@ export function GoalFuelRedirectScreen({
                 returnKeyType="done"
                 blurOnSubmit={true}
                 textAlignVertical="top"
+                inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
                 autoFocus
               />
             </View>
@@ -271,7 +262,7 @@ export function GoalFuelRedirectScreen({
           )}
         </View>
       </Animated.View>
-    </ScrollView>
+    </KeyboardStepWrapper>
   );
 }
 
@@ -315,13 +306,7 @@ export function GoalDoneLooksScreen({
   };
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={styles.screen}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
-    >
+    <KeyboardStepWrapper contentContainerStyle={[styles.screen, { backgroundColor: colors.background }]}>
       <Animated.View style={[fadeStyle, { flex: 1 }]}>
         <View style={[styles.decodeHeader, { paddingHorizontal: 0, paddingTop: 0, marginBottom: 8 }]}>
           <TouchableOpacity onPress={onBack} style={styles.backBtn}>
@@ -372,6 +357,7 @@ export function GoalDoneLooksScreen({
             blurOnSubmit={true}
             autoCapitalize="sentences"
             textAlignVertical="top"
+            inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
             autoFocus={!isPostureA}
           />
 
@@ -420,7 +406,7 @@ export function GoalDoneLooksScreen({
           </TouchableOpacity>
         </View>
       </Animated.View>
-    </ScrollView>
+    </KeyboardStepWrapper>
   );
 }
 

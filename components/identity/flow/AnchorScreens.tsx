@@ -23,6 +23,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import WhenPickerModal, { WhenPickerValue } from '../WhenPickerModal';
 import { FlowGoal, LockedGoal, AnchoredInput } from './types';
 import styles from './styles';
+import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -119,10 +120,7 @@ export function AnchorScreen({
   };
 
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.decodeScroll}
-    >
+    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
       {/* WHAT */}
       <Text style={[styles.fieldLabel, { color: colors.primary }]}>
         WHAT
@@ -176,6 +174,7 @@ export function AnchorScreen({
             multiline
             returnKeyType="done"
             blurOnSubmit={true}
+            inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
             onSubmitEditing={() => setEditingWhat(false)}
           />
           <TouchableOpacity
@@ -267,6 +266,7 @@ export function AnchorScreen({
         placeholder="e.g. my home office desk"
         placeholderTextColor={colors.textTertiary}
         autoCapitalize="sentences"
+        inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
       />
 
       {whenValue && where.trim() && (
@@ -335,7 +335,7 @@ export function AnchorScreen({
         }}
         initialValue={whenValue ?? undefined}
       />
-    </ScrollView>
+    </KeyboardStepWrapper>
   );
 }
 
@@ -373,10 +373,7 @@ export function AddInputScreen({
   };
 
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.decodeScroll}
-    >
+    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
       <Text style={[styles.fieldLabel, { color: colors.primary }]}>WHAT</Text>
       <TextInput
         style={[
@@ -398,6 +395,7 @@ export function AddInputScreen({
         blurOnSubmit={true}
         autoCapitalize="sentences"
         autoFocus
+        inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
       />
 
       <Text style={[styles.fieldLabel, { color: colors.primary, marginTop: 24 }]}>
@@ -445,6 +443,7 @@ export function AddInputScreen({
         placeholder="e.g. outside around the block"
         placeholderTextColor={colors.textTertiary}
         autoCapitalize="sentences"
+        inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
       />
 
       <TouchableOpacity
@@ -488,7 +487,7 @@ export function AddInputScreen({
         }}
         initialValue={whenValue ?? undefined}
       />
-    </ScrollView>
+    </KeyboardStepWrapper>
   );
 }
 

@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   TextInput,
-  ScrollView,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -15,6 +14,7 @@ import { Pencil, Sparkles } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { LockedGoal, FlowGoal } from './types';
 import styles from './styles';
+import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
 
 // ─── Identity helpers ─────────────────────────────────────────────────────────
 
@@ -89,6 +89,7 @@ function IdentityLineEditor({
         multiline
         returnKeyType="done"
         blurOnSubmit={true}
+        inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
         autoFocus
         style={[
           styles.identityEditInput,
@@ -183,11 +184,7 @@ export function IdentityScreen({
   };
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={styles.summaryContent}
-      showsVerticalScrollIndicator={false}
-    >
+    <KeyboardStepWrapper contentContainerStyle={[styles.summaryContent, { backgroundColor: colors.background }]}>
       <Animated.View style={fadeStyle}>
         <View
           style={[
@@ -277,6 +274,6 @@ export function IdentityScreen({
           <Text style={styles.primaryBtnText}>I Accept My Identity →</Text>
         </TouchableOpacity>
       </Animated.View>
-    </ScrollView>
+    </KeyboardStepWrapper>
   );
 }
