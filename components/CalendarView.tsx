@@ -618,29 +618,29 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
               }
             }}
           />
-          {individualStats.length > 0 && (
-            <View style={styles.successStackSection}>
-              <Text style={[styles.successStackHeader, { color: textMuted }]}>
-                MY SUCCESS STACK
-              </Text>
-              <View style={styles.successStackList}>
-                {individualStats.map((stat) => (
-                  <View key={stat.id} style={[styles.successStackRow, { backgroundColor: colors.card }]}>
-                    <View style={styles.successStackRowLeft}>
-                      <CircleCheck size={20} color="#FF4400" strokeWidth={2.5} />
-                      <Text
-                        style={[styles.successStackName, { color: textPrimary }]}
-                        numberOfLines={1}
-                      >
-                        {stat.name}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
         </View>
+        {individualStats.length > 0 && (
+          <View style={styles.successStackSection}>
+            <Text style={[styles.successStackHeader, { color: textMuted }]}>
+              MY SUCCESS STACK
+            </Text>
+            <View style={styles.successStackList}>
+              {individualStats.map((stat) => (
+                <View key={stat.id} style={[styles.successStackRow, { backgroundColor: colors.card }]}>
+                  <View style={styles.successStackRowLeft}>
+                    <CircleCheck size={20} color="#FF4400" strokeWidth={2.5} />
+                    <Text
+                      style={[styles.successStackName, { color: textPrimary }]}
+                      numberOfLines={1}
+                    >
+                      {stat.name}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         <TouchableOpacity
           style={styles.shareJourneyButton}
