@@ -7,23 +7,12 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
-  RefreshControl,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import {
-  ChevronLeft,
-  ArrowRight,
-  Check,
-  RotateCw,
-  Sparkles,
-  Plus,
-} from 'lucide-react-native';
+import { ArrowRight, Check, RotateCw, Sparkles, Plus, ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FlowGoal } from './types';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface Suggestion {
+export interface Suggestion {
   input: string;
   frequency: 'daily' | 'weekly';
 }
@@ -37,8 +26,6 @@ interface GoalInputResult {
 
 type SelectedInputs = Record<number, string[]>;
 
-// ─── API call ──────────────────────────────────────────────────────────────────
-
 async function fetchDailyInputs(
   goal: string,
   clarificationAnswer?: string,
@@ -48,7 +35,6 @@ async function fetchDailyInputs(
     if (clarificationAnswer && clarificationAnswer.trim()) {
       body.clarification_answer = clarificationAnswer.trim();
     }
-
     const response = await fetch(
       `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/generate-daily-inputs`,
       {
@@ -60,7 +46,6 @@ async function fetchDailyInputs(
         body: JSON.stringify(body),
       },
     );
-
     if (!response.ok) return null;
     const data = await response.json();
     if (data && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
@@ -71,8 +56,6 @@ async function fetchDailyInputs(
     return null;
   }
 }
-
-// ─── Per-goal card ────────────────────────────────────────────────────────────
 
 function GoalInputCard({
   goalIndex,
@@ -114,20 +97,13 @@ function GoalInputCard({
   };
 
   return (
-    <View
-      style={[
-        styles.goalCard,
-        { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
-    >
-      <Text style={[styles.goalLabel, { color: colors.text }]}>
-        {goal}
-      </Text>
+    <View style={[diStyles.goalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <Text style={[diStyles.goalLabel, { color: colors.text }]}>{goal}</Text>
 
       {loading ? (
-        <View style={styles.loadingRow}>
+        <View style={diStyles.loadingRow}>
           <ActivityIndicator size="small" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+          <Text style={[diStyles.loadingText, { color: colors.textSecondary }]}>
             Generating suggestions...
           </Text>
         </View>
@@ -136,23 +112,21 @@ function GoalInputCard({
           {result.clarifying_question && (
             <View
               style={[
-                styles.clarifyCard,
+                diStyles.clarifyCard,
                 {
                   backgroundColor: isDark ? 'rgba(204,255,0,0.06)' : 'rgba(204,255,0,0.04)',
                   borderColor: colors.primary + '40',
                 },
               ]}
             >
-              <Text style={[styles.clarifyLabel, { color: colors.primary }]}>
-                CLARIFY
-              </Text>
-              <Text style={[styles.clarifyQuestion, { color: colors.text }]}>
+              <Text style={[diStyles.clarifyLabel, { color: colors.primary }]}>CLARIFY</Text>
+              <Text style={[diStyles.clarifyQuestion, { color: colors.text }]}>
                 {result.clarifying_question}
               </Text>
-              <View style={styles.clarifyInputRow}>
+              <View style={diStyles.clarifyInputRow}>
                 <TextInput
                   style={[
-                    styles.clarifyInput,
+                    diStyles.clarifyInput,
                     {
                       color: colors.text,
                       backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
@@ -167,8 +141,11 @@ function GoalInputCard({
                 />
                 <TouchableOpacity
                   style={[
-                    styles.regenerateBtn,
-                    { backgroundColor: colors.primary, opacity: regenerating || !clarifyText.trim() ? 0.5 : 1 },
+                    diStyles.regenerateBtn,
+                    {
+                      backgroundColor: colors.primary,
+                      opacity: regenerating || !clarifyText.trim() ? 0.5 : 1,
+                    },
                   ]}
                   onPress={handleRegenerate}
                   disabled={regenerating || !clarifyText.trim()}
@@ -184,14 +161,14 @@ function GoalInputCard({
             </View>
           )}
 
-          <View style={styles.suggestionList}>
+          <View style={diStyles.suggestionList}>
             {result.suggestions.map((s, i) => {
               const isSelected = selected.includes(s.input);
               return (
                 <TouchableOpacity
                   key={i}
                   style={[
-                    styles.suggestionCard,
+                    diStyles.suggestionCard,
                     {
                       backgroundColor: isSelected
                         ? colors.primary + '18'
@@ -206,7 +183,7 @@ function GoalInputCard({
                 >
                   <View
                     style={[
-                      styles.suggestionCheck,
+                      diStyles.suggestionCheck,
                       {
                         backgroundColor: isSelected ? colors.primary : 'transparent',
                         borderColor: isSelected ? colors.primary : colors.border,
@@ -215,19 +192,23 @@ function GoalInputCard({
                   >
                     {isSelected && <Check size={14} color="#000" strokeWidth={3} />}
                   </View>
-                  <Text style={[styles.suggestionText, { color: colors.text }]}>
-                    {s.input}
-                  </Text>
+                  <Text style={[diStyles.suggestionText, { color: colors.text }]}>{s.input}</Text>
                   <View
                     style={[
-                      styles.frequencyBadge,
-                      { backgroundColor: s.frequency === 'weekly' ? colors.primary + '15' : colors.border },
+                      diStyles.frequencyBadge,
+                      {
+                        backgroundColor:
+                          s.frequency === 'weekly' ? colors.primary + '15' : colors.border,
+                      },
                     ]}
                   >
                     <Text
                       style={[
-                        styles.frequencyText,
-                        { color: s.frequency === 'weekly' ? colors.primary : colors.textSecondary },
+                        diStyles.frequencyText,
+                        {
+                          color:
+                            s.frequency === 'weekly' ? colors.primary : colors.textSecondary,
+                        },
                       ]}
                     >
                       {s.frequency}
@@ -238,10 +219,10 @@ function GoalInputCard({
             })}
           </View>
 
-          <View style={styles.customRow}>
+          <View style={diStyles.customRow}>
             <TextInput
               style={[
-                styles.customInput,
+                diStyles.customInput,
                 {
                   color: colors.text,
                   backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
@@ -257,8 +238,11 @@ function GoalInputCard({
             />
             <TouchableOpacity
               style={[
-                styles.customAddBtn,
-                { backgroundColor: customText.trim() ? colors.primary : colors.border, opacity: customText.trim() ? 1 : 0.5 },
+                diStyles.customAddBtn,
+                {
+                  backgroundColor: customText.trim() ? colors.primary : colors.border,
+                  opacity: customText.trim() ? 1 : 0.5,
+                },
               ]}
               onPress={handleAddCustom}
               disabled={!customText.trim()}
@@ -269,10 +253,10 @@ function GoalInputCard({
           </View>
         </>
       ) : (
-        <View style={styles.customRow}>
+        <View style={diStyles.customRow}>
           <TextInput
             style={[
-              styles.customInput,
+              diStyles.customInput,
               {
                 color: colors.text,
                 backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
@@ -288,8 +272,11 @@ function GoalInputCard({
           />
           <TouchableOpacity
             style={[
-              styles.customAddBtn,
-              { backgroundColor: customText.trim() ? colors.primary : colors.border, opacity: customText.trim() ? 1 : 0.5 },
+              diStyles.customAddBtn,
+              {
+                backgroundColor: customText.trim() ? colors.primary : colors.border,
+                opacity: customText.trim() ? 1 : 0.5,
+              },
             ]}
             onPress={handleAddCustom}
             disabled={!customText.trim()}
@@ -303,22 +290,16 @@ function GoalInputCard({
   );
 }
 
-// ─── Main screen ──────────────────────────────────────────────────────────────
-
-export default function GoalReviewScreen() {
+export function AiDailyInputsScreen({
+  goals,
+  onDone,
+  onBack,
+}: {
+  goals: FlowGoal[];
+  onDone: (selectedInputs: Record<number, string[]>) => void;
+  onBack: () => void;
+}) {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const params = useLocalSearchParams<{ goals?: string }>();
-
-  const goals: string[] = (() => {
-    try {
-      return params.goals ? JSON.parse(params.goals) : [];
-    } catch {
-      return [];
-    }
-  })();
-
   const [results, setResults] = useState<Record<number, GoalInputResult | null>>({});
   const [loading, setLoading] = useState<Record<number, boolean>>({});
   const [selectedInputs, setSelectedInputs] = useState<SelectedInputs>({});
@@ -334,7 +315,7 @@ export default function GoalReviewScreen() {
   useEffect(() => {
     if (fetchedRef.current || goals.length === 0) return;
     fetchedRef.current = true;
-    Promise.all(goals.map((g, i) => callForGoal(i, g)));
+    Promise.all(goals.map((g, i) => callForGoal(i, g.label)));
   }, [goals, callForGoal]);
 
   const toggleInput = (goalIndex: number, input: string) => {
@@ -357,52 +338,46 @@ export default function GoalReviewScreen() {
 
   const regenerate = async (goalIndex: number, answer: string) => {
     setSelectedInputs(prev => ({ ...prev, [goalIndex]: [] }));
-    await callForGoal(goalIndex, goals[goalIndex], answer);
+    await callForGoal(goalIndex, goals[goalIndex].label, answer);
   };
 
   const totalSelected = Object.values(selectedInputs).reduce(
     (sum, arr) => sum + arr.length,
     0,
   );
-
-  const handleContinue = () => {
-    // Draft state is ready — session 3 will persist to daily_activities.
-    router.back();
-  };
+  const allHaveSelection = goals.every((_, i) => (selectedInputs[i] ?? []).length > 0);
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 12, borderBottomColor: colors.border }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.6}>
-          <ChevronLeft size={24} color={colors.text} strokeWidth={2.5} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={diStyles.header}>
+        <TouchableOpacity onPress={onBack} style={diStyles.backButton} activeOpacity={0.6}>
+          <ArrowLeft size={20} color={colors.text} strokeWidth={2.5} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Review Goals</Text>
-        <View style={styles.backButton} />
+        <Text style={[diStyles.headerTitle, { color: colors.text }]}>Success Stack</Text>
+        <View style={diStyles.backButton} />
       </View>
 
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        style={{ flex: 1 }}
+        contentContainerStyle={diStyles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.introBlock}>
+        <View style={diStyles.introBlock}>
           <Sparkles size={22} color={colors.primary} strokeWidth={2} />
-          <View style={styles.introText}>
-            <Text style={[styles.title, { color: colors.text }]}>
-              Build your Success Stack
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Tap the daily inputs that fit your life. Add your own if none feel right.
+          <View style={diStyles.introText}>
+            <Text style={[diStyles.title, { color: colors.text }]}>Build your Success Stack</Text>
+            <Text style={[diStyles.subtitle, { color: colors.textSecondary }]}>
+              Pick the daily input that fits each goal. Add your own if none feel right.
             </Text>
           </View>
         </View>
 
-        <View style={styles.goalList}>
+        <View style={diStyles.goalList}>
           {goals.map((goal, i) => (
             <GoalInputCard
-              key={i}
+              key={goal.id}
               goalIndex={i}
-              goal={goal}
+              goal={goal.label}
               result={results[i] ?? null}
               loading={loading[i] ?? false}
               selectedInputs={selectedInputs}
@@ -411,25 +386,23 @@ export default function GoalReviewScreen() {
               onRegenerate={regenerate}
             />
           ))}
-          {goals.length === 0 && (
-            <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
-              No goals were extracted. Try uploading another photo or entering them manually.
-            </Text>
-          )}
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={diStyles.footer}>
         <TouchableOpacity
-          style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: totalSelected > 0 ? 1 : 0.5 }]}
+          style={[
+            diStyles.primaryButton,
+            { backgroundColor: colors.primary, opacity: allHaveSelection ? 1 : 0.5 },
+          ]}
           activeOpacity={0.85}
-          disabled={totalSelected === 0}
-          onPress={handleContinue}
+          disabled={!allHaveSelection}
+          onPress={() => onDone(selectedInputs)}
         >
-          <Text style={styles.primaryButtonText}>
-            {totalSelected > 0
+          <Text style={diStyles.primaryButtonText}>
+            {allHaveSelection
               ? `Continue with ${totalSelected} input${totalSelected !== 1 ? 's' : ''}`
-              : 'Select at least one input'}
+              : 'Pick one input per goal'}
           </Text>
           <ArrowRight size={20} color="#000" strokeWidth={3} />
         </TouchableOpacity>
@@ -438,102 +411,30 @@ export default function GoalReviewScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
+const diStyles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 8,
     paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 120,
-  },
-  introBlock: {
-    flexDirection: 'row',
-    gap: 14,
-    marginBottom: 24,
-  },
-  introText: {
-    flex: 1,
-    gap: 6,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: -0.6,
-    lineHeight: 32,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 20,
-  },
-  goalList: {
-    gap: 16,
-  },
-  goalCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 18,
-    gap: 14,
-  },
-  goalLabel: {
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-    lineHeight: 24,
-  },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-  },
-  loadingText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  clarifyCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 14,
-    gap: 10,
-  },
-  clarifyLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
-  clarifyQuestion: {
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 21,
-  },
-  clarifyInputRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
+  backButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
+  scrollContent: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 120 },
+  introBlock: { flexDirection: 'row', gap: 14, marginBottom: 24 },
+  introText: { flex: 1, gap: 6 },
+  title: { fontSize: 26, fontWeight: '900', letterSpacing: -0.6, lineHeight: 32 },
+  subtitle: { fontSize: 14, fontWeight: '500', lineHeight: 20 },
+  goalList: { gap: 16 },
+  goalCard: { borderRadius: 16, borderWidth: 1, padding: 18, gap: 14 },
+  goalLabel: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3, lineHeight: 24 },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  loadingText: { fontSize: 14, fontWeight: '500' },
+  clarifyCard: { borderRadius: 12, borderWidth: 1, padding: 14, gap: 10 },
+  clarifyLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5 },
+  clarifyQuestion: { fontSize: 15, fontWeight: '600', lineHeight: 21 },
+  clarifyInputRow: { flexDirection: 'row', gap: 8 },
   clarifyInput: {
     flex: 1,
     borderWidth: 1,
@@ -544,16 +445,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     minHeight: 44,
   },
-  regenerateBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  suggestionList: {
-    gap: 8,
-  },
+  regenerateBtn: { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  suggestionList: { gap: 8 },
   suggestionCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -570,27 +463,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  suggestionText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 21,
-  },
-  frequencyBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  frequencyText: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  customRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
+  suggestionText: { flex: 1, fontSize: 15, fontWeight: '600', lineHeight: 21 },
+  frequencyBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  frequencyText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  customRow: { flexDirection: 'row', gap: 8 },
   customInput: {
     flex: 1,
     borderWidth: 1.5,
@@ -601,29 +477,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     minHeight: 48,
   },
-  customAddBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    fontSize: 15,
-    fontWeight: '500',
-    lineHeight: 22,
-    textAlign: 'center',
-    paddingTop: 40,
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    backgroundColor: 'transparent',
-  },
+  customAddBtn: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  footer: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16 },
   primaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -633,10 +488,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 16,
   },
-  primaryButtonText: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#000000',
-    letterSpacing: 0.2,
-  },
+  primaryButtonText: { fontSize: 17, fontWeight: '800', color: '#000000', letterSpacing: 0.2 },
 });

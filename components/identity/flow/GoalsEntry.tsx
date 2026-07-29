@@ -64,7 +64,7 @@ function goalHasNumber(s: string): boolean {
 
 // ─── GoalsEntryScreen ─────────────────────────────────────────────────────────
 
-export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: FlowGoal[]) => void; onBack: () => void }) {
+export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: FlowGoal[], isAiSourced?: boolean) => void; onBack: () => void }) {
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const [text, setText] = useState('');
@@ -127,10 +127,14 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
       const result = await response.json();
 
       if (result.success && Array.isArray(result.goals) && result.goals.length > 0) {
-        router.push({
-          pathname: '/goal-review',
-          params: { goals: JSON.stringify(result.goals) },
-        });
+        const flowGoals: FlowGoal[] = result.goals.map((rawLabel: string) => ({
+          id: _goalIdSeq++,
+          label: normalizeMoneyInLabel(rawLabel),
+          category: 'General',
+          deadline: 'ongoing',
+          defaultPath: 'starting' as DecodePath,
+        }));
+        onContinue(flowGoals, true);
         return;
       }
 

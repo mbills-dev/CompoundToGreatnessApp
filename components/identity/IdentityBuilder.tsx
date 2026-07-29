@@ -43,6 +43,7 @@ import { WelcomeSeriesScreen } from './flow/WelcomeScreens';
 import { GoalsEntryScreen, IntroScreen, GoalDoneLooksScreen, GoalFuelRedirectScreen } from './flow/GoalsEntry';
 import { PathSelectorScreen, PathNumbers, PathPractice, PathStarting } from './flow/PathScreens';
 import { AnchorScreen, AddInputScreen, GoalLockedScreen, GoalBadge, formatGoalLabel, displayGoalLabel } from './flow/AnchorScreens';
+import { AiDailyInputsScreen } from './flow/AiDailyInputsScreen';
 import { IdentityScreen, deriveIdentityLine } from './flow/IdentityScreens';
 import { CompassStoryScreen, CompassDominoScreen, CompassMechanismScreen } from './flow/CompassScreens';
 import { FinaleScreen } from './flow/FinaleScreens';
@@ -401,7 +402,8 @@ type Phase =
   | { kind: 'goal-fuel-redirect'; goalIdx: number; practiceText: string; redirectInitial?: string }
   | { kind: 'decode'; goalIdx: number; path: DecodePath; doneLooksText?: string }
   | { kind: 'anchor'; goalIdx: number; dailyInput: string; isStandard?: boolean; decodePath: DecodePath; resolvedTargetStr?: string; doneLooksText?: string; dailyNumber?: number; winNoun?: string; actionNoun?: string; ratio?: number; periodSuffix?: 'week' | 'month' | 'year' }
-  | { kind: 'add-input'; goalIdx: number }
+  | { kind: 'ai-daily-inputs' }
+  | { kind: 'add-input'; goalIdx: number; prefillText?: string }
   | { kind: 'locked'; goalIdx: number; dailyInput: string }
   | { kind: 'identity' }
   | { kind: 'compass-story' }
@@ -434,6 +436,8 @@ export default function IdentityBuilder({ onComplete }: Props) {
   const [dominoGoalId, setDominoGoalId] = useState<number | null>(null);
   const [savedStates, setSavedStates] = useState<Record<string, string>>({});
   const [displayName, setDisplayName] = useState<string>('');
+  const [isAiSourced, setIsAiSourced] = useState(false);
+  const [aiSelectedInputs, setAiSelectedInputs] = useState<Record<number, string[]>>({});
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -600,12 +604,22 @@ export default function IdentityBuilder({ onComplete }: Props) {
   const handleAddInputDone = (goalIdx: number, inp: AnchoredInput) => {
     const goal = goals[goalIdx];
     setLocked(prev => prev.map(l => l.goalId === goal.id ? { ...l, additionalInputs: [...l.additionalInputs, inp] } : l));
+    const aiRemaining = (aiSelectedInputs[goalIdx] ?? []).filter(
+      inp2 => inp2 !== inp.dailyInput && !locked.find(l => l.goalId === goal.id)?.additionalInputs.some(a => a.dailyInput === inp2)
+    );
     navigate({ kind: 'locked', goalIdx, dailyInput: inp.dailyInput });
   };
 
   const handleLockedNext = (goalIdx: number) => {
     const nextIdx = goalIdx + 1;
     if (nextIdx < goals.length) {
+      if (isAiSourced) {
+        const nextInput = (aiSelectedInputs[nextIdx] ?? [])[0];
+        if (nextInput) {
+          navigate({ kind: 'anchor', goalIdx: nextIdx, dailyInput: nextInput, decodePath: 'starting' });
+          return;
+        }
+      }
       navigate({ kind: 'path-select', goalIdx: nextIdx });
     } else {
       navigate({ kind: 'identity' });
@@ -653,13 +667,32 @@ export default function IdentityBuilder({ onComplete }: Props) {
         return (
           <GoalsEntryScreen
             onBack={goBack}
-            onContinue={parsedGoals => {
+            onContinue={(parsedGoals, aiSourced) => {
               setGoals(parsedGoals);
               setLocked([]);
               setDecodeResults({});
               setGoalLabelOverrides({});
               setIdentityOverrides({});
-              navigate({ kind: 'intro' });
+              setIsAiSourced(!!aiSourced);
+              setAiSelectedInputs({});
+              navigate(aiSourced ? { kind: 'ai-daily-inputs' } : { kind: 'intro' });
+            }}
+          />
+        );
+
+      case 'ai-daily-inputs':
+        return (
+          <AiDailyInputsScreen
+            goals={goals}
+            onBack={goBack}
+            onDone={selected => {
+              setAiSelectedInputs(selected);
+              const firstInput = (selected[0] ?? [])[0];
+              if (firstInput) {
+                navigate({ kind: 'anchor', goalIdx: 0, dailyInput: firstInput, decodePath: 'starting' });
+              } else {
+                navigate({ kind: 'path-select', goalIdx: 0 });
+              }
             }}
           />
         );
@@ -784,6 +817,9 @@ export default function IdentityBuilder({ onComplete }: Props) {
       case 'locked': {
         const lockedGoalData = locked.find(l => l.goalId === goals[phase.goalIdx].id);
         if (!lockedGoalData) return null;
+        const aiRemaining = (aiSelectedInputs[phase.goalIdx] ?? []).filter(
+          inp => inp !== lockedGoalData.dailyInput && !lockedGoalData.additionalInputs.some(a => a.dailyInput === inp)
+        );
         return (
           <GoalLockedScreen
             n={phase.goalIdx + 1}
@@ -792,13 +828,13 @@ export default function IdentityBuilder({ onComplete }: Props) {
             resolvedLabel={formatGoalLabel(goals[phase.goalIdx], goalLabelOverrides)}
             lockedGoal={lockedGoalData}
             onNext={() => handleLockedNext(phase.goalIdx)}
-            onAddInput={() => navigate({ kind: 'add-input', goalIdx: phase.goalIdx })}
+            onAddInput={() => navigate({ kind: 'add-input', goalIdx: phase.goalIdx, prefillText: aiRemaining[0] })}
           />
         );
       }
 
       case 'add-input': {
-        const { goalIdx } = phase;
+        const { goalIdx, prefillText } = phase;
         const goal = goals[goalIdx];
         return (
           <View style={{ flex: 1 }}>
@@ -809,6 +845,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
             <ScrollView style={{ flex: 1, paddingHorizontal: 24 }} showsVerticalScrollIndicator={false}>
               <AddInputScreen
                 goal={goal}
+                prefillText={prefillText}
                 onDone={(dailyInput, when, where, schedule) => handleAddInputDone(goalIdx, { dailyInput, when, where, schedule })}
                 onCancel={() => navigate({ kind: 'locked', goalIdx, dailyInput: '' })}
               />

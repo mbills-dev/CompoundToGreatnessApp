@@ -345,13 +345,15 @@ export function AddInputScreen({
   goal,
   onDone,
   onCancel,
+  prefillText,
 }: {
   goal: FlowGoal;
   onDone: (dailyInput: string, when: string, where: string, schedule: WhenPickerValue | null) => void;
   onCancel: () => void;
+  prefillText?: string;
 }) {
   const { colors, isDark } = useTheme();
-  const [text, setText] = useState('');
+  const [text, setText] = useState(prefillText ?? '');
   const [whenPickerOpen, setWhenPickerOpen] = useState(false);
   const [whenValue, setWhenValue] = useState<WhenPickerValue | null>(null);
   const [where, setWhere] = useState('');
