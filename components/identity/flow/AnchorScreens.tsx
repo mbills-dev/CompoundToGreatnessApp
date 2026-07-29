@@ -24,6 +24,7 @@ import WhenPickerModal, { WhenPickerValue } from '../WhenPickerModal';
 import { FlowGoal, LockedGoal, AnchoredInput } from './types';
 import styles from './styles';
 import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
+import { useInputSpecificity, SpecificityNudgeBanner, logInputFeedback, InputSource } from './InputValidation';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -97,12 +98,22 @@ export function AnchorScreen({
   const { colors, isDark } = useTheme();
   const [what, setWhat] = useState(dailyInput);
   const [editingWhat, setEditingWhat] = useState(false);
+  const specificity = useInputSpecificity();
 
   const [whenPickerOpen, setWhenPickerOpen] = useState(false);
   const [whenValue, setWhenValue] = useState<WhenPickerValue | null>(null);
   const [where, setWhere] = useState('');
 
   const canCommit = whenValue !== null && where.trim().length > 0;
+
+  const handleEditDone = () => {
+    setEditingWhat(false);
+    if (what.trim() !== dailyInput.trim()) {
+      specificity.validate(what);
+    } else {
+      specificity.dismiss();
+    }
+  };
 
   const formatWhen = (v: WhenPickerValue) => {
     const days =
@@ -175,18 +186,25 @@ export function AnchorScreen({
             returnKeyType="done"
             blurOnSubmit={true}
             inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
-            onSubmitEditing={() => setEditingWhat(false)}
+            onSubmitEditing={handleEditDone}
           />
           <TouchableOpacity
             style={[
               styles.customConfirmBtn,
               { backgroundColor: colors.primary },
             ]}
-            onPress={() => setEditingWhat(false)}
+            onPress={handleEditDone}
           >
             <Check size={16} color="#000" strokeWidth={3} />
           </TouchableOpacity>
         </View>
+      )}
+      {specificity.result && !editingWhat && (
+        <SpecificityNudgeBanner
+          result={specificity.result}
+          onAcceptExample={(ex) => { setWhat(ex); specificity.dismiss(); }}
+          onDismiss={specificity.dismiss}
+        />
       )}
 
       {/* WHEN */}
@@ -357,9 +375,27 @@ export function AddInputScreen({
   const [whenPickerOpen, setWhenPickerOpen] = useState(false);
   const [whenValue, setWhenValue] = useState<WhenPickerValue | null>(null);
   const [where, setWhere] = useState('');
+  const specificity = useInputSpecificity();
 
   const canCommit =
     text.trim().length > 0 && whenValue !== null && where.trim().length > 0;
+
+  const isFromPrefill = !!(prefillText && prefillText.trim().length > 0);
+
+  const handleFinalize = () => {
+    if (!canCommit) return;
+    const finalText = text.trim();
+    const source: InputSource = isFromPrefill
+      ? (finalText === prefillText!.trim() ? 'ai_suggested' : 'ai_edited')
+      : 'user_written';
+    logInputFeedback({
+      goalText: goal.label,
+      source,
+      finalInputText: finalText,
+      specificityFlagTriggered: !!specificity.result,
+    });
+    onDone(finalText, whenValue ? formatWhen(whenValue) : '', where.trim(), whenValue);
+  };
 
   const formatWhen = (v: WhenPickerValue) => {
     const days =
@@ -398,7 +434,16 @@ export function AddInputScreen({
         autoCapitalize="sentences"
         autoFocus
         inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
+        onBlur={() => specificity.validate(text)}
       />
+
+      {specificity.result && (
+        <SpecificityNudgeBanner
+          result={specificity.result}
+          onAcceptExample={(ex) => { setText(ex); specificity.dismiss(); }}
+          onDismiss={specificity.dismiss}
+        />
+      )}
 
       <Text style={[styles.fieldLabel, { color: colors.primary, marginTop: 24 }]}>
         WHEN
@@ -459,7 +504,7 @@ export function AddInputScreen({
         ]}
         onPress={() =>
           canCommit &&
-          onDone(text.trim(), whenValue ? formatWhen(whenValue) : '', where.trim(), whenValue)
+          handleFinalize()
         }
         disabled={!canCommit}
         activeOpacity={0.85}

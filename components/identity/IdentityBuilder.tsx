@@ -44,6 +44,7 @@ import { GoalsEntryScreen, IntroScreen, GoalDoneLooksScreen, GoalFuelRedirectScr
 import { PathSelectorScreen, PathNumbers, PathPractice, PathStarting } from './flow/PathScreens';
 import { AnchorScreen, AddInputScreen, GoalLockedScreen, GoalBadge, formatGoalLabel, displayGoalLabel } from './flow/AnchorScreens';
 import { AiDailyInputsScreen } from './flow/AiDailyInputsScreen';
+import { logInputFeedback, InputSource } from './flow/InputValidation';
 import { IdentityScreen, deriveIdentityLine } from './flow/IdentityScreens';
 import { CompassStoryScreen, CompassDominoScreen, CompassMechanismScreen } from './flow/CompassScreens';
 import { FinaleScreen } from './flow/FinaleScreens';
@@ -598,15 +599,28 @@ export default function IdentityBuilder({ onComplete }: Props) {
         additionalInputs: [],
       },
     ]);
+    const source: InputSource = isAiSourced ? 'ai_suggested' : 'user_written';
+    logInputFeedback({
+      goalText: goalLabel,
+      source,
+      finalInputText: dailyInput,
+      specificityFlagTriggered: false,
+    });
     navigate({ kind: 'locked', goalIdx, dailyInput });
   };
 
   const handleAddInputDone = (goalIdx: number, inp: AnchoredInput) => {
     const goal = goals[goalIdx];
+    const goalLabel = formatGoalLabel(goal, goalLabelOverrides);
     setLocked(prev => prev.map(l => l.goalId === goal.id ? { ...l, additionalInputs: [...l.additionalInputs, inp] } : l));
-    const aiRemaining = (aiSelectedInputs[goalIdx] ?? []).filter(
-      inp2 => inp2 !== inp.dailyInput && !locked.find(l => l.goalId === goal.id)?.additionalInputs.some(a => a.dailyInput === inp2)
-    );
+    const isFromAi = (aiSelectedInputs[goalIdx] ?? []).includes(inp.dailyInput);
+    const source: InputSource = isFromAi ? 'ai_suggested' : 'user_written';
+    logInputFeedback({
+      goalText: goalLabel,
+      source,
+      finalInputText: inp.dailyInput,
+      specificityFlagTriggered: false,
+    });
     navigate({ kind: 'locked', goalIdx, dailyInput: inp.dailyInput });
   };
 
@@ -740,6 +754,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
         return (
           <GoalFuelRedirectScreen
             practiceText={phase.practiceText}
+            goalLabel={formatGoalLabel(goals[goalIdx], goalLabelOverrides)}
             initialText={savedStates[phaseKey(phase)]}
             onBack={goBack}
             onStateChange={v => saveState(phaseKey(phase), v)}

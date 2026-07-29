@@ -22,6 +22,7 @@ import { FlowGoal, DecodePath } from './types';
 import { GoalBadge } from './AnchorScreens';
 import styles from './styles';
 import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
+import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
 
 // ─── Math helpers ─────────────────────────────────────────────────────────────
 
@@ -896,6 +897,7 @@ export function PathStarting({
 
   const seedPrefill = goal.practiceSeed ?? '';
   const [text, setText] = useState(seedPrefill);
+  const specificity = useInputSpecificity();
   const canDone = text.trim().length > 0;
 
   const handleLock = () => {
@@ -955,7 +957,16 @@ export function PathStarting({
         blurOnSubmit={true}
         autoCapitalize="sentences"
         inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
+        onBlur={() => specificity.validate(text)}
       />
+
+      {specificity.result && (
+        <SpecificityNudgeBanner
+          result={specificity.result}
+          onAcceptExample={(ex) => { setText(ex); specificity.dismiss(); }}
+          onDismiss={specificity.dismiss}
+        />
+      )}
 
       {seedPrefill.trim().length > 0 && (
         <View

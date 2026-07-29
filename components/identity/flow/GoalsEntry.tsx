@@ -25,6 +25,7 @@ import { FlowGoal, DecodePath } from './types';
 import { GoalBadge, formatGoalLabel } from './AnchorScreens';
 import styles from './styles';
 import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
+import { useInputSpecificity, SpecificityNudgeBanner, logInputFeedback, InputSource } from './InputValidation';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -316,6 +317,7 @@ const photoStyles = StyleSheet.create({
 
 export function GoalFuelRedirectScreen({
   practiceText,
+  goalLabel,
   initialText,
   onSkipAsStandard,
   onContinue,
@@ -323,6 +325,7 @@ export function GoalFuelRedirectScreen({
   onStateChange,
 }: {
   practiceText: string;
+  goalLabel: string;
   initialText?: string;
   onSkipAsStandard: (actionText: string) => void;
   onContinue: (redirectText: string) => void;
@@ -333,6 +336,7 @@ export function GoalFuelRedirectScreen({
   const [actionText, setActionText] = useState(practiceText);
   const [fuelText, setFuelText] = useState(initialText ?? '');
   const [showFuelMode, setShowFuelMode] = useState(false);
+  const specificity = useInputSpecificity();
   const opacity = useSharedValue(0);
   useEffect(() => { opacity.value = withTiming(1, { duration: 400 }); }, []);
   const fadeStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
@@ -373,7 +377,16 @@ export function GoalFuelRedirectScreen({
             autoCapitalize="sentences"
             textAlignVertical="top"
             inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
+            onBlur={() => specificity.validate(actionText)}
           />
+
+          {specificity.result && !showFuelMode && (
+            <SpecificityNudgeBanner
+              result={specificity.result}
+              onAcceptExample={(ex) => { setActionText(ex); specificity.dismiss(); }}
+              onDismiss={specificity.dismiss}
+            />
+          )}
 
           {showFuelMode && (
             <View style={{ marginTop: 20 }}>
@@ -423,7 +436,20 @@ export function GoalFuelRedirectScreen({
             <>
               <TouchableOpacity
                 style={[styles.primaryButton, { backgroundColor: canLock ? colors.primary : colors.border, opacity: canLock ? 1 : 0.45 }]}
-                onPress={() => canLock && onSkipAsStandard(actionText.trim())}
+                onPress={() => {
+                  if (!canLock) return;
+                  const finalText = actionText.trim();
+                  const source: InputSource = (practiceText.trim().length > 0 && finalText === practiceText.trim())
+                    ? 'ai_suggested'
+                    : (practiceText.trim().length > 0 ? 'ai_edited' : 'user_written');
+                  logInputFeedback({
+                    goalText: goalLabel,
+                    source,
+                    finalInputText: finalText,
+                    specificityFlagTriggered: !!specificity.result,
+                  });
+                  onSkipAsStandard(finalText);
+                }}
                 disabled={!canLock}
                 activeOpacity={0.85}
               >

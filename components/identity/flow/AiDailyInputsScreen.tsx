@@ -11,6 +11,7 @@ import {
 import { ArrowRight, Check, RotateCw, Sparkles, Plus, ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FlowGoal } from './types';
+import { useInputSpecificity, SpecificityNudgeBanner, logInputFeedback, InputSource } from './InputValidation';
 
 export interface Suggestion {
   input: string;
@@ -80,6 +81,7 @@ function GoalInputCard({
   const [customText, setCustomText] = useState('');
   const [clarifyText, setClarifyText] = useState('');
   const [regenerating, setRegenerating] = useState(false);
+  const specificity = useInputSpecificity();
   const selected = selectedInputs[goalIndex] ?? [];
 
   const handleRegenerate = async () => {
@@ -235,6 +237,7 @@ function GoalInputCard({
               placeholderTextColor={colors.textTertiary}
               returnKeyType="done"
               blurOnSubmit
+              onBlur={() => specificity.validate(customText)}
             />
             <TouchableOpacity
               style={[
@@ -251,6 +254,14 @@ function GoalInputCard({
               <Plus size={20} color="#000" strokeWidth={3} />
             </TouchableOpacity>
           </View>
+
+          {specificity.result && (
+            <SpecificityNudgeBanner
+              result={specificity.result}
+              onAcceptExample={(ex) => { setCustomText(ex); specificity.dismiss(); }}
+              onDismiss={specificity.dismiss}
+            />
+          )}
         </>
       ) : (
         <View style={diStyles.customRow}>
@@ -269,6 +280,7 @@ function GoalInputCard({
             placeholderTextColor={colors.textTertiary}
             returnKeyType="done"
             blurOnSubmit
+            onBlur={() => specificity.validate(customText)}
           />
           <TouchableOpacity
             style={[
@@ -285,6 +297,14 @@ function GoalInputCard({
             <Plus size={20} color="#000" strokeWidth={3} />
           </TouchableOpacity>
         </View>
+      )}
+
+      {specificity.result && !result && (
+        <SpecificityNudgeBanner
+          result={specificity.result}
+          onAcceptExample={(ex) => { setCustomText(ex); specificity.dismiss(); }}
+          onDismiss={specificity.dismiss}
+        />
       )}
     </View>
   );
@@ -397,7 +417,30 @@ export function AiDailyInputsScreen({
           ]}
           activeOpacity={0.85}
           disabled={!allHaveSelection}
-          onPress={() => onDone(selectedInputs)}
+          onPress={() => {
+            const aiSuggestionMap = new Map<number, Set<string>>();
+            Object.entries(results).forEach(([idx, res]) => {
+              if (res) {
+                aiSuggestionMap.set(Number(idx), new Set(res.suggestions.map(s => s.input.trim())));
+              }
+            });
+            for (const [idxStr, inputs] of Object.entries(selectedInputs)) {
+              const idx = Number(idxStr);
+              const aiSet = aiSuggestionMap.get(idx);
+              for (const inp of inputs) {
+                const source: InputSource = aiSet && aiSet.has(inp.trim())
+                  ? 'ai_suggested'
+                  : 'user_written';
+                logInputFeedback({
+                  goalText: goals[idx]?.label ?? '',
+                  source,
+                  finalInputText: inp,
+                  specificityFlagTriggered: false,
+                });
+              }
+            }
+            onDone(selectedInputs);
+          }}
         >
           <Text style={diStyles.primaryButtonText}>
             {allHaveSelection
