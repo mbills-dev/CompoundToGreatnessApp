@@ -103,9 +103,13 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
+      const { data: signedData, error: signedError } = await supabase.storage
         .from('goal-photos')
-        .getPublicUrl(path);
+        .createSignedUrl(path, 300);
+
+      if (signedError || !signedData?.signedUrl) {
+        throw signedError ?? new Error('Failed to generate signed URL');
+      }
 
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/extract-goals-from-photo`,
@@ -115,7 +119,7 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
             'Content-Type': 'application/json',
             Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
           },
-          body: JSON.stringify({ imageUrl: urlData.publicUrl }),
+          body: JSON.stringify({ imageUrl: signedData.signedUrl }),
         },
       );
 
