@@ -4,14 +4,23 @@ import {
   Text,
   TouchableOpacity,
   TextInput,
+  ActivityIndicator,
+  Platform,
+  Alert,
+  StyleSheet,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
 } from 'react-native-reanimated';
-import { ArrowLeft, ArrowRight, Check, Zap } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Check, Zap, Camera, Image as ImageIcon, RotateCw } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
+import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
+import { supabase } from '@/lib/supabase';
 import { FlowGoal, DecodePath } from './types';
 import { GoalBadge, formatGoalLabel } from './AnchorScreens';
 import styles from './styles';
@@ -57,7 +66,10 @@ function goalHasNumber(s: string): boolean {
 
 export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: FlowGoal[]) => void; onBack: () => void }) {
   const { colors, isDark } = useTheme();
+  const router = useRouter();
   const [text, setText] = useState('');
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoLoading, setPhotoLoading] = useState(false);
   const opacity = useSharedValue(0);
   useEffect(() => { opacity.value = withTiming(1, { duration: 400 }); }, []);
   const fadeStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
@@ -67,6 +79,109 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
   const handleContinue = () => {
     if (!canContinue) return;
     onContinue(parseGoalsFromText(text));
+  };
+
+  const uploadAndExtract = async (uri: string) => {
+    setPhotoError(null);
+    setPhotoLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const ext = uri.split('.').pop() ?? 'jpg';
+      const fileName = `goal-photo-${Date.now()}.${ext}`;
+      const path = `${user.id}/${fileName}`;
+
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const arrayBuffer = decode(base64);
+
+      const { error: uploadError } = await supabase.storage
+        .from('goal-photos')
+        .upload(path, arrayBuffer, { contentType: `image/${ext}` });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('goal-photos')
+        .getPublicUrl(path);
+
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/extract-goals-from-photo`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ imageUrl: urlData.publicUrl }),
+        },
+      );
+
+      if (!response.ok) throw new Error('Extraction failed');
+      const result = await response.json();
+
+      if (result.success && Array.isArray(result.goals) && result.goals.length > 0) {
+        router.push({
+          pathname: '/goal-review',
+          params: { goals: JSON.stringify(result.goals) },
+        });
+        return;
+      }
+
+      if (result.success === false && result.reason === 'not_goals') {
+        setPhotoError("Couldn't find goals in that photo — try another or type them in");
+      } else {
+        setPhotoError("Couldn't find goals in that photo — try another or type them in");
+      }
+    } catch (err) {
+      setPhotoError("Couldn't find goals in that photo — try another or type them in");
+    } finally {
+      setPhotoLoading(false);
+    }
+  };
+
+  const handlePickFromLibrary = async () => {
+    setPhotoError(null);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+      allowsEditing: false,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    await uploadAndExtract(result.assets[0].uri);
+  };
+
+  const handleTakePhoto = async () => {
+    setPhotoError(null);
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please allow camera access to take a photo.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.8,
+      allowsEditing: false,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    await uploadAndExtract(result.assets[0].uri);
+  };
+
+  const handleUploadPhoto = () => {
+    if (Platform.OS === 'web') {
+      handlePickFromLibrary();
+      return;
+    }
+    Alert.alert(
+      'Add a photo',
+      'Take a photo of your goals or pick one from your library.',
+      [
+        { text: 'Take Photo', onPress: handleTakePhoto },
+        { text: 'Choose from Library', onPress: handlePickFromLibrary },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
   };
 
   return (
@@ -105,6 +220,16 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
           />
         </View>
 
+        {photoError && (
+          <View style={[photoStyles.errorCard, { backgroundColor: isDark ? 'rgba(255,68,0,0.08)' : 'rgba(255,68,0,0.06)', borderColor: 'rgba(255,68,0,0.3)' }]}>
+            <Text style={photoStyles.errorText}>{photoError}</Text>
+            <TouchableOpacity style={photoStyles.retryBtn} onPress={handleUploadPhoto} activeOpacity={0.7}>
+              <RotateCw size={14} color={colors.primary} strokeWidth={2.5} />
+              <Text style={[photoStyles.retryText, { color: colors.primary }]}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={styles.bottomSection}>
           <TouchableOpacity
             style={[styles.primaryButton, { backgroundColor: canContinue ? colors.primary : colors.border, opacity: canContinue ? 1 : 0.45 }]}
@@ -115,11 +240,69 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
             <Text style={styles.primaryButtonText}>Continue</Text>
             <ArrowRight size={20} color="#000" strokeWidth={3} />
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[photoStyles.uploadBtn, { borderColor: colors.primary, opacity: photoLoading ? 0.6 : 1 }]}
+            onPress={handleUploadPhoto}
+            activeOpacity={0.8}
+            disabled={photoLoading}
+          >
+            {photoLoading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <>
+                <ImageIcon size={18} color={colors.primary} strokeWidth={2.5} />
+                <Text style={[photoStyles.uploadBtnText, { color: colors.primary }]}>
+                  Upload a photo instead
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
       </Animated.View>
     </KeyboardStepWrapper>
   );
 }
+
+const photoStyles = StyleSheet.create({
+  uploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 15,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  uploadBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  errorCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 14,
+    gap: 10,
+    marginBottom: 12,
+  },
+  errorText: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+    color: '#FF4400',
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+  },
+  retryText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+});
 
 // ─── GoalFuelRedirectScreen ───────────────────────────────────────────────────
 
