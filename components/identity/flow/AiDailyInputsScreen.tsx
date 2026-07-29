@@ -11,7 +11,7 @@ import {
 import { ArrowRight, Check, RotateCw, Sparkles, Plus, ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FlowGoal } from './types';
-import { useInputSpecificity, SpecificityNudgeBanner, logInputFeedback, InputSource } from './InputValidation';
+import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
 
 export interface Suggestion {
   input: string;
@@ -417,30 +417,7 @@ export function AiDailyInputsScreen({
           ]}
           activeOpacity={0.85}
           disabled={!allHaveSelection}
-          onPress={() => {
-            const aiSuggestionMap = new Map<number, Set<string>>();
-            Object.entries(results).forEach(([idx, res]) => {
-              if (res) {
-                aiSuggestionMap.set(Number(idx), new Set(res.suggestions.map(s => s.input.trim())));
-              }
-            });
-            for (const [idxStr, inputs] of Object.entries(selectedInputs)) {
-              const idx = Number(idxStr);
-              const aiSet = aiSuggestionMap.get(idx);
-              for (const inp of inputs) {
-                const source: InputSource = aiSet && aiSet.has(inp.trim())
-                  ? 'ai_suggested'
-                  : 'user_written';
-                logInputFeedback({
-                  goalText: goals[idx]?.label ?? '',
-                  source,
-                  finalInputText: inp,
-                  specificityFlagTriggered: false,
-                });
-              }
-            }
-            onDone(selectedInputs);
-          }}
+          onPress={() => onDone(selectedInputs)}
         >
           <Text style={diStyles.primaryButtonText}>
             {allHaveSelection

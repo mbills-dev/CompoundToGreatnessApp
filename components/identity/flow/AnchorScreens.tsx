@@ -24,7 +24,7 @@ import WhenPickerModal, { WhenPickerValue } from '../WhenPickerModal';
 import { FlowGoal, LockedGoal, AnchoredInput } from './types';
 import styles from './styles';
 import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
-import { useInputSpecificity, SpecificityNudgeBanner, logInputFeedback, InputSource } from './InputValidation';
+import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -93,7 +93,7 @@ export function AnchorScreen({
   goal: FlowGoal;
   dailyInput: string;
   isStandard?: boolean;
-  onDone: (when: string, where: string, schedule: WhenPickerValue | null) => void;
+  onDone: (dailyInput: string, when: string, where: string, schedule: WhenPickerValue | null, wasFlaggedNonSpecific: boolean) => void;
 }) {
   const { colors, isDark } = useTheme();
   const [what, setWhat] = useState(dailyInput);
@@ -321,9 +321,11 @@ export function AnchorScreen({
         onPress={() =>
           canCommit &&
           onDone(
+            what.trim(),
             whenValue ? formatWhen(whenValue) : '',
             where.trim(),
             whenValue,
+            !!specificity.result,
           )
         }
         activeOpacity={0.85}
@@ -366,7 +368,7 @@ export function AddInputScreen({
   prefillText,
 }: {
   goal: FlowGoal;
-  onDone: (dailyInput: string, when: string, where: string, schedule: WhenPickerValue | null) => void;
+  onDone: (dailyInput: string, when: string, where: string, schedule: WhenPickerValue | null, wasFlaggedNonSpecific: boolean) => void;
   onCancel: () => void;
   prefillText?: string;
 }) {
@@ -380,21 +382,9 @@ export function AddInputScreen({
   const canCommit =
     text.trim().length > 0 && whenValue !== null && where.trim().length > 0;
 
-  const isFromPrefill = !!(prefillText && prefillText.trim().length > 0);
-
   const handleFinalize = () => {
     if (!canCommit) return;
-    const finalText = text.trim();
-    const source: InputSource = isFromPrefill
-      ? (finalText === prefillText!.trim() ? 'ai_suggested' : 'ai_edited')
-      : 'user_written';
-    logInputFeedback({
-      goalText: goal.label,
-      source,
-      finalInputText: finalText,
-      specificityFlagTriggered: !!specificity.result,
-    });
-    onDone(finalText, whenValue ? formatWhen(whenValue) : '', where.trim(), whenValue);
+    onDone(text.trim(), whenValue ? formatWhen(whenValue) : '', where.trim(), whenValue, !!specificity.result);
   };
 
   const formatWhen = (v: WhenPickerValue) => {

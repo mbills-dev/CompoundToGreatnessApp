@@ -587,6 +587,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
     actionNoun?: string,
     ratio?: number,
     periodSuffix?: 'week' | 'month' | 'year',
+    wasFlaggedNonSpecific?: boolean,
   ) => {
     const goal = goals[goalIdx];
     const goalLabel = formatGoalLabel(goal, goalLabelOverrides);
@@ -604,12 +605,12 @@ export default function IdentityBuilder({ onComplete }: Props) {
       goalText: goalLabel,
       source,
       finalInputText: dailyInput,
-      specificityFlagTriggered: false,
+      specificityFlagTriggered: !!wasFlaggedNonSpecific,
     });
     navigate({ kind: 'locked', goalIdx, dailyInput });
   };
 
-  const handleAddInputDone = (goalIdx: number, inp: AnchoredInput) => {
+  const handleAddInputDone = (goalIdx: number, inp: AnchoredInput, wasFlaggedNonSpecific?: boolean) => {
     const goal = goals[goalIdx];
     const goalLabel = formatGoalLabel(goal, goalLabelOverrides);
     setLocked(prev => prev.map(l => l.goalId === goal.id ? { ...l, additionalInputs: [...l.additionalInputs, inp] } : l));
@@ -619,7 +620,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
       goalText: goalLabel,
       source,
       finalInputText: inp.dailyInput,
-      specificityFlagTriggered: false,
+      specificityFlagTriggered: !!wasFlaggedNonSpecific,
     });
     navigate({ kind: 'locked', goalIdx, dailyInput: inp.dailyInput });
   };
@@ -822,7 +823,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
                 goal={goal}
                 dailyInput={dailyInput}
                 isStandard={isStandard}
-                onDone={(when, where, schedule) => handleAnchorDone(goalIdx, dailyInput, when, where, schedule, isStandard, decodePath, resolvedTargetStr, doneLooksText, dailyNumber, winNoun, actionNoun, ratio, periodSuffix)}
+                onDone={(editedDailyInput, when, where, schedule, wasFlaggedNonSpecific) => handleAnchorDone(goalIdx, editedDailyInput, when, where, schedule, isStandard, decodePath, resolvedTargetStr, doneLooksText, dailyNumber, winNoun, actionNoun, ratio, periodSuffix, wasFlaggedNonSpecific)}
               />
             </ScrollView>
           </View>
@@ -861,7 +862,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
               <AddInputScreen
                 goal={goal}
                 prefillText={prefillText}
-                onDone={(dailyInput, when, where, schedule) => handleAddInputDone(goalIdx, { dailyInput, when, where, schedule })}
+                onDone={(dailyInput, when, where, schedule, wasFlaggedNonSpecific) => handleAddInputDone(goalIdx, { dailyInput, when, where, schedule }, wasFlaggedNonSpecific)}
                 onCancel={() => navigate({ kind: 'locked', goalIdx, dailyInput: '' })}
               />
             </ScrollView>
