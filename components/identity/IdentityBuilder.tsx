@@ -22,6 +22,8 @@ import {
   Platform,
   PanResponder,
   Animated as RNAnimated,
+  ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Confetti from '@/components/Confetti';
@@ -169,7 +171,7 @@ function SignatureScreen({
 }: {
   locked: ExtendedLockedGoal[];
   displayName: string;
-  onComplete: () => void;
+  onComplete: () => Promise<boolean>;
 }) {
   const { colors, isDark } = useTheme();
   const screenFade = useSharedValue(0);
@@ -179,6 +181,8 @@ function SignatureScreen({
   const [paths, setPaths] = useState<string[]>([]);
   const [currentPath, setCurrentPath] = useState<string>('');
   const [committed, setCommitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
   const [sigActive, setSigActive] = useState(false);
   const placeholderAnim = useRef(new RNAnimated.Value(1)).current;
   const hasSig = paths.length > 0 || currentPath.length > 0;
@@ -319,26 +323,50 @@ function SignatureScreen({
           )}
         </View>
 
+        {submitError && (
+          <View style={{ marginTop: 24, paddingHorizontal: 24, alignItems: 'center' }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#FF4444', textAlign: 'center', lineHeight: 20 }}>
+              Something went wrong creating your challenge. Please try again.
+            </Text>
+          </View>
+        )}
+
         <TouchableOpacity
           style={[sigStyles.ctaBtn, {
             backgroundColor: hasSig ? '#CCFF00' : (isDark ? '#1C2400' : '#D8E8C0'),
-            marginTop: 24,
-            opacity: (hasSig && !committed) ? 1 : 0.38,
+            marginTop: submitError ? 16 : 24,
+            opacity: (hasSig && !submitting) ? 1 : 0.38,
           }]}
-          onPress={() => {
-            if (!hasSig || committed) return;
+          onPress={async () => {
+            if (!hasSig || submitting) return;
             setCommitted(true);
+            setSubmitting(true);
+            setSubmitError(false);
             if (Platform.OS !== 'web') {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }
-            onComplete();
+            const success = await onComplete();
+            if (!success) {
+              setSubmitting(false);
+              setSubmitError(true);
+              setCommitted(false);
+            }
           }}
-          activeOpacity={(hasSig && !committed) ? 0.85 : 1}
-          disabled={!hasSig || committed}
+          activeOpacity={(hasSig && !submitting) ? 0.85 : 1}
+          disabled={!hasSig || submitting}
         >
-          <Text style={[sigStyles.ctaText, { color: (hasSig && !committed) ? '#000' : (isDark ? '#3A4A00' : '#7A9A40') }]}>
-            Start My 77-Day Challenge
-          </Text>
+          {submitting ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <ActivityIndicator size="small" color="#000" />
+              <Text style={[sigStyles.ctaText, { color: '#000' }]}>
+                Creating your challenge...
+              </Text>
+            </View>
+          ) : (
+            <Text style={[sigStyles.ctaText, { color: hasSig ? '#000' : (isDark ? '#3A4A00' : '#7A9A40') }]}>
+              {submitError ? 'Try Again' : 'Start My 77-Day Challenge'}
+            </Text>
+          )}
         </TouchableOpacity>
       </Animated.View>
     </ScrollView>
@@ -416,7 +444,7 @@ type Phase =
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
-  onComplete: (result: IdentityBuilderResult) => void;
+  onComplete: (result: IdentityBuilderResult) => Promise<boolean>;
 }
 
 export default function IdentityBuilder({ onComplete }: Props) {
@@ -641,7 +669,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
     }
   };
 
-  const handleSignatureComplete = () => {
+  const handleSignatureComplete = async (): Promise<boolean> => {
     const identityStatement = buildIdentityStatement(goals, locked, acceptedIdentity ?? {});
     const dimensions = buildDimensions(goals, locked, goalLabelOverrides);
     const { inputs, rawInputs } = buildInputsAndRaw(locked);
@@ -658,7 +686,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
       ? `Will it help me ${compassFilter.trim().replace(/\.$/, '')}?`
       : '';
 
-    onComplete({ identityStatement, dimensions, inputs, rawInputs, compass: { vision: compassVision, declaration: '', filterQuestion } });
+    return onComplete({ identityStatement, dimensions, inputs, rawInputs, compass: { vision: compassVision, declaration: '', filterQuestion } });
   };
 
   const renderPhase = () => {
@@ -700,6 +728,9 @@ export default function IdentityBuilder({ onComplete }: Props) {
           <AiDailyInputsScreen
             goals={goals}
             onBack={goBack}
+            onEditGoal={(goalIdx, newLabel) => {
+              setGoals(prev => prev.map((g, i) => i === goalIdx ? { ...g, label: newLabel } : g));
+            }}
             onDone={selected => {
               setAiSelectedInputs(selected);
               const firstInput = (selected[0] ?? [])[0];

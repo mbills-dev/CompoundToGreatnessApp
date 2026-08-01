@@ -8,7 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import { ArrowRight, Check, RotateCw, Sparkles, Plus, ArrowLeft } from 'lucide-react-native';
+import { ArrowRight, Check, RotateCw, Sparkles, Plus, ArrowLeft, Pencil } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FlowGoal } from './types';
 import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
@@ -67,6 +67,7 @@ function GoalInputCard({
   onToggleInput,
   onAddCustom,
   onRegenerate,
+  onEditGoal,
 }: {
   goalIndex: number;
   goal: string;
@@ -76,6 +77,7 @@ function GoalInputCard({
   onToggleInput: (goalIndex: number, input: string) => void;
   onAddCustom: (goalIndex: number, input: string) => void;
   onRegenerate: (goalIndex: number, answer: string) => void;
+  onEditGoal: (goalIndex: number, newLabel: string) => void;
 }) {
   const { colors, isDark } = useTheme();
   const [customText, setCustomText] = useState('');
@@ -83,6 +85,9 @@ function GoalInputCard({
   const [regenerating, setRegenerating] = useState(false);
   const specificity = useInputSpecificity();
   const selected = selectedInputs[goalIndex] ?? [];
+  const customSelected = selected.filter(s => !result?.suggestions?.some(sug => sug.input === s));
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [goalText, setGoalText] = useState(goal);
 
   const handleRegenerate = async () => {
     if (!clarifyText.trim() || regenerating) return;
@@ -100,7 +105,39 @@ function GoalInputCard({
 
   return (
     <View style={[diStyles.goalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <Text style={[diStyles.goalLabel, { color: colors.text }]}>{goal}</Text>
+      {editingGoal ? (
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <TextInput
+            style={[diStyles.goalLabel, { color: colors.text, flex: 1, borderBottomWidth: 2, borderBottomColor: colors.primary, paddingBottom: 2 }]}
+            value={goalText}
+            onChangeText={setGoalText}
+            autoFocus
+            returnKeyType="done"
+            blurOnSubmit
+            onSubmitEditing={() => {
+              const trimmed = goalText.trim();
+              if (trimmed) onEditGoal(goalIndex, trimmed);
+              setEditingGoal(false);
+            }}
+            onEndEditing={() => setEditingGoal(false)}
+          />
+          <TouchableOpacity
+            onPress={() => {
+              const trimmed = goalText.trim();
+              if (trimmed) onEditGoal(goalIndex, trimmed);
+              setEditingGoal(false);
+            }}
+            style={{ padding: 4 }}
+          >
+            <Check size={20} color={colors.primary} strokeWidth={3} />
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity onPress={() => { setGoalText(goal); setEditingGoal(true); }} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={[diStyles.goalLabel, { color: colors.text }]}>{goal}</Text>
+          <Pencil size={13} color={colors.textTertiary} strokeWidth={2} />
+        </TouchableOpacity>
+      )}
 
       {loading ? (
         <View style={diStyles.loadingRow}>
@@ -219,6 +256,28 @@ function GoalInputCard({
                 </TouchableOpacity>
               );
             })}
+            {customSelected.map((input, ci) => (
+              <TouchableOpacity
+                key={`custom-${ci}`}
+                style={[
+                  diStyles.suggestionCard,
+                  {
+                    backgroundColor: colors.primary + '18',
+                    borderColor: colors.primary,
+                  },
+                ]}
+                onPress={() => onToggleInput(goalIndex, input)}
+                activeOpacity={0.7}
+              >
+                <View style={[diStyles.suggestionCheck, { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                  <Check size={14} color="#000" strokeWidth={3} />
+                </View>
+                <Text style={[diStyles.suggestionText, { color: colors.text }]}>{input}</Text>
+                <View style={[diStyles.frequencyBadge, { backgroundColor: colors.primary + '15' }]}>
+                  <Text style={[diStyles.frequencyText, { color: colors.primary }]}>custom</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
           </View>
 
           <View style={diStyles.customRow}>
@@ -264,6 +323,33 @@ function GoalInputCard({
           )}
         </>
       ) : (
+        <>
+        {customSelected.length > 0 && (
+          <View style={diStyles.suggestionList}>
+            {customSelected.map((input, ci) => (
+              <TouchableOpacity
+                key={`custom-${ci}`}
+                style={[
+                  diStyles.suggestionCard,
+                  {
+                    backgroundColor: colors.primary + '18',
+                    borderColor: colors.primary,
+                  },
+                ]}
+                onPress={() => onToggleInput(goalIndex, input)}
+                activeOpacity={0.7}
+              >
+                <View style={[diStyles.suggestionCheck, { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                  <Check size={14} color="#000" strokeWidth={3} />
+                </View>
+                <Text style={[diStyles.suggestionText, { color: colors.text }]}>{input}</Text>
+                <View style={[diStyles.frequencyBadge, { backgroundColor: colors.primary + '15' }]}>
+                  <Text style={[diStyles.frequencyText, { color: colors.primary }]}>custom</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
         <View style={diStyles.customRow}>
           <TextInput
             style={[
@@ -297,6 +383,7 @@ function GoalInputCard({
             <Plus size={20} color="#000" strokeWidth={3} />
           </TouchableOpacity>
         </View>
+        </>
       )}
 
       {specificity.result && !result && (
@@ -314,10 +401,12 @@ export function AiDailyInputsScreen({
   goals,
   onDone,
   onBack,
+  onEditGoal,
 }: {
   goals: FlowGoal[];
   onDone: (selectedInputs: Record<number, string[]>) => void;
   onBack: () => void;
+  onEditGoal: (goalIndex: number, newLabel: string) => void;
 }) {
   const { colors } = useTheme();
   const [results, setResults] = useState<Record<number, GoalInputResult | null>>({});
@@ -381,6 +470,7 @@ export function AiDailyInputsScreen({
         style={{ flex: 1 }}
         contentContainerStyle={diStyles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={diStyles.introBlock}>
           <Sparkles size={22} color={colors.primary} strokeWidth={2} />
@@ -404,6 +494,7 @@ export function AiDailyInputsScreen({
               onToggleInput={toggleInput}
               onAddCustom={addCustom}
               onRegenerate={regenerate}
+              onEditGoal={onEditGoal}
             />
           ))}
         </View>
