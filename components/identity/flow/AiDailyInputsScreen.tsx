@@ -29,12 +29,16 @@ type SelectedInputs = Record<number, string[]>;
 
 async function fetchDailyInputs(
   goal: string,
-  clarificationAnswer?: string,
+  history?: { question: string; answer: string }[],
+  otherGoalsContext?: { goal: string; context: string }[],
 ): Promise<GoalInputResult | null> {
   try {
-    const body: Record<string, string> = { goal };
-    if (clarificationAnswer && clarificationAnswer.trim()) {
-      body.clarification_answer = clarificationAnswer.trim();
+    const body: Record<string, unknown> = { goal };
+    if (history && history.length > 0) {
+      body.history = history;
+    }
+    if (otherGoalsContext && otherGoalsContext.length > 0) {
+      body.otherGoalsContext = otherGoalsContext;
     }
     const response = await fetch(
       `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/generate-daily-inputs`,
@@ -93,6 +97,7 @@ function GoalInputCard({
     if (!clarifyText.trim() || regenerating) return;
     setRegenerating(true);
     await onRegenerate(goalIndex, clarifyText.trim());
+    setClarifyText('');
     setRegenerating(false);
   };
 
@@ -412,11 +417,17 @@ export function AiDailyInputsScreen({
   const [results, setResults] = useState<Record<number, GoalInputResult | null>>({});
   const [loading, setLoading] = useState<Record<number, boolean>>({});
   const [selectedInputs, setSelectedInputs] = useState<SelectedInputs>({});
+  const [clarifyHistory, setClarifyHistory] = useState<Record<number, { question: string; answer: string }[]>>({});
   const fetchedRef = useRef(false);
 
-  const callForGoal = useCallback(async (goalIndex: number, goal: string, answer?: string) => {
+  const callForGoal = useCallback(async (
+    goalIndex: number,
+    goal: string,
+    history: { question: string; answer: string }[] = [],
+    otherGoalsContext: { goal: string; context: string }[] = [],
+  ) => {
     setLoading(prev => ({ ...prev, [goalIndex]: true }));
-    const result = await fetchDailyInputs(goal, answer);
+    const result = await fetchDailyInputs(goal, history, otherGoalsContext);
     setResults(prev => ({ ...prev, [goalIndex]: result }));
     setLoading(prev => ({ ...prev, [goalIndex]: false }));
   }, []);
@@ -446,8 +457,24 @@ export function AiDailyInputsScreen({
   };
 
   const regenerate = async (goalIndex: number, answer: string) => {
+    const currentResult = results[goalIndex];
+    const question = currentResult?.clarifying_question ?? '';
+    const newEntry = { question, answer };
+    const newHistory = [...(clarifyHistory[goalIndex] ?? []), newEntry];
+
+    const otherGoalsContext = goals
+      .map((g, i) => {
+        if (i === goalIndex) return null;
+        const hist = clarifyHistory[i] ?? [];
+        if (hist.length === 0) return null;
+        const context = hist.map(h => `Q: ${h.question} A: ${h.answer}`).join('; ');
+        return { goal: g.label, context };
+      })
+      .filter((x): x is { goal: string; context: string } => x !== null);
+
     setSelectedInputs(prev => ({ ...prev, [goalIndex]: [] }));
-    await callForGoal(goalIndex, goals[goalIndex].label, answer);
+    setClarifyHistory(prev => ({ ...prev, [goalIndex]: newHistory }));
+    await callForGoal(goalIndex, goals[goalIndex].label, newHistory, otherGoalsContext);
   };
 
   const totalSelected = Object.values(selectedInputs).reduce(

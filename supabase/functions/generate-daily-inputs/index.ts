@@ -14,7 +14,7 @@ Rules — follow every one:
 2. EVERY suggestion must be a true daily action — something the user can do TODAY. Never propose a weekly cadence. If an action is inherently weekly-sounding, reword it into a daily equivalent. For example, "complete 3 resistance sessions weekly" becomes "do a resistance training session today" or "spend 20 minutes on resistance training today." "Run 15 miles per week" becomes "run 2 miles today."
 3. If the goal is too broad to generate a confident, specific input (e.g. "get my finances in order," "be a better father," "improve my relationship"), set specificity to "low" and provide exactly ONE clarifying_question that would help narrow the goal into something actionable. Still return your best-guess suggestions — never leave the suggestions array empty.
 4. If the goal is already specific enough to generate confident inputs, set specificity to "high" and set clarifying_question to null.
-5. If a clarification_answer was provided, treat it as additional context appended to the goal and generate higher-confidence suggestions. If you STILL cannot generate confident inputs even with the answer, force specificity to "high" anyway and return the best available guess with clarifying_question set to null — do not ask a second follow-up.
+5. If clarification history is provided (prior Q&A pairs for this goal), treat each answer as additional context appended to the goal and generate higher-confidence suggestions. If you STILL cannot generate confident inputs even with the history, force specificity to "high" anyway and return the best available guess with clarifying_question set to null — do not ask another follow-up. If context from the user's other goals in this session is provided, reuse relevant facts (e.g. an existing business, income source, or schedule constraint) without re-asking.
 6. Each suggestion has a "frequency" field which is ALWAYS "daily".
 7. Keep each input string under 80 characters. No quotation marks, no emojis, no exclamation points.
 8. No preamble, no commentary, no markdown fences. Output ONLY a JSON object matching the required shape.
@@ -45,7 +45,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Method not allowed" }, 405);
     }
 
-    const { goal, clarification_answer } = await req.json();
+    const { goal, history, otherGoalsContext } = await req.json();
 
     if (!goal || typeof goal !== "string" || goal.trim().length === 0) {
       return json({ error: "goal is required" }, 400);
@@ -57,9 +57,34 @@ Deno.serve(async (req: Request) => {
     }
 
     const cleanedGoal = goal.trim().slice(0, 300);
-    const userContent = clarification_answer
-      ? `Goal: ${cleanedGoal}\nAdditional context from user: ${String(clarification_answer).trim().slice(0, 300)}`
-      : `Goal: ${cleanedGoal}`;
+    let userContent = `Goal: ${cleanedGoal}`;
+
+    if (Array.isArray(history)) {
+      for (const entry of history) {
+        if (
+          entry && typeof entry === "object" &&
+          typeof (entry as Record<string, unknown>).question === "string" &&
+          typeof (entry as Record<string, unknown>).answer === "string"
+        ) {
+          const e = entry as { question: string; answer: string };
+          userContent += `\nQ: ${e.question.trim().slice(0, 300)}\nA: ${e.answer.trim().slice(0, 300)}`;
+        }
+      }
+    }
+
+    if (Array.isArray(otherGoalsContext) && otherGoalsContext.length > 0) {
+      const contextLines = otherGoalsContext
+        .filter(
+          (g): g is { goal: string; context: string } =>
+            g !== null && typeof g === "object" &&
+            typeof (g as Record<string, unknown>).goal === "string" &&
+            typeof (g as Record<string, unknown>).context === "string",
+        )
+        .map((g) => `- Goal: "${g.goal.trim().slice(0, 200)}" — Context: ${g.context.trim().slice(0, 300)}`);
+      if (contextLines.length > 0) {
+        userContent += `\n\nContext from the user's other goals in this session:\n${contextLines.join("\n")}`;
+      }
+    }
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -112,6 +137,10 @@ Deno.serve(async (req: Request) => {
         ? obj.clarifying_question.trim()
         : null;
 
+    const isSecondRound = Array.isArray(history) && history.length >= 1;
+    const finalSpecificity: "high" | "low" = isSecondRound ? "high" : (specificity === "high" || specificity === "low" ? specificity : "low");
+    const finalClarifyingQuestion = isSecondRound ? null : clarifyingQuestion;
+
     const suggestions = Array.isArray(obj.suggestions)
       ? obj.suggestions
           .filter((s): s is Record<string, unknown> => typeof s === "object" && s !== null)
@@ -128,8 +157,8 @@ Deno.serve(async (req: Request) => {
 
     return json({
       goal: cleanedGoal,
-      specificity,
-      clarifying_question: clarifyingQuestion,
+      specificity: finalSpecificity,
+      clarifying_question: finalClarifyingQuestion,
       suggestions,
     });
   } catch (e) {
