@@ -7,16 +7,17 @@ const corsHeaders = {
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const SYSTEM_PROMPT = `You are a daily-input generator for a habit-building app. Given a personal goal, you propose specific, measurable daily or weekly inputs that, if done consistently, would lead to achieving that goal.
+const SYSTEM_PROMPT = `You are a daily-input generator for a habit-building app. Given a personal goal, you propose specific, measurable daily inputs that, if done consistently, would lead to achieving that goal.
 
 Rules — follow every one:
-1. Propose 2-3 inputs per goal. Each input MUST be specific and measurable — it must contain a number, a frequency, or a clear done/not-done criterion. Never use vague phrasing like "drink more water," "be more active," or "eat better." Instead: "drink 3 liters of water," "walk 10,000 steps," "eat 5 servings of vegetables."
-2. If the goal is too broad to generate a confident, specific input (e.g. "get my finances in order," "be a better father," "improve my relationship"), set specificity to "low" and provide exactly ONE clarifying_question that would help narrow the goal into something actionable. Still return your best-guess suggestions — never leave the suggestions array empty.
-3. If the goal is already specific enough to generate confident inputs, set specificity to "high" and set clarifying_question to null.
-4. If a clarification_answer was provided, treat it as additional context appended to the goal and generate higher-confidence suggestions. If you STILL cannot generate confident inputs even with the answer, force specificity to "high" anyway and return the best available guess with clarifying_question set to null — do not ask a second follow-up.
-5. Each suggestion has a "frequency" field: "daily" for things done every day, "weekly" for things done on a recurring weekly cadence.
-6. Keep each input string under 80 characters. No quotation marks, no emojis, no exclamation points.
-7. No preamble, no commentary, no markdown fences. Output ONLY a JSON object matching the required shape.
+1. Propose 2-3 inputs per goal. Each input MUST be specific and measurable — it must contain a number, a duration, or a clear done/not-done criterion. Never use vague phrasing like "drink more water," "be more active," or "eat better." Instead: "drink 3 liters of water," "walk 10,000 steps," "eat 5 servings of vegetables."
+2. EVERY suggestion must be a true daily action — something the user can do TODAY. Never propose a weekly cadence. If an action is inherently weekly-sounding, reword it into a daily equivalent. For example, "complete 3 resistance sessions weekly" becomes "do a resistance training session today" or "spend 20 minutes on resistance training today." "Run 15 miles per week" becomes "run 2 miles today."
+3. If the goal is too broad to generate a confident, specific input (e.g. "get my finances in order," "be a better father," "improve my relationship"), set specificity to "low" and provide exactly ONE clarifying_question that would help narrow the goal into something actionable. Still return your best-guess suggestions — never leave the suggestions array empty.
+4. If the goal is already specific enough to generate confident inputs, set specificity to "high" and set clarifying_question to null.
+5. If a clarification_answer was provided, treat it as additional context appended to the goal and generate higher-confidence suggestions. If you STILL cannot generate confident inputs even with the answer, force specificity to "high" anyway and return the best available guess with clarifying_question set to null — do not ask a second follow-up.
+6. Each suggestion has a "frequency" field which is ALWAYS "daily".
+7. Keep each input string under 80 characters. No quotation marks, no emojis, no exclamation points.
+8. No preamble, no commentary, no markdown fences. Output ONLY a JSON object matching the required shape.
 
 Output shape (exactly):
 {
@@ -24,7 +25,7 @@ Output shape (exactly):
   "specificity": "high" | "low",
   "clarifying_question": "string | null",
   "suggestions": [
-    { "input": "<specific measurable action>", "frequency": "daily" | "weekly" }
+    { "input": "<specific measurable daily action>", "frequency": "daily" }
   ]
 }`;
 
@@ -116,7 +117,7 @@ Deno.serve(async (req: Request) => {
           .filter((s): s is Record<string, unknown> => typeof s === "object" && s !== null)
           .map((s) => ({
             input: typeof s.input === "string" ? s.input.trim() : "",
-            frequency: s.frequency === "weekly" ? "weekly" : "daily",
+            frequency: "daily",
           }))
           .filter((s) => s.input.length > 0)
       : [];

@@ -227,6 +227,24 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
             textAlignVertical="top"
             inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
           />
+
+          <TouchableOpacity
+            style={[photoStyles.uploadBtn, { borderColor: colors.primary, opacity: photoLoading ? 0.6 : 1, marginTop: 12 }]}
+            onPress={handleUploadPhoto}
+            activeOpacity={0.8}
+            disabled={photoLoading}
+          >
+            {photoLoading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <>
+                <ImageIcon size={18} color={colors.primary} strokeWidth={2.5} />
+                <Text style={[photoStyles.uploadBtnText, { color: colors.primary }]}>
+                  Upload a photo instead
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
 
         {photoError && (
@@ -248,24 +266,6 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
           >
             <Text style={styles.primaryButtonText}>Continue</Text>
             <ArrowRight size={20} color="#000" strokeWidth={3} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[photoStyles.uploadBtn, { borderColor: colors.primary, opacity: photoLoading ? 0.6 : 1 }]}
-            onPress={handleUploadPhoto}
-            activeOpacity={0.8}
-            disabled={photoLoading}
-          >
-            {photoLoading ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <>
-                <ImageIcon size={18} color={colors.primary} strokeWidth={2.5} />
-                <Text style={[photoStyles.uploadBtnText, { color: colors.primary }]}>
-                  Upload a photo instead
-                </Text>
-              </>
-            )}
           </TouchableOpacity>
         </View>
       </Animated.View>
