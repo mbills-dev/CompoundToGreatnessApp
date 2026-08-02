@@ -8,7 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import { ArrowRight, Check, RotateCw, Sparkles, Plus, ArrowLeft, Pencil } from 'lucide-react-native';
+import { ArrowRight, Check, RotateCw, Sparkles, Plus, ArrowLeft, Pencil, X, GitMerge } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FlowGoal } from './types';
 import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
@@ -26,6 +26,142 @@ interface GoalInputResult {
 }
 
 type SelectedInputs = Record<number, string[]>;
+
+interface OverlapGroup {
+  indices: number[];
+  reason: string;
+}
+
+async function fetchOverlappingGoals(goalLabels: string[]): Promise<OverlapGroup[]> {
+  try {
+    const response = await fetch(
+      `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/detect-overlapping-goals`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ goals: goalLabels }),
+      },
+    );
+    if (!response.ok) return [];
+    const data = await response.json();
+    if (data && Array.isArray(data.groups)) {
+      return data.groups as OverlapGroup[];
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+function OverlapBanner({
+  reason,
+  onKeepSeparate,
+  onCombine,
+}: {
+  reason: string;
+  onKeepSeparate: () => void;
+  onCombine: () => void;
+}) {
+  const { colors, isDark } = useTheme();
+  return (
+    <View
+      style={[
+        ovStyles.banner,
+        {
+          backgroundColor: isDark ? 'rgba(250,180,50,0.08)' : 'rgba(250,180,50,0.06)',
+          borderColor: '#F0A030' + '50',
+        },
+      ]}
+    >
+      <View style={ovStyles.bannerHeader}>
+        <GitMerge size={16} color="#F0A030" strokeWidth={2.5} />
+        <Text style={[ovStyles.bannerTitle, { color: '#F0A030' }]}>These goals look related</Text>
+        <TouchableOpacity onPress={onKeepSeparate} style={ovStyles.dismissBtn} activeOpacity={0.6}>
+          <X size={16} color={colors.textSecondary} strokeWidth={2.5} />
+        </TouchableOpacity>
+      </View>
+      <Text style={[ovStyles.bannerReason, { color: colors.text }]}>{reason}</Text>
+      <View style={ovStyles.bannerActions}>
+        <TouchableOpacity
+          style={[ovStyles.keepBtn, { borderColor: colors.border }]}
+          onPress={onKeepSeparate}
+          activeOpacity={0.7}
+        >
+          <Text style={[ovStyles.keepBtnText, { color: colors.textSecondary }]}>Keep Separate</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[ovStyles.combineBtn, { backgroundColor: '#F0A030' }]}
+          onPress={onCombine}
+          activeOpacity={0.8}
+        >
+          <Text style={ovStyles.combineBtnText}>Combine These</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+function MergeEditor({
+  defaultLabel,
+  onConfirm,
+  onCancel,
+}: {
+  defaultLabel: string;
+  onConfirm: (label: string) => void;
+  onCancel: () => void;
+}) {
+  const { colors, isDark } = useTheme();
+  const [text, setText] = useState(defaultLabel);
+  return (
+    <View
+      style={[
+        ovStyles.mergeEditor,
+        {
+          backgroundColor: isDark ? 'rgba(250,180,50,0.08)' : 'rgba(250,180,50,0.06)',
+          borderColor: '#F0A030' + '50',
+        },
+      ]}
+    >
+      <Text style={[ovStyles.mergeEditorLabel, { color: '#F0A030' }]}>COMBINE GOALS</Text>
+      <TextInput
+        style={[
+          ovStyles.mergeInput,
+          {
+            color: colors.text,
+            backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+            borderColor: '#F0A030' + '60',
+          },
+        ]}
+        value={text}
+        onChangeText={setText}
+        autoFocus
+        multiline
+        returnKeyType="done"
+        blurOnSubmit
+      />
+      <View style={ovStyles.bannerActions}>
+        <TouchableOpacity
+          style={[ovStyles.keepBtn, { borderColor: colors.border }]}
+          onPress={onCancel}
+          activeOpacity={0.7}
+        >
+          <Text style={[ovStyles.keepBtnText, { color: colors.textSecondary }]}>Cancel</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[ovStyles.combineBtn, { backgroundColor: '#F0A030', opacity: text.trim() ? 1 : 0.5 }]}
+          onPress={() => text.trim() && onConfirm(text.trim())}
+          disabled={!text.trim()}
+          activeOpacity={0.8}
+        >
+          <Text style={ovStyles.combineBtnText}>Confirm</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
 
 async function fetchDailyInputs(
   goal: string,
@@ -407,17 +543,22 @@ export function AiDailyInputsScreen({
   onDone,
   onBack,
   onEditGoal,
+  onMergeGoals,
 }: {
   goals: FlowGoal[];
   onDone: (selectedInputs: Record<number, string[]>) => void;
   onBack: () => void;
   onEditGoal: (goalIndex: number, newLabel: string) => void;
+  onMergeGoals: (keepIndex: number, newLabel: string, removeIndices: number[]) => void;
 }) {
   const { colors } = useTheme();
   const [results, setResults] = useState<Record<number, GoalInputResult | null>>({});
   const [loading, setLoading] = useState<Record<number, boolean>>({});
   const [selectedInputs, setSelectedInputs] = useState<SelectedInputs>({});
   const [clarifyHistory, setClarifyHistory] = useState<Record<number, { question: string; answer: string }[]>>({});
+  const [overlapGroups, setOverlapGroups] = useState<OverlapGroup[]>([]);
+  const [dismissedGroups, setDismissedGroups] = useState<Set<number>>(new Set());
+  const [mergeGroupIdx, setMergeGroupIdx] = useState<number | null>(null);
   const fetchedRef = useRef(false);
 
   const callForGoal = useCallback(async (
@@ -436,6 +577,11 @@ export function AiDailyInputsScreen({
     if (fetchedRef.current || goals.length === 0) return;
     fetchedRef.current = true;
     Promise.all(goals.map((g, i) => callForGoal(i, g.label)));
+    if (goals.length >= 2) {
+      fetchOverlappingGoals(goals.map(g => g.label)).then(groups => {
+        setOverlapGroups(groups);
+      });
+    }
   }, [goals, callForGoal]);
 
   const toggleInput = (goalIndex: number, input: string) => {
@@ -477,6 +623,73 @@ export function AiDailyInputsScreen({
     await callForGoal(goalIndex, goals[goalIndex].label, newHistory, otherGoalsContext);
   };
 
+  const handleConfirmMerge = (groupIdx: number, newLabel: string) => {
+    const group = overlapGroups[groupIdx];
+    if (!group || group.indices.length < 2) return;
+    const keepIndex = group.indices[0];
+    const removeIndices = group.indices.slice(1);
+
+    const removeSet = new Set(removeIndices);
+
+    setResults(prev => {
+      const next: Record<number, GoalInputResult | null> = {};
+      let newIdx = 0;
+      for (let i = 0; i < goals.length; i++) {
+        if (removeSet.has(i)) continue;
+        if (i === keepIndex) {
+          next[newIdx] = prev[i] ?? null;
+        } else {
+          next[newIdx] = prev[i] ?? null;
+        }
+        newIdx++;
+      }
+      return next;
+    });
+
+    setLoading(prev => {
+      const next: Record<number, boolean> = {};
+      let newIdx = 0;
+      for (let i = 0; i < goals.length; i++) {
+        if (removeSet.has(i)) continue;
+        next[newIdx] = prev[i] ?? false;
+        newIdx++;
+      }
+      return next;
+    });
+
+    setSelectedInputs(prev => {
+      const next: SelectedInputs = {};
+      let newIdx = 0;
+      for (let i = 0; i < goals.length; i++) {
+        if (removeSet.has(i)) continue;
+        if (i === keepIndex) {
+          next[newIdx] = prev[i] ?? [];
+        } else {
+          next[newIdx] = prev[i] ?? [];
+        }
+        newIdx++;
+      }
+      return next;
+    });
+
+    setClarifyHistory(prev => {
+      const next: Record<number, { question: string; answer: string }[]> = {};
+      let newIdx = 0;
+      for (let i = 0; i < goals.length; i++) {
+        if (removeSet.has(i)) continue;
+        next[newIdx] = prev[i] ?? [];
+        newIdx++;
+      }
+      return next;
+    });
+
+    setOverlapGroups([]);
+    setDismissedGroups(new Set());
+    setMergeGroupIdx(null);
+
+    onMergeGoals(keepIndex, newLabel, removeIndices);
+  };
+
   const totalSelected = Object.values(selectedInputs).reduce(
     (sum, arr) => sum + arr.length,
     0,
@@ -510,20 +723,49 @@ export function AiDailyInputsScreen({
         </View>
 
         <View style={diStyles.goalList}>
-          {goals.map((goal, i) => (
-            <GoalInputCard
-              key={goal.id}
-              goalIndex={i}
-              goal={goal.label}
-              result={results[i] ?? null}
-              loading={loading[i] ?? false}
-              selectedInputs={selectedInputs}
-              onToggleInput={toggleInput}
-              onAddCustom={addCustom}
-              onRegenerate={regenerate}
-              onEditGoal={onEditGoal}
-            />
-          ))}
+          {goals.map((goal, i) => {
+            const activeGroups = overlapGroups
+              .map((g, gi) => ({ group: g, groupIdx: gi }))
+              .filter(({ group }) =>
+                group.indices.includes(i) &&
+                group.indices[0] === i &&
+                !dismissedGroups.has(group.indices[0]) &&
+                mergeGroupIdx === null,
+              );
+
+            return (
+              <View key={goal.id}>
+                {activeGroups.map(({ group, groupIdx }) =>
+                  mergeGroupIdx === groupIdx ? (
+                    <MergeEditor
+                      key={`merge-${groupIdx}`}
+                      defaultLabel={`${goals[group.indices[0]]?.label ?? ''} (includes ${group.indices.slice(1).map(idx => goals[idx]?.label ?? '').join(', ')})`}
+                      onConfirm={(label) => handleConfirmMerge(groupIdx, label)}
+                      onCancel={() => setMergeGroupIdx(null)}
+                    />
+                  ) : (
+                    <OverlapBanner
+                      key={`overlap-${groupIdx}`}
+                      reason={group.reason}
+                      onKeepSeparate={() => setDismissedGroups(prev => new Set(prev).add(group.indices[0]))}
+                      onCombine={() => setMergeGroupIdx(groupIdx)}
+                    />
+                  ),
+                )}
+                <GoalInputCard
+                  goalIndex={i}
+                  goal={goal.label}
+                  result={results[i] ?? null}
+                  loading={loading[i] ?? false}
+                  selectedInputs={selectedInputs}
+                  onToggleInput={toggleInput}
+                  onAddCustom={addCustom}
+                  onRegenerate={regenerate}
+                  onEditGoal={onEditGoal}
+                />
+              </View>
+            );
+          })}
         </View>
       </ScrollView>
 
@@ -627,4 +869,86 @@ const diStyles = StyleSheet.create({
     borderRadius: 16,
   },
   primaryButtonText: { fontSize: 17, fontWeight: '800', color: '#000000', letterSpacing: 0.2 },
+});
+
+const ovStyles = StyleSheet.create({
+  banner: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 10,
+    marginBottom: 8,
+  },
+  bannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bannerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    flex: 1,
+  },
+  bannerReason: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 19,
+  },
+  bannerActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 2,
+  },
+  keepBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  keepBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  combineBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  combineBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#000000',
+  },
+  dismissBtn: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mergeEditor: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 10,
+    marginBottom: 8,
+  },
+  mergeEditorLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  mergeInput: {
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontWeight: '600',
+    minHeight: 48,
+  },
 });

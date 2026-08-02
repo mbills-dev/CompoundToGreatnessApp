@@ -731,6 +731,34 @@ export default function IdentityBuilder({ onComplete }: Props) {
             onEditGoal={(goalIdx, newLabel) => {
               setGoals(prev => prev.map((g, i) => i === goalIdx ? { ...g, label: newLabel } : g));
             }}
+            onMergeGoals={(keepIndex, newLabel, removeIndices) => {
+              const removeSet = new Set(removeIndices);
+              setGoals(prev => {
+                const kept = prev[keepIndex];
+                if (!kept) return prev;
+                const next: FlowGoal[] = [];
+                for (let i = 0; i < prev.length; i++) {
+                  if (removeSet.has(i)) continue;
+                  if (i === keepIndex) {
+                    next.push({ ...prev[i], label: newLabel });
+                  } else {
+                    next.push(prev[i]);
+                  }
+                }
+                return next;
+              });
+              setAiSelectedInputs(prev => {
+                const maxIdx = Object.keys(prev).reduce((m, k) => Math.max(m, Number(k)), 0);
+                const next: Record<number, string[]> = {};
+                let newIdx = 0;
+                for (let i = 0; i <= maxIdx; i++) {
+                  if (removeSet.has(i)) continue;
+                  next[newIdx] = prev[i] ?? [];
+                  newIdx++;
+                }
+                return next;
+              });
+            }}
             onDone={selected => {
               setAiSelectedInputs(selected);
               const firstInput = (selected[0] ?? [])[0];
