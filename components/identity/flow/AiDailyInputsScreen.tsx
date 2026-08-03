@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { ArrowRight, Check, RotateCw, Sparkles, Plus, ArrowLeft, Pencil, X, GitMerge, Scissors } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, interpolate } from 'react-native-reanimated';
 import { FlowGoal } from './types';
 import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
 
@@ -337,6 +338,91 @@ async function fetchDailyInputs(
   }
 }
 
+function AnimatedSuggestionCard({
+  input,
+  frequency,
+  isSelected,
+  onPress,
+  animateKey,
+}: {
+  input: string;
+  frequency: string;
+  isSelected: boolean;
+  onPress: () => void;
+  animateKey: string;
+}) {
+  const { colors, isDark } = useTheme();
+  const anim = useSharedValue(0);
+
+  useEffect(() => {
+    anim.value = 0;
+    anim.value = withSpring(1, { damping: 15, stiffness: 110 });
+  }, [animateKey]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: anim.value,
+    transform: [{ translateY: interpolate(anim.value, [0, 1], [10, 0]) }],
+  }));
+
+  return (
+    <Animated.View style={animStyle}>
+      <TouchableOpacity
+        style={[
+          diStyles.suggestionCard,
+          {
+            backgroundColor: isSelected
+              ? colors.primary + '18'
+              : isDark
+                ? 'rgba(255,255,255,0.04)'
+                : 'rgba(0,0,0,0.03)',
+            borderColor: isSelected ? colors.primary : colors.border,
+          },
+        ]}
+        onPress={onPress}
+        activeOpacity={0.7}
+      >
+        <View
+          style={[
+            diStyles.suggestionCheck,
+            {
+              backgroundColor: isSelected ? colors.primary : 'transparent',
+              borderColor: isSelected ? colors.primary : colors.border,
+            },
+          ]}
+        >
+          {isSelected && <Check size={14} color="#000" strokeWidth={3} />}
+        </View>
+        <Text style={[diStyles.suggestionText, { color: colors.text }]}>{input}</Text>
+        <View
+          style={[
+            diStyles.frequencyBadge,
+            {
+              backgroundColor:
+                frequency === 'weekly' || frequency === 'custom'
+                  ? colors.primary + '15'
+                  : colors.border,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              diStyles.frequencyText,
+              {
+                color:
+                  frequency === 'weekly' || frequency === 'custom'
+                    ? colors.primary
+                    : colors.textSecondary,
+              },
+            ]}
+          >
+            {frequency}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 function GoalInputCard({
   goalIndex,
   goal,
@@ -419,7 +505,7 @@ function GoalInputCard({
         </TouchableOpacity>
       )}
 
-      {loading ? (
+      {loading && !result ? (
         <View style={diStyles.loadingRow}>
           <ActivityIndicator size="small" color={colors.primary} />
           <Text style={[diStyles.loadingText, { color: colors.textSecondary }]}>
@@ -480,84 +566,43 @@ function GoalInputCard({
             </View>
           )}
 
-          <View style={diStyles.suggestionList}>
-            {result.suggestions.map((s, i) => {
-              const isSelected = selected.includes(s.input);
-              return (
-                <TouchableOpacity
-                  key={i}
-                  style={[
-                    diStyles.suggestionCard,
-                    {
-                      backgroundColor: isSelected
-                        ? colors.primary + '18'
-                        : isDark
-                          ? 'rgba(255,255,255,0.04)'
-                          : 'rgba(0,0,0,0.03)',
-                      borderColor: isSelected ? colors.primary : colors.border,
-                    },
-                  ]}
-                  onPress={() => onToggleInput(goalIndex, s.input)}
-                  activeOpacity={0.7}
-                >
-                  <View
-                    style={[
-                      diStyles.suggestionCheck,
-                      {
-                        backgroundColor: isSelected ? colors.primary : 'transparent',
-                        borderColor: isSelected ? colors.primary : colors.border,
-                      },
-                    ]}
-                  >
-                    {isSelected && <Check size={14} color="#000" strokeWidth={3} />}
-                  </View>
-                  <Text style={[diStyles.suggestionText, { color: colors.text }]}>{s.input}</Text>
-                  <View
-                    style={[
-                      diStyles.frequencyBadge,
-                      {
-                        backgroundColor:
-                          s.frequency === 'weekly' ? colors.primary + '15' : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        diStyles.frequencyText,
-                        {
-                          color:
-                            s.frequency === 'weekly' ? colors.primary : colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {s.frequency}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-            {customSelected.map((input, ci) => (
-              <TouchableOpacity
-                key={`custom-${ci}`}
-                style={[
-                  diStyles.suggestionCard,
-                  {
-                    backgroundColor: colors.primary + '18',
-                    borderColor: colors.primary,
-                  },
-                ]}
-                onPress={() => onToggleInput(goalIndex, input)}
-                activeOpacity={0.7}
-              >
-                <View style={[diStyles.suggestionCheck, { backgroundColor: colors.primary, borderColor: colors.primary }]}>
-                  <Check size={14} color="#000" strokeWidth={3} />
-                </View>
-                <Text style={[diStyles.suggestionText, { color: colors.text }]}>{input}</Text>
-                <View style={[diStyles.frequencyBadge, { backgroundColor: colors.primary + '15' }]}>
-                  <Text style={[diStyles.frequencyText, { color: colors.primary }]}>custom</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+          <View style={{ position: 'relative' }}>
+            <View
+              style={[diStyles.suggestionList, loading && { opacity: 0.4 }]}
+              pointerEvents={loading ? 'none' : 'auto'}
+            >
+              {result.suggestions.map((s, i) => {
+                const isSelected = selected.includes(s.input);
+                return (
+                  <AnimatedSuggestionCard
+                    key={`${s.input}-${i}`}
+                    input={s.input}
+                    frequency={s.frequency}
+                    isSelected={isSelected}
+                    onPress={() => onToggleInput(goalIndex, s.input)}
+                    animateKey={s.input}
+                  />
+                );
+              })}
+              {customSelected.map((input, ci) => (
+                <AnimatedSuggestionCard
+                  key={`custom-${ci}`}
+                  input={input}
+                  frequency="custom"
+                  isSelected
+                  onPress={() => onToggleInput(goalIndex, input)}
+                  animateKey={input}
+                />
+              ))}
+            </View>
+            {loading && (
+              <View style={diStyles.updatingOverlay}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[diStyles.updatingText, { color: colors.textSecondary }]}>
+                  Updating...
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={diStyles.customRow}>
@@ -1041,6 +1086,20 @@ const diStyles = StyleSheet.create({
   suggestionText: { flex: 1, fontSize: 15, fontWeight: '600', lineHeight: 21 },
   frequencyBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   frequencyText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  updatingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  updatingText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   customRow: { flexDirection: 'row', gap: 8 },
   customInput: {
     flex: 1,
