@@ -426,6 +426,7 @@ type Phase =
   | { kind: 'welcome'; screen: 0 | 1 | 2 }
   | { kind: 'goals-entry' }
   | { kind: 'intro' }
+  | { kind: 'classifying'; goalIdx: number }
   | { kind: 'path-select'; goalIdx: number }
   | { kind: 'goal-done-looks'; goalIdx: number; chosenPath: DecodePath; doneLooksInitial?: string }
   | { kind: 'goal-fuel-redirect'; goalIdx: number; practiceText: string; redirectInitial?: string }
@@ -665,7 +666,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
           return;
         }
       }
-      navigate({ kind: 'path-select', goalIdx: nextIdx });
+      navigate({ kind: 'classifying', goalIdx: nextIdx });
     } else {
       navigate({ kind: 'identity' });
     }
@@ -797,12 +798,30 @@ export default function IdentityBuilder({ onComplete }: Props) {
           />
         );
 
+      case 'classifying': {
+        const goalIdx = phase.goalIdx;
+        const goalLabel = goals[goalIdx]?.label ?? '';
+        return (
+          <ClassifyingPhase
+            goalLabel={goalLabel}
+            onClassified={(path, extractedTarget) => {
+              if (path === 'numbers' && extractedTarget) {
+                setGoals(prev => prev.map((g, i) =>
+                  i === goalIdx ? { ...g, inheritedTarget: extractedTarget } : g
+                ));
+              }
+              navigate({ kind: 'decode', goalIdx, path });
+            }}
+          />
+        );
+      }
+
       case 'intro':
         return (
           <IntroScreen
             goals={goals}
             goalLabelOverrides={goalLabelOverrides}
-            onNext={() => navigate({ kind: 'path-select', goalIdx: 0 })}
+            onNext={() => navigate({ kind: 'classifying', goalIdx: 0 })}
             onBack={goBack}
           />
         );
@@ -848,7 +867,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
             onContinue={redirectText => {
               const updated = { ...goals[goalIdx], label: redirectText };
               setGoals(prev => prev.map((x, i) => i === goalIdx ? updated : x));
-              navigate({ kind: 'path-select', goalIdx });
+              navigate({ kind: 'classifying', goalIdx });
             }}
           />
         );
@@ -1042,6 +1061,58 @@ export default function IdentityBuilder({ onComplete }: Props) {
     <View style={[ibStyles.root, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <Animated.View style={containerStyle}>
         {renderPhase()}
+      </Animated.View>
+    </View>
+  );
+}
+
+// ─── Classifying phase (inline loading state) ──────────────────────────────────
+
+function ClassifyingPhase({
+  goalLabel,
+  onClassified,
+}: {
+  goalLabel: string;
+  onClassified: (path: DecodePath, extractedTarget: string | null) => void;
+}) {
+  const { colors } = useTheme();
+  const opacity = useSharedValue(0);
+  useEffect(() => { opacity.value = withTiming(1, { duration: 300 }); }, []);
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('classify-goal-path', {
+          body: { goal: goalLabel },
+        });
+        if (cancelled) return;
+        if (error || !data || (data.path !== 'numbers' && data.path !== 'practice' && data.path !== 'starting')) {
+          onClassified('starting', null);
+          return;
+        }
+        const extracted = typeof data.extractedTarget === 'string' && data.extractedTarget.trim().length > 0
+          ? data.extractedTarget.trim()
+          : null;
+        onClassified(data.path as DecodePath, extracted);
+      } catch {
+        if (!cancelled) onClassified('starting', null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}>
+      <Animated.View style={[fadeStyle, { alignItems: 'center', gap: 20 }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textSecondary, textAlign: 'center' }}>
+          Analyzing your goal...
+        </Text>
+        <Text style={{ fontSize: 14, color: colors.textTertiary, textAlign: 'center', maxWidth: 280 }}>
+          {goalLabel}
+        </Text>
       </Animated.View>
     </View>
   );
