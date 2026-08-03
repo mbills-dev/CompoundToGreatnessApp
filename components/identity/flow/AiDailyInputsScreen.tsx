@@ -8,7 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import { ArrowRight, Check, RotateCw, Sparkles, Plus, ArrowLeft, Pencil, X, GitMerge } from 'lucide-react-native';
+import { ArrowRight, Check, RotateCw, Sparkles, Plus, ArrowLeft, Pencil, X, GitMerge, Scissors } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FlowGoal } from './types';
 import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
@@ -157,6 +157,145 @@ function MergeEditor({
           activeOpacity={0.8}
         >
           <Text style={ovStyles.combineBtnText}>Confirm</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+function remapRecord<T>(
+  prev: Record<number, T>,
+  removeSet: Set<number>,
+  goalsLength: number,
+  defaultValue: T,
+): Record<number, T> {
+  const next: Record<number, T> = {};
+  let newIdx = 0;
+  for (let i = 0; i < goalsLength; i++) {
+    if (removeSet.has(i)) continue;
+    next[newIdx] = prev[i] ?? defaultValue;
+    newIdx++;
+  }
+  return next;
+}
+
+function GoalCountNudge({
+  count,
+  onTrim,
+  onKeepAll,
+}: {
+  count: number;
+  onTrim: () => void;
+  onKeepAll: () => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={[nudgeStyles.overlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+      <View style={[nudgeStyles.card, { backgroundColor: colors.card }]}>
+        <View style={nudgeStyles.iconWrap}>
+          <Scissors size={28} color={colors.primary} strokeWidth={2.5} />
+        </View>
+        <Text style={[nudgeStyles.title, { color: colors.text }]}>
+          You've got {count} goals
+        </Text>
+        <Text style={[nudgeStyles.body, { color: colors.textSecondary }]}>
+          Most people succeed by focusing on fewer at once. Want to trim your list before we build your Success Stack?
+        </Text>
+        <View style={nudgeStyles.actions}>
+          <TouchableOpacity
+            style={[nudgeStyles.trimBtn, { backgroundColor: colors.primary }]}
+            onPress={onTrim}
+            activeOpacity={0.8}
+          >
+            <Text style={nudgeStyles.trimBtnText}>Trim My List</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[nudgeStyles.keepBtn, { borderColor: colors.border }]}
+            onPress={onKeepAll}
+            activeOpacity={0.7}
+          >
+            <Text style={[nudgeStyles.keepBtnText, { color: colors.textSecondary }]}>
+              Keep All {count}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function TrimModal({
+  goals,
+  checked,
+  onToggle,
+  onConfirm,
+  onCancel,
+}: {
+  goals: FlowGoal[];
+  checked: Set<number>;
+  onToggle: (idx: number) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const { colors, isDark } = useTheme();
+  const checkedCount = goals.filter((_, i) => checked.has(i)).length;
+  return (
+    <View style={[nudgeStyles.overlay, { backgroundColor: 'rgba(0,0,0,0.7)' }]}>
+      <View style={[nudgeStyles.trimCard, { backgroundColor: colors.card }]}>
+        <View style={nudgeStyles.trimHeader}>
+          <TouchableOpacity onPress={onCancel} style={nudgeStyles.closeBtn} activeOpacity={0.6}>
+            <X size={20} color={colors.textSecondary} strokeWidth={2.5} />
+          </TouchableOpacity>
+          <Text style={[nudgeStyles.trimTitle, { color: colors.text }]}>Trim your list</Text>
+          <View style={nudgeStyles.closeBtn} />
+        </View>
+        <Text style={[nudgeStyles.trimSubtitle, { color: colors.textSecondary }]}>
+          Uncheck any goals you want to save for later
+        </Text>
+        <ScrollView style={nudgeStyles.trimScroll} showsVerticalScrollIndicator={false}>
+          {goals.map((goal, i) => {
+            const isChecked = checked.has(i);
+            return (
+              <TouchableOpacity
+                key={goal.id}
+                style={[
+                  nudgeStyles.trimItem,
+                  {
+                    backgroundColor: isChecked
+                      ? isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'
+                      : isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)',
+                    borderColor: isChecked ? colors.primary + '40' : colors.border,
+                  },
+                ]}
+                onPress={() => onToggle(i)}
+                activeOpacity={0.7}
+              >
+                <View style={[
+                  nudgeStyles.trimCheck,
+                  {
+                    backgroundColor: isChecked ? colors.primary : 'transparent',
+                    borderColor: isChecked ? colors.primary : colors.border,
+                  },
+                ]}>
+                  {isChecked && <Check size={16} color="#000" strokeWidth={3} />}
+                </View>
+                <Text style={[nudgeStyles.trimItemText, { color: colors.text }]}>{goal.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+        <TouchableOpacity
+          style={[
+            nudgeStyles.trimConfirmBtn,
+            { backgroundColor: colors.primary, opacity: checkedCount > 0 ? 1 : 0.5 },
+          ]}
+          onPress={onConfirm}
+          disabled={checkedCount === 0}
+          activeOpacity={0.8}
+        >
+          <Text style={nudgeStyles.trimConfirmText}>
+            Continue with {checkedCount} goal{checkedCount !== 1 ? 's' : ''}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -544,12 +683,14 @@ export function AiDailyInputsScreen({
   onBack,
   onEditGoal,
   onMergeGoals,
+  onRemoveGoals,
 }: {
   goals: FlowGoal[];
   onDone: (selectedInputs: Record<number, string[]>) => void;
   onBack: () => void;
   onEditGoal: (goalIndex: number, newLabel: string) => void;
   onMergeGoals: (keepIndex: number, newLabel: string, removeIndices: number[]) => void;
+  onRemoveGoals: (removeIndices: number[]) => void;
 }) {
   const { colors } = useTheme();
   const [results, setResults] = useState<Record<number, GoalInputResult | null>>({});
@@ -559,6 +700,9 @@ export function AiDailyInputsScreen({
   const [overlapGroups, setOverlapGroups] = useState<OverlapGroup[]>([]);
   const [dismissedGroups, setDismissedGroups] = useState<Set<number>>(new Set());
   const [mergeGroupIdx, setMergeGroupIdx] = useState<number | null>(null);
+  const [goalCountResolved, setGoalCountResolved] = useState(goals.length <= 10);
+  const [showTrimModal, setShowTrimModal] = useState(false);
+  const [trimChecked, setTrimChecked] = useState<Set<number>>(new Set());
   const fetchedRef = useRef(false);
 
   const callForGoal = useCallback(async (
@@ -574,7 +718,7 @@ export function AiDailyInputsScreen({
   }, []);
 
   useEffect(() => {
-    if (fetchedRef.current || goals.length === 0) return;
+    if (fetchedRef.current || goals.length === 0 || !goalCountResolved) return;
     fetchedRef.current = true;
     Promise.all(goals.map((g, i) => callForGoal(i, g.label)));
     if (goals.length >= 2) {
@@ -582,7 +726,7 @@ export function AiDailyInputsScreen({
         setOverlapGroups(groups);
       });
     }
-  }, [goals, callForGoal]);
+  }, [goals, callForGoal, goalCountResolved]);
 
   const toggleInput = (goalIndex: number, input: string) => {
     setSelectedInputs(prev => {
@@ -690,6 +834,31 @@ export function AiDailyInputsScreen({
     onMergeGoals(keepIndex, newLabel, removeIndices);
   };
 
+  const handleConfirmTrim = () => {
+    const removeIndices = goals
+      .map((_, i) => i)
+      .filter(i => !trimChecked.has(i));
+
+    if (removeIndices.length === 0) {
+      setGoalCountResolved(true);
+      setShowTrimModal(false);
+      return;
+    }
+
+    if (removeIndices.length >= goals.length) return;
+
+    const removeSet = new Set(removeIndices);
+
+    setResults(prev => remapRecord(prev, removeSet, goals.length, null as GoalInputResult | null));
+    setLoading(prev => remapRecord(prev, removeSet, goals.length, false));
+    setSelectedInputs(prev => remapRecord(prev, removeSet, goals.length, [] as string[]));
+    setClarifyHistory(prev => remapRecord(prev, removeSet, goals.length, [] as { question: string; answer: string }[]));
+
+    setGoalCountResolved(true);
+    setShowTrimModal(false);
+    onRemoveGoals(removeIndices);
+  };
+
   const totalSelected = Object.values(selectedInputs).reduce(
     (sum, arr) => sum + arr.length,
     0,
@@ -787,6 +956,32 @@ export function AiDailyInputsScreen({
           <ArrowRight size={20} color="#000" strokeWidth={3} />
         </TouchableOpacity>
       </View>
+
+      {!goalCountResolved && (
+        <GoalCountNudge
+          count={goals.length}
+          onTrim={() => {
+            setTrimChecked(new Set(goals.map((_, i) => i)));
+            setShowTrimModal(true);
+          }}
+          onKeepAll={() => setGoalCountResolved(true)}
+        />
+      )}
+
+      {showTrimModal && (
+        <TrimModal
+          goals={goals}
+          checked={trimChecked}
+          onToggle={(idx) => setTrimChecked(prev => {
+            const next = new Set(prev);
+            if (next.has(idx)) next.delete(idx);
+            else next.add(idx);
+            return next;
+          })}
+          onConfirm={handleConfirmTrim}
+          onCancel={() => setShowTrimModal(false)}
+        />
+      )}
     </View>
   );
 }
@@ -950,5 +1145,135 @@ const ovStyles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     minHeight: 48,
+  },
+});
+
+const nudgeStyles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  card: {
+    borderRadius: 20,
+    padding: 28,
+    alignItems: 'center',
+    gap: 16,
+    maxWidth: 400,
+    width: '100%',
+  },
+  iconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(204,255,0,0.08)',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    textAlign: 'center',
+  },
+  body: {
+    fontSize: 15,
+    fontWeight: '500',
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  actions: {
+    gap: 10,
+    width: '100%',
+    marginTop: 4,
+  },
+  trimBtn: {
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trimBtnText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#000000',
+  },
+  keepBtn: {
+    paddingVertical: 16,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  keepBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  trimCard: {
+    borderRadius: 20,
+    padding: 20,
+    maxWidth: 440,
+    width: '100%',
+    maxHeight: '85%',
+    gap: 14,
+  },
+  trimHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trimTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  trimSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  trimScroll: {
+    flex: 1,
+  },
+  trimItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    padding: 14,
+    marginBottom: 8,
+  },
+  trimCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trimItemText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 21,
+  },
+  trimConfirmBtn: {
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trimConfirmText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#000000',
   },
 });
