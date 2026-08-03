@@ -467,6 +467,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
   const [displayName, setDisplayName] = useState<string>('');
   const [isAiSourced, setIsAiSourced] = useState(false);
   const [aiSelectedInputs, setAiSelectedInputs] = useState<Record<number, string[]>>({});
+  const [aiIdentityLines, setAiIdentityLines] = useState<Record<number, string>>({});
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -625,6 +626,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
         goalId: goal.id, dailyInput, goalLabel, doneLooksText,
         what: dailyInput, when, where, schedule, isStandard, decodePath,
         resolvedTargetStr, dailyNumber, winNoun, actionNoun, ratio, periodSuffix,
+        identityLine: isAiSourced ? aiIdentityLines[goalIdx] : undefined,
         additionalInputs: [],
       },
     ]);
@@ -718,6 +720,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
               setIdentityOverrides({});
               setIsAiSourced(!!aiSourced);
               setAiSelectedInputs({});
+              setAiIdentityLines({});
               navigate(aiSourced ? { kind: 'ai-daily-inputs' } : { kind: 'intro' });
             }}
           />
@@ -781,8 +784,9 @@ export default function IdentityBuilder({ onComplete }: Props) {
                 return next;
               });
             }}
-            onDone={selected => {
+            onDone={(selected, idLines) => {
               setAiSelectedInputs(selected);
+              setAiIdentityLines(idLines);
               const firstInput = (selected[0] ?? [])[0];
               if (firstInput) {
                 navigate({ kind: 'anchor', goalIdx: 0, dailyInput: firstInput, decodePath: 'starting' });

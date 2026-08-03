@@ -17,11 +17,13 @@ Rules — follow every one:
 5. If clarification history is provided (prior Q&A pairs for this goal), treat each answer as additional context appended to the goal and generate higher-confidence suggestions. If you STILL cannot generate confident inputs even with the history, force specificity to "high" anyway and return the best available guess with clarifying_question set to null — do not ask another follow-up. If context from the user's other goals in this session is provided, reuse relevant facts (e.g. an existing business, income source, or schedule constraint) without re-asking.
 6. Each suggestion has a "frequency" field which is ALWAYS "daily".
 7. Keep each input string under 80 characters. No quotation marks, no emojis, no exclamation points.
-8. No preamble, no commentary, no markdown fences. Output ONLY a JSON object matching the required shape.
+8. Include an "identityLine" field: a single natural, present-tense, first-person "I..." sentence describing the goal as already true. It must start with "I " and end with a period. Write it as though the person has already achieved the goal. Examples: "drive a Tesla Model X" → "I drive a Tesla Model X."; "be debt free" → "I am debt free."; "have over 300,000 YouTube subscribers" → "I have over 300,000 YouTube subscribers."
+9. No preamble, no commentary, no markdown fences. Output ONLY a JSON object matching the required shape.
 
 Output shape (exactly):
 {
   "goal": "<the original goal string>",
+  "identityLine": "<first-person present-tense I... sentence>",
   "specificity": "high" | "low",
   "clarifying_question": "string | null",
   "suggestions": [
@@ -155,8 +157,14 @@ Deno.serve(async (req: Request) => {
       return json({ error: "shape_mismatch" }, 502);
     }
 
+    const identityLine =
+      typeof obj.identityLine === "string" && obj.identityLine.trim().length > 0
+        ? obj.identityLine.trim()
+        : null;
+
     return json({
       goal: cleanedGoal,
+      identityLine,
       specificity: finalSpecificity,
       clarifying_question: finalClarifyingQuestion,
       suggestions,

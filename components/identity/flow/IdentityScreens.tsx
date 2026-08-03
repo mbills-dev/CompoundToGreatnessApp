@@ -46,6 +46,7 @@ export function deriveIdentityLine(lock: LockedGoal): IdentityShape {
         if (transformed) return { kind: 'sentence', text: transformed };
         return { kind: 'stacked', finishLine: refined };
       }
+      if (lock.identityLine) return { kind: 'sentence', text: lock.identityLine };
       return { kind: 'stacked', finishLine: lock.goalLabel };
     }
     case 'starting': {
@@ -58,6 +59,7 @@ export function deriveIdentityLine(lock: LockedGoal): IdentityShape {
         if (transformed) return { kind: 'sentence', text: transformed };
         return { kind: 'stacked', finishLine: refined };
       }
+      if (lock.identityLine) return { kind: 'sentence', text: lock.identityLine };
       return { kind: 'stacked', finishLine: lock.goalLabel };
     }
   }

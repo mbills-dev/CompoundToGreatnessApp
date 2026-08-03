@@ -21,6 +21,7 @@ export interface Suggestion {
 
 interface GoalInputResult {
   goal: string;
+  identityLine?: string;
   specificity: 'high' | 'low';
   clarifying_question: string | null;
   suggestions: Suggestion[];
@@ -731,7 +732,7 @@ export function AiDailyInputsScreen({
   onRemoveGoals,
 }: {
   goals: FlowGoal[];
-  onDone: (selectedInputs: Record<number, string[]>) => void;
+  onDone: (selectedInputs: Record<number, string[]>, identityLines: Record<number, string>) => void;
   onBack: () => void;
   onEditGoal: (goalIndex: number, newLabel: string) => void;
   onMergeGoals: (keepIndex: number, newLabel: string, removeIndices: number[]) => void;
@@ -739,6 +740,7 @@ export function AiDailyInputsScreen({
 }) {
   const { colors } = useTheme();
   const [results, setResults] = useState<Record<number, GoalInputResult | null>>({});
+  const [identityLines, setIdentityLines] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState<Record<number, boolean>>({});
   const [selectedInputs, setSelectedInputs] = useState<SelectedInputs>({});
   const [clarifyHistory, setClarifyHistory] = useState<Record<number, { question: string; answer: string }[]>>({});
@@ -759,6 +761,9 @@ export function AiDailyInputsScreen({
     setLoading(prev => ({ ...prev, [goalIndex]: true }));
     const result = await fetchDailyInputs(goal, history, otherGoalsContext);
     setResults(prev => ({ ...prev, [goalIndex]: result }));
+    if (result?.identityLine) {
+      setIdentityLines(prev => ({ ...prev, [goalIndex]: result.identityLine! }));
+    }
     setLoading(prev => ({ ...prev, [goalIndex]: false }));
   }, []);
 
@@ -872,6 +877,17 @@ export function AiDailyInputsScreen({
       return next;
     });
 
+    setIdentityLines(prev => {
+      const next: Record<number, string> = {};
+      let newIdx = 0;
+      for (let i = 0; i < goals.length; i++) {
+        if (removeSet.has(i)) continue;
+        next[newIdx] = prev[i] ?? '';
+        newIdx++;
+      }
+      return next;
+    });
+
     setOverlapGroups([]);
     setDismissedGroups(new Set());
     setMergeGroupIdx(null);
@@ -898,6 +914,7 @@ export function AiDailyInputsScreen({
     setLoading(prev => remapRecord(prev, removeSet, goals.length, false));
     setSelectedInputs(prev => remapRecord(prev, removeSet, goals.length, [] as string[]));
     setClarifyHistory(prev => remapRecord(prev, removeSet, goals.length, [] as { question: string; answer: string }[]));
+    setIdentityLines(prev => remapRecord(prev, removeSet, goals.length, ''));
 
     setGoalCountResolved(true);
     setShowTrimModal(false);
@@ -991,7 +1008,7 @@ export function AiDailyInputsScreen({
           ]}
           activeOpacity={0.85}
           disabled={!allHaveSelection}
-          onPress={() => onDone(selectedInputs)}
+          onPress={() => onDone(selectedInputs, identityLines)}
         >
           <Text style={diStyles.primaryButtonText}>
             {allHaveSelection
