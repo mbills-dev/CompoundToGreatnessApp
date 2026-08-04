@@ -31,12 +31,25 @@ function applyBecomeTransform(text: string): string | null {
   return null;
 }
 
+function formatTargetDisplay(raw: string): string {
+  const match = raw.match(/^\$?([\d,]+(?:\.\d+)?)\s*([KkMm])?$/);
+  if (!match) return raw;
+  const suffix = match[2]?.toUpperCase();
+  if (suffix) return raw;
+  const num = parseFloat(match[1].replace(/,/g, ''));
+  if (isNaN(num)) return raw;
+  const formatted = Math.round(num).toLocaleString('en-US');
+  return raw.startsWith('$') ? `$${formatted}` : formatted;
+}
+
 export function deriveIdentityLine(lock: LockedGoal): IdentityShape {
   const refined = lock.doneLooksText?.trim();
 
   switch (lock.decodePath) {
     case 'numbers': {
-      const target = lock.resolvedTargetStr ?? lock.goalLabel;
+      const target = lock.resolvedTargetStr
+        ? formatTargetDisplay(lock.resolvedTargetStr)
+        : lock.goalLabel;
       const suffix = lock.periodSuffix ?? 'month';
       return { kind: 'sentence', text: `I earn ${target} a ${suffix} consistently.` };
     }
@@ -60,14 +73,14 @@ export function deriveIdentityLine(lock: LockedGoal): IdentityShape {
         return { kind: 'stacked', finishLine: refined };
       }
       if (lock.identityLine) return { kind: 'sentence', text: lock.identityLine };
+      const action = lock.dailyInput?.replace(/\.$/, '').trim();
+      if (action) {
+        const lowerAction = action.charAt(0).toLowerCase() + action.slice(1);
+        return { kind: 'sentence', text: `I ${lowerAction} every day.` };
+      }
       return { kind: 'stacked', finishLine: lock.goalLabel };
     }
   }
-}
-
-export function identityShapeToString(shape: IdentityShape): string {
-  if (shape.kind === 'sentence') return shape.text;
-  return shape.finishLine;
 }
 
 // ─── IdentityLineEditor ───────────────────────────────────────────────────────

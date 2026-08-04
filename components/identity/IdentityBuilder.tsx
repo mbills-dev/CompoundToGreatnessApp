@@ -537,6 +537,18 @@ export default function IdentityBuilder({ onComplete }: Props) {
     slideAnim.value = withTiming(-20, { duration: 220 });
   };
 
+  const navigateReplace = (next: Phase) => {
+    screenAnim.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.ease) }, (finished) => {
+      if (finished) {
+        runOnJS(setPhase)(next);
+        slideAnim.value = 30;
+        screenAnim.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.ease) });
+        slideAnim.value = withSpring(0, { damping: 20, stiffness: 160 });
+      }
+    });
+    slideAnim.value = withTiming(-20, { duration: 220 });
+  };
+
   const goBack = () => {
     if (history.length === 0) return;
     const prev = history[history.length - 1];
@@ -810,7 +822,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
                   i === goalIdx ? { ...g, inheritedTarget: extractedTarget } : g
                 ));
               }
-              navigate({ kind: 'decode', goalIdx, path });
+              navigateReplace({ kind: 'decode', goalIdx, path });
             }}
           />
         );

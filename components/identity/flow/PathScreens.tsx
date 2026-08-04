@@ -61,11 +61,21 @@ function hoursToYears(hours: number, minPerDay: number): string {
 function fmtNum(n: number): string {
   return n.toLocaleString('en-US');
 }
-
 function normalizeTarget(raw: string): string {
   const s = raw.trim();
   const withDollar = s.startsWith('$') ? s : `$${s}`;
   return withDollar.replace(/([kmKM])$/, m => m.toUpperCase());
+}
+
+function formatTargetDisplay(raw: string): string {
+  const match = raw.match(/^\$?([\d,]+(?:\.\d+)?)\s*([KkMm])?$/);
+  if (!match) return raw;
+  const suffix = match[2]?.toUpperCase();
+  if (suffix) return raw;
+  const num = parseFloat(match[1].replace(/,/g, ''));
+  if (isNaN(num)) return raw;
+  const formatted = Math.round(num).toLocaleString('en-US');
+  return raw.startsWith('$') ? `$${formatted}` : formatted;
 }
 
 function extractTargetFromText(text: string): string | null {
@@ -360,6 +370,17 @@ export function PathNumbers({
   const [revealed, setRevealed] = useState(false);
   const revealAnim = useSharedValue(0);
 
+  const targetCardAnim = useSharedValue(0);
+  useEffect(() => {
+    targetCardAnim.value = withSpring(1, { damping: 14, stiffness: 100 });
+  }, []);
+  const targetCardStyle = useAnimatedStyle(() => ({
+    opacity: targetCardAnim.value,
+    transform: [
+      { scale: interpolate(targetCardAnim.value, [0, 1], [0.85, 1]) },
+    ],
+  }));
+
   const resetReveal = () => {
     setRevealed(false);
     revealAnim.value = 0;
@@ -413,7 +434,7 @@ export function PathNumbers({
   return (
     <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
       {targetStr.trim() ? (
-        <View
+        <Animated.View
           style={[
             styles.inheritedTargetCard,
             {
@@ -422,6 +443,7 @@ export function PathNumbers({
                 : 'rgba(204,255,0,0.08)',
               borderColor: colors.primary + '50',
             },
+            targetCardStyle,
           ]}
         >
           <View style={{ flex: 1 }}>
@@ -430,7 +452,7 @@ export function PathNumbers({
             </Text>
             {!editingTarget ? (
               <Text style={[styles.inheritedValue, { color: colors.text }]}>
-                {targetStr}{' '}
+                {formatTargetDisplay(targetStr)}{' '}
                 <Text style={{ color: colors.primary, fontSize: 14 }}>
                   ✓ from your goal
                 </Text>
@@ -500,7 +522,7 @@ export function PathNumbers({
               />
             </TouchableOpacity>
           )}
-        </View>
+        </Animated.View>
       ) : (
         <ChipGroup
           label="Monthly target"
