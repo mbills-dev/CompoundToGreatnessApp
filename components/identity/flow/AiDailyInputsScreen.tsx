@@ -29,12 +29,12 @@ interface GoalInputResult {
 
 type SelectedInputs = Record<number, string[]>;
 
-interface OverlapGroup {
+export interface OverlapGroup {
   indices: number[];
   reason: string;
 }
 
-async function fetchOverlappingGoals(goalLabels: string[]): Promise<OverlapGroup[]> {
+export async function fetchOverlappingGoals(goalLabels: string[]): Promise<OverlapGroup[]> {
   try {
     const response = await fetch(
       `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/detect-overlapping-goals`,
@@ -58,7 +58,7 @@ async function fetchOverlappingGoals(goalLabels: string[]): Promise<OverlapGroup
   }
 }
 
-function OverlapBanner({
+export function OverlapBanner({
   reason,
   onKeepSeparate,
   onCombine,
@@ -106,7 +106,7 @@ function OverlapBanner({
   );
 }
 
-function MergeEditor({
+export function MergeEditor({
   defaultLabel,
   onConfirm,
   onCancel,
@@ -1142,7 +1142,7 @@ const diStyles = StyleSheet.create({
   primaryButtonText: { fontSize: 17, fontWeight: '800', color: '#000000', letterSpacing: 0.2 },
 });
 
-const ovStyles = StyleSheet.create({
+export const ovStyles = StyleSheet.create({
   banner: {
     borderRadius: 14,
     borderWidth: 1,

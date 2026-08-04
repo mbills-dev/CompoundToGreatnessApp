@@ -835,6 +835,23 @@ export default function IdentityBuilder({ onComplete }: Props) {
             goalLabelOverrides={goalLabelOverrides}
             onNext={() => navigate({ kind: 'classifying', goalIdx: 0 })}
             onBack={goBack}
+            onMergeGoals={(keepIndex, newLabel, removeIndices) => {
+              const removeSet = new Set(removeIndices);
+              setGoals(prev => {
+                const kept = prev[keepIndex];
+                if (!kept) return prev;
+                const next: FlowGoal[] = [];
+                for (let i = 0; i < prev.length; i++) {
+                  if (removeSet.has(i)) continue;
+                  if (i === keepIndex) {
+                    next.push({ ...prev[i], label: newLabel });
+                  } else {
+                    next.push(prev[i]);
+                  }
+                }
+                return next;
+              });
+            }}
           />
         );
 

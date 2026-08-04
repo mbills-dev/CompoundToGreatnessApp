@@ -23,6 +23,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { FlowGoal, DecodePath } from './types';
 import { GoalBadge, formatGoalLabel } from './AnchorScreens';
+import { OverlapGroup, fetchOverlappingGoals, OverlapBanner, MergeEditor } from './AiDailyInputsScreen';
 import styles from './styles';
 import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
 import { useInputSpecificity, SpecificityNudgeBanner, logInputFeedback, InputSource } from './InputValidation';
@@ -634,13 +635,37 @@ export function IntroScreen({
   onNext,
   onBack,
   goalLabelOverrides,
+  onMergeGoals,
 }: {
   goals: FlowGoal[];
   onNext: () => void;
   onBack: () => void;
   goalLabelOverrides: Record<number, string>;
+  onMergeGoals: (keepIndex: number, newLabel: string, removeIndices: number[]) => void;
 }) {
   const { colors } = useTheme();
+  const [overlapGroups, setOverlapGroups] = useState<OverlapGroup[]>([]);
+  const [dismissedGroups, setDismissedGroups] = useState<Set<number>>(new Set());
+  const [mergeGroupIdx, setMergeGroupIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (goals.length < 2) return;
+    fetchOverlappingGoals(goals.map(g => g.label)).then(groups => {
+      setOverlapGroups(groups);
+    });
+  }, [goals]);
+
+  const handleConfirmMerge = (groupIdx: number, newLabel: string) => {
+    const group = overlapGroups[groupIdx];
+    if (!group || group.indices.length < 2) return;
+    const keepIndex = group.indices[0];
+    const removeIndices = group.indices.slice(1);
+    setOverlapGroups([]);
+    setDismissedGroups(new Set());
+    setMergeGroupIdx(null);
+    onMergeGoals(keepIndex, newLabel, removeIndices);
+  };
+
   return (
     <View style={styles.screen}>
       <View style={{ flex: 1, justifyContent: 'center' }}>
@@ -671,14 +696,43 @@ export function IntroScreen({
         </Text>
 
         <View style={{ gap: 12, marginTop: 32 }}>
-          {goals.map((g, i) => (
-            <GoalBadge
-              key={g.id}
-              goal={g}
-              n={i + 1}
-              resolvedLabel={formatGoalLabel(g, goalLabelOverrides)}
-            />
-          ))}
+          {goals.map((g, i) => {
+            const activeGroups = overlapGroups
+              .map((grp, gi) => ({ group: grp, groupIdx: gi }))
+              .filter(({ group }) =>
+                group.indices.includes(i) &&
+                group.indices[0] === i &&
+                !dismissedGroups.has(group.indices[0]) &&
+                mergeGroupIdx === null,
+              );
+
+            return (
+              <View key={g.id}>
+                {activeGroups.map(({ group, groupIdx }) =>
+                  mergeGroupIdx === groupIdx ? (
+                    <MergeEditor
+                      key={`merge-${groupIdx}`}
+                      defaultLabel={`${goals[group.indices[0]]?.label ?? ''} (includes ${group.indices.slice(1).map(idx => goals[idx]?.label ?? '').join(', ')})`}
+                      onConfirm={(label) => handleConfirmMerge(groupIdx, label)}
+                      onCancel={() => setMergeGroupIdx(null)}
+                    />
+                  ) : (
+                    <OverlapBanner
+                      key={`overlap-${groupIdx}`}
+                      reason={group.reason}
+                      onKeepSeparate={() => setDismissedGroups(prev => new Set(prev).add(group.indices[0]))}
+                      onCombine={() => setMergeGroupIdx(groupIdx)}
+                    />
+                  ),
+                )}
+                <GoalBadge
+                  goal={g}
+                  n={i + 1}
+                  resolvedLabel={formatGoalLabel(g, goalLabelOverrides)}
+                />
+              </View>
+            );
+          })}
         </View>
       </View>
 
