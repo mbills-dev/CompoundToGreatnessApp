@@ -11,6 +11,7 @@ export interface FlowGoal {
   practiceSeed?: string;
   defaultPath: DecodePath;
   inheritedTarget?: string;
+  estimatedMasteryHours?: number;
 }
 
 export interface AnchoredInput {

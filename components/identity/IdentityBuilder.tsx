@@ -816,7 +816,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
         return (
           <ClassifyingPhase
             goalLabel={goalLabel}
-            onClassified={(path, extractedTarget, standardAction) => {
+            onClassified={(path, extractedTarget, standardAction, estimatedMasteryHours) => {
               if (path === 'numbers' && extractedTarget) {
                 setGoals(prev => prev.map((g, i) =>
                   i === goalIdx ? { ...g, inheritedTarget: extractedTarget } : g
@@ -825,6 +825,11 @@ export default function IdentityBuilder({ onComplete }: Props) {
               if (path === 'starting' && standardAction) {
                 setGoals(prev => prev.map((g, i) =>
                   i === goalIdx ? { ...g, practiceSeed: standardAction } : g
+                ));
+              }
+              if (path === 'practice' && estimatedMasteryHours) {
+                setGoals(prev => prev.map((g, i) =>
+                  i === goalIdx ? { ...g, estimatedMasteryHours } : g
                 ));
               }
               navigateReplace({ kind: 'decode', goalIdx, path });
@@ -1107,7 +1112,7 @@ function ClassifyingPhase({
   onClassified,
 }: {
   goalLabel: string;
-  onClassified: (path: DecodePath, extractedTarget: string | null, standardAction: string | null) => void;
+  onClassified: (path: DecodePath, extractedTarget: string | null, standardAction: string | null, estimatedMasteryHours: number | null) => void;
 }) {
   const { colors } = useTheme();
   const opacity = useSharedValue(0);
@@ -1123,7 +1128,7 @@ function ClassifyingPhase({
         });
         if (cancelled) return;
         if (error || !data || (data.path !== 'numbers' && data.path !== 'practice' && data.path !== 'starting')) {
-          onClassified('starting', null, null);
+          onClassified('starting', null, null, null);
           return;
         }
         const extracted = typeof data.extractedTarget === 'string' && data.extractedTarget.trim().length > 0
@@ -1132,9 +1137,12 @@ function ClassifyingPhase({
         const standard = typeof data.standardAction === 'string' && data.standardAction.trim().length > 0
           ? data.standardAction.trim()
           : null;
-        onClassified(data.path as DecodePath, extracted, standard);
+        const masteryHours = typeof data.estimatedMasteryHours === 'number' && !isNaN(data.estimatedMasteryHours) && data.estimatedMasteryHours > 0
+          ? Math.round(data.estimatedMasteryHours)
+          : null;
+        onClassified(data.path as DecodePath, extracted, standard, masteryHours);
       } catch {
-        if (!cancelled) onClassified('starting', null, null);
+        if (!cancelled) onClassified('starting', null, null, null);
       }
     })();
     return () => { cancelled = true; };

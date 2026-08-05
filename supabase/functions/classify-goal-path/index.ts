@@ -22,12 +22,14 @@ Rules:
 5. If path is "numbers" AND the goal text confidently states a specific numeric target (e.g. "$100k a month", "300,000 subscribers", "$1,000,000 this year", "50 clients"), extract just the plain number as a string — strip dollar signs, commas, and suffixes like k/m (expand them: 100k → 100000). Return it as "extractedTarget".
 6. If path is not "numbers", or if no specific number is confidently stated in the goal text, return null for "extractedTarget". Do NOT guess or invent a number that isn't explicitly in the goal.
 7. If path is "starting", check whether the goal text is ALREADY a complete, specific, measurable daily action — it must contain a number or an explicit frequency or a clear done/not-done criterion (e.g. "walk 10,000 steps a day", "read 20 pages daily", "drink a gallon of water", "no phone before noon", "meditate 10 minutes every morning"). If it IS already such an action, return it verbatim (trimmed) as "standardAction". If the goal is vague or needs breaking down (e.g. "walk more", "learn French", "be a better father", "get fit"), return null for "standardAction".
+8. If path is "practice", estimate "estimatedMasteryHours" — a rough, honest estimate of the TOTAL hours of deliberate practice needed to reach solid proficiency at this specific skill (not world-class mastery, just genuinely capable). Examples: learning a new language to conversational fluency ≈ 600; a technical skill like coding or design ≈ 300; a craft like woodworking or painting ≈ 300-600; an instrument to competent amateur ≈ 600; a complex skill like chess or Go ≈ 1000. Always return a number for practice-path goals — if genuinely uncertain, default to 300. Never return null for practice path.
 
 Output shape (exactly):
 {
   "path": "numbers" | "practice" | "starting",
   "extractedTarget": "string | null",
-  "standardAction": "string | null"
+  "standardAction": "string | null",
+  "estimatedMasteryHours": "number | null"
 }
 
 No preamble, no commentary, no markdown fences. Output ONLY the JSON object.`;
@@ -123,7 +125,14 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return json({ path, extractedTarget, standardAction });
+    let estimatedMasteryHours: number | null = null;
+    if (path === "practice" && typeof obj.estimatedMasteryHours === "number" && !isNaN(obj.estimatedMasteryHours) && obj.estimatedMasteryHours > 0) {
+      estimatedMasteryHours = Math.round(obj.estimatedMasteryHours);
+    } else if (path === "practice") {
+      estimatedMasteryHours = 300;
+    }
+
+    return json({ path, extractedTarget, standardAction, estimatedMasteryHours });
   } catch (e) {
     console.error("handler_error", String(e).slice(0, 400));
     return json({ error: "bad_request" }, 400);

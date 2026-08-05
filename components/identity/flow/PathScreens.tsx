@@ -17,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import Slider from '@react-native-community/slider';
 import { ArrowLeft, ArrowRight, Check, Zap, Pencil, RotateCw } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FlowGoal, DecodePath } from './types';
@@ -705,54 +706,24 @@ export function PathPractice({
   const deadlineMonths = DEADLINE_MONTHS[goal.deadline];
   const use77Days = deadlineMonths === undefined || goal.deadline === 'ongoing';
 
-  const hourChips = ['~100 hrs', '~300 hrs', '~600 hrs', '~1,000 hrs', 'No idea'];
-  const paceChips = ['15 min/day', '30 min/day', '60 min/day', '120 min/day'];
+  const hours = goal.estimatedMasteryHours ?? 300;
 
-  const [hoursChip, setHoursChip] = useState<string | null>(null);
-  const [paceChip, setPaceChip] = useState<string | null>(null);
+  const [pace, setPace] = useState(35);
   const [revealed, setRevealed] = useState(false);
   const [actionText, setActionText] = useState('');
 
-  const hoursMap: Record<string, number> = {
-    '~100 hrs': 100,
-    '~300 hrs': 300,
-    '~600 hrs': 600,
-    '~1,000 hrs': 1000,
-    'No idea': 300,
-  };
-  const paceMap: Record<string, number> = {
-    '15 min/day': 15,
-    '30 min/day': 30,
-    '60 min/day': 60,
-    '120 min/day': 120,
-  };
-
   const revealAnim = useSharedValue(0);
 
-  const knowsHours = hoursChip !== null && hoursChip !== 'No idea';
-  const hours = hoursChip
-    ? hoursMap[hoursChip] ?? parseNum(hoursChip)
-    : null;
-  const pace = paceChip
-    ? paceMap[paceChip] ?? parseNum(paceChip)
-    : null;
+  const timeline = hoursToYears(hours, pace);
 
-  const bankedDays = use77Days ? 77 : (deadlineMonths ?? 12) * 30;
-  const banked =
-    paceChip && !knowsHours && pace
-      ? Math.round((bankedDays * pace) / 60)
-      : null;
-  const timeline =
-    knowsHours && hours && pace ? hoursToYears(hours, pace) : null;
-
-  const canReveal = hoursChip !== null && paceChip !== null && actionText.trim().length > 0;
+  const canReveal = actionText.trim().length > 0;
 
   const timeframeLabel = use77Days
     ? 'your first 77 days'
     : `your ${goal.deadline} deadline`;
 
   const actionLabel = actionText.trim();
-  const result = actionLabel ? `${actionLabel} — ${paceChip}` : paceChip ?? '';
+  const result = actionLabel ? `${actionLabel} — ${pace} min/day` : `${pace} min/day`;
 
   const reset = () => {
     setRevealed(false);
@@ -779,67 +750,142 @@ export function PathPractice({
     ],
   }));
 
+  const zones = [
+    { label: 'Slow', icon: '🐢', range: '15-20 min', min: 15, max: 22 },
+    { label: 'Recommended', icon: '✅', range: '30-40 min', min: 23, max: 60 },
+    { label: 'Fast', icon: '⚡', range: '90-120 min', min: 61, max: 120 },
+  ];
+
+  const activeZone = pace <= 22 ? 0 : pace <= 60 ? 1 : 2;
+
   return (
     <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
-      <ChipGroup
-        label="Total hours to mastery"
-        options={hourChips}
-        selected={hoursChip}
-        onSelect={v => {
-          setHoursChip(v);
-          reset();
-        }}
-        keyboardType="numeric"
-        customPlaceholder="e.g. 500"
-      />
+      <View style={{ alignItems: 'center', marginTop: 8, marginBottom: 8 }}>
+        <Text
+          style={[
+            styles.fieldLabel,
+            { color: colors.primary, fontSize: 11, letterSpacing: 1.5, marginBottom: 8 },
+          ]}
+        >
+          YOUR DAILY COMMITMENT
+        </Text>
+        <Text
+          style={{
+            fontSize: 56,
+            fontWeight: '800',
+            color: colors.primary,
+            fontVariant: ['tabular-nums'],
+          }}
+        >
+          {pace}
+        </Text>
+        <Text
+          style={{
+            fontSize: 18,
+            fontWeight: '600',
+            color: colors.textSecondary,
+            marginTop: -2,
+          }}
+        >
+          min/day
+        </Text>
+        <Text
+          style={{
+            fontSize: 15,
+            fontWeight: '500',
+            color: colors.textSecondary,
+            marginTop: 10,
+            textAlign: 'center',
+          }}
+        >
+          At this pace, you'll get there in about {timeline}
+        </Text>
+      </View>
 
-      {hoursChip && (
-        <View style={{ marginTop: 20 }}>
-          <ChipGroup
-            label={
-              knowsHours
-                ? 'Daily pace (see timeline)'
-                : `Time budget (hours banked in ${timeframeLabel})`
-            }
-            options={paceChips}
-            selected={paceChip}
-            onSelect={v => {
-              setPaceChip(v);
-              reset();
-            }}
-            keyboardType="numeric"
-            customPlaceholder="e.g. 45 min/day"
-          />
-        </View>
-      )}
+      <View style={{ marginTop: 16, paddingHorizontal: 4 }}>
+        <Slider
+          style={{ width: '100%', height: 48 }}
+          minimumValue={15}
+          maximumValue={120}
+          step={5}
+          value={pace}
+          onValueChange={(v: number) => {
+            setPace(Math.round(v));
+            reset();
+          }}
+          minimumTrackTintColor={colors.primary}
+          maximumTrackTintColor={isDark ? '#333' : '#D8D8D8'}
+          thumbTintColor={colors.primary}
+        />
 
-      {paceChip && (
-        <View style={{ marginTop: 20 }}>
-          <Text style={[styles.fieldLabel, { color: colors.primary }]}>
-            What will you actually do?
-          </Text>
-          <TextInput
-            style={[
-              styles.customInlineInput,
-              { flex: 0 },
-              {
-                color: colors.text,
-                borderColor: colors.primary + '80',
-                backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-              },
-            ]}
-            value={actionText}
-            onChangeText={t => {
-              setActionText(t);
-              reset();
-            }}
-            placeholder="e.g. listen to a French podcast"
-            placeholderTextColor={colors.textTertiary}
-            returnKeyType="done"
-            inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
-          />
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            marginTop: 6,
+            paddingHorizontal: 2,
+          }}
+        >
+          {zones.map((zone, i) => (
+            <View
+              key={zone.label}
+              style={{
+                alignItems: 'center',
+                flex: 1,
+                opacity: activeZone === i ? 1 : 0.45,
+              }}
+            >
+              <Text style={{ fontSize: 16, marginBottom: 2 }}>{zone.icon}</Text>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: activeZone === i ? '800' : '600',
+                  color: activeZone === i ? colors.primary : colors.textSecondary,
+                  letterSpacing: 0.5,
+                }}
+              >
+                {zone.label.toUpperCase()}
+              </Text>
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontWeight: '500',
+                  color: colors.textTertiary,
+                  marginTop: 1,
+                }}
+              >
+                {zone.range}
+              </Text>
+            </View>
+          ))}
         </View>
-      )}
+      </View>
+
+      <View style={{ marginTop: 24 }}>
+        <Text style={[styles.fieldLabel, { color: colors.primary }]}>
+          What will you actually do?
+        </Text>
+        <TextInput
+          style={[
+            styles.customInlineInput,
+            { flex: 0 },
+            {
+              color: colors.text,
+              borderColor: colors.primary + '80',
+              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+            },
+          ]}
+          value={actionText}
+          onChangeText={t => {
+            setActionText(t);
+            reset();
+          }}
+          placeholder="e.g. listen to a French podcast"
+          placeholderTextColor={colors.textTertiary}
+          returnKeyType="done"
+          inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
+        />
+      </View>
 
       {canReveal && !revealed && (
         <TouchableOpacity
@@ -875,21 +921,13 @@ export function PathPractice({
               { color: colors.primary, fontSize: 38 },
             ]}
           >
-            {paceChip}
+            {pace} min/day
           </Text>
-          {knowsHours ? (
-            <Text
-              style={[styles.revealUnit, { color: colors.textSecondary }]}
-            >
-              Goal reached in {timeline}
-            </Text>
-          ) : (
-            <Text
-              style={[styles.revealUnit, { color: colors.textSecondary }]}
-            >
-              {banked} hours banked in {timeframeLabel}
-            </Text>
-          )}
+          <Text
+            style={[styles.revealUnit, { color: colors.textSecondary }]}
+          >
+            At this pace, you'll get there in about {timeline}
+          </Text>
           <TouchableOpacity
             style={[styles.lockBtn, { backgroundColor: colors.primary }]}
             onPress={() => onDone(result)}
