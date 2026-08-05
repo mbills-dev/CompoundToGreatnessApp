@@ -104,7 +104,7 @@ export function detectPeriod(...texts: string[]): PeriodInfo {
 
 // ─── Shared ChipGroup internals ───────────────────────────────────────────────
 
-function PresetChip({
+export function PresetChip({
   label,
   isSelected,
   delayMs,
@@ -159,7 +159,7 @@ function PresetChip({
   );
 }
 
-function ChipGroup({
+export function ChipGroup({
   label,
   options,
   selected,
