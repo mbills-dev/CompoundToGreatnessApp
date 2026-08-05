@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -16,13 +17,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, ArrowRight, Check, Zap, Pencil } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Check, Zap, Pencil, RotateCw } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FlowGoal, DecodePath } from './types';
 import { GoalBadge } from './AnchorScreens';
 import styles from './styles';
 import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
 import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
+import { fetchDailyInputs, GoalInputResult } from './AiDailyInputsScreen';
 
 // ─── Math helpers ─────────────────────────────────────────────────────────────
 
@@ -918,18 +920,66 @@ export function PathStarting({
   const { colors, isDark } = useTheme();
 
   const seedPrefill = goal.practiceSeed ?? '';
+  const isStandardPath = seedPrefill.trim().length > 0;
+
   const [text, setText] = useState(seedPrefill);
   const specificity = useInputSpecificity();
   const canDone = text.trim().length > 0;
 
+  const [aiResult, setAiResult] = useState<GoalInputResult | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [clarifyText, setClarifyText] = useState('');
+  const [regenerating, setRegenerating] = useState(false);
+  const [chipSelected, setChipSelected] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isStandardPath) return;
+    let cancelled = false;
+    setAiLoading(true);
+    fetchDailyInputs(goal.label).then(res => {
+      if (cancelled) return;
+      setAiResult(res);
+      setAiLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [isStandardPath, goal.label]);
+
+  const chipOptions = aiResult?.suggestions?.map(s => s.input) ?? [];
+
+  useEffect(() => {
+    if (isStandardPath) return;
+    if (chipSelected && !chipOptions.includes(chipSelected)) {
+      specificity.validate(chipSelected);
+    } else if (specificity.result) {
+      specificity.dismiss();
+    }
+  }, [chipSelected, chipOptions, isStandardPath]);
+
+  const handleRegenerate = async () => {
+    if (!clarifyText.trim() || regenerating) return;
+    setRegenerating(true);
+    const history = aiResult?.clarifying_question
+      ? [{ question: aiResult.clarifying_question, answer: clarifyText.trim() }]
+      : [{ question: '', answer: clarifyText.trim() }];
+    const res = await fetchDailyInputs(goal.label, history);
+    setAiResult(res);
+    setClarifyText('');
+    setRegenerating(false);
+  };
+
   const handleLock = () => {
-    if (!canDone) return;
-    const trimmed = text.trim();
-    const isStandard = seedPrefill.trim().length > 0 && trimmed === seedPrefill.trim();
-    onDone(trimmed, isStandard);
+    if (isStandardPath) {
+      if (!canDone) return;
+      const trimmed = text.trim();
+      onDone(trimmed, trimmed === seedPrefill.trim());
+      return;
+    }
+    if (!chipSelected) return;
+    onDone(chipSelected, false);
   };
 
   const finishLine = (doneLooksText ?? '').trim() || resolvedLabel;
+  const lockEnabled = isStandardPath ? canDone : !!chipSelected;
 
   return (
     <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
@@ -952,85 +1002,180 @@ export function PathStarting({
         </Text>
       </View>
 
-      <Text style={[styles.fieldLabel, { color: colors.primary, marginTop: 20 }]}>
-        Daily action that produces it
-      </Text>
-      <TextInput
-        style={[
-          styles.startingInput,
-          {
-            color: colors.text,
-            borderColor: text.trim()
-              ? colors.primary + '80'
-              : isDark
-              ? '#333'
-              : '#D8D8D8',
-            backgroundColor: isDark
-              ? 'rgba(255,255,255,0.04)'
-              : 'rgba(0,0,0,0.03)',
-          },
-        ]}
-        value={text}
-        onChangeText={setText}
-        placeholder="e.g. write 500 words, 30 min cardio"
-        placeholderTextColor={colors.textTertiary}
-        multiline
-        returnKeyType="done"
-        blurOnSubmit={true}
-        autoCapitalize="sentences"
-        inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
-        onBlur={() => specificity.validate(text)}
-      />
-
-      {specificity.result && (
-        <SpecificityNudgeBanner
-          result={specificity.result}
-          onAcceptExample={(ex) => { setText(ex); specificity.dismiss(); }}
-          onDismiss={specificity.dismiss}
-        />
-      )}
-
-      {seedPrefill.trim().length > 0 && (
-        <View
-          style={[
-            styles.seedNotice,
-            {
-              backgroundColor: isDark
-                ? 'rgba(204,255,0,0.06)'
-                : 'rgba(204,255,0,0.10)',
-              borderColor: 'rgba(204,255,0,0.25)',
-            },
-          ]}
-        >
-          <Zap size={13} color={colors.primary} strokeWidth={2.5} />
-          <Text style={[styles.seedNoticeText, { color: colors.textSecondary }]}>
-            Pre-filled from your goal — edit freely.
+      {isStandardPath ? (
+        <>
+          <Text style={[styles.fieldLabel, { color: colors.primary, marginTop: 20 }]}>
+            Daily action that produces it
           </Text>
-        </View>
+          <TextInput
+            style={[
+              styles.startingInput,
+              {
+                color: colors.text,
+                borderColor: text.trim()
+                  ? colors.primary + '80'
+                  : isDark
+                  ? '#333'
+                  : '#D8D8D8',
+                backgroundColor: isDark
+                  ? 'rgba(255,255,255,0.04)'
+                  : 'rgba(0,0,0,0.03)',
+              },
+            ]}
+            value={text}
+            onChangeText={setText}
+            placeholder="e.g. write 500 words, 30 min cardio"
+            placeholderTextColor={colors.textTertiary}
+            multiline
+            returnKeyType="done"
+            blurOnSubmit={true}
+            autoCapitalize="sentences"
+            inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
+            onBlur={() => specificity.validate(text)}
+          />
+
+          {specificity.result && (
+            <SpecificityNudgeBanner
+              result={specificity.result}
+              onAcceptExample={(ex) => { setText(ex); specificity.dismiss(); }}
+              onDismiss={specificity.dismiss}
+            />
+          )}
+
+          <View
+            style={[
+              styles.seedNotice,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(204,255,0,0.06)'
+                  : 'rgba(204,255,0,0.10)',
+                borderColor: 'rgba(204,255,0,0.25)',
+              },
+            ]}
+          >
+            <Zap size={13} color={colors.primary} strokeWidth={2.5} />
+            <Text style={[styles.seedNoticeText, { color: colors.textSecondary }]}>
+              Pre-filled from your goal — edit freely.
+            </Text>
+          </View>
+        </>
+      ) : (
+        <>
+          {aiLoading && !aiResult ? (
+            <View style={[styles.loadingRow, { marginTop: 20 }]}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+                Generating suggestions...
+              </Text>
+            </View>
+          ) : (
+            <>
+              {aiResult?.clarifying_question && (
+                <View
+                  style={[
+                    styles.clarifyCard,
+                    {
+                      backgroundColor: isDark ? 'rgba(204,255,0,0.06)' : 'rgba(204,255,0,0.08)',
+                      borderColor: colors.primary + '50',
+                      marginTop: 20,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.clarifyLabel, { color: colors.primary }]}>CLARIFY</Text>
+                  <Text style={[styles.clarifyQuestion, { color: colors.text }]}>
+                    {aiResult.clarifying_question}
+                  </Text>
+                  <View style={styles.clarifyInputRow}>
+                    <TextInput
+                      style={[
+                        styles.clarifyInput,
+                        {
+                          color: colors.text,
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                          borderColor: colors.border,
+                        },
+                      ]}
+                      value={clarifyText}
+                      onChangeText={setClarifyText}
+                      placeholder="Your answer..."
+                      placeholderTextColor={colors.textTertiary}
+                      multiline
+                    />
+                    <TouchableOpacity
+                      style={[
+                        styles.regenerateBtn,
+                        {
+                          backgroundColor: colors.primary,
+                          opacity: regenerating || !clarifyText.trim() ? 0.5 : 1,
+                        },
+                      ]}
+                      onPress={handleRegenerate}
+                      disabled={regenerating || !clarifyText.trim()}
+                      activeOpacity={0.8}
+                    >
+                      {regenerating ? (
+                        <ActivityIndicator size="small" color="#000" />
+                      ) : (
+                        <RotateCw size={16} color="#000" strokeWidth={2.5} />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              <View style={{ position: 'relative', marginTop: 20 }}>
+                <View pointerEvents={aiLoading ? 'none' : 'auto'} style={[aiLoading && { opacity: 0.4 }]}>
+                  <ChipGroup
+                    label="DAILY ACTION THAT PRODUCES IT"
+                    options={chipOptions}
+                    selected={chipSelected}
+                    onSelect={setChipSelected}
+                    customPlaceholder="Write your own..."
+                  />
+                  {specificity.result && (
+                    <SpecificityNudgeBanner
+                      result={specificity.result}
+                      onAcceptExample={(ex) => { setChipSelected(ex); specificity.dismiss(); }}
+                      onDismiss={specificity.dismiss}
+                    />
+                  )}
+                </View>
+                {aiLoading && (
+                  <View style={styles.updatingOverlay}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={[styles.updatingText, { color: colors.textSecondary }]}>
+                      Updating...
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </>
+          )}
+        </>
       )}
 
       <TouchableOpacity
         style={[
           styles.revealBtn,
           {
-            backgroundColor: canDone ? colors.primary : colors.border,
-            opacity: canDone ? 1 : 0.45,
+            backgroundColor: lockEnabled ? colors.primary : colors.border,
+            opacity: lockEnabled ? 1 : 0.45,
             marginTop: 28,
           },
         ]}
         onPress={handleLock}
         activeOpacity={0.85}
-        disabled={!canDone}
+        disabled={!lockEnabled}
       >
         <Check
           size={18}
-          color={canDone ? '#000' : colors.textTertiary}
+          color={lockEnabled ? '#000' : colors.textTertiary}
           strokeWidth={3}
         />
         <Text
           style={[
             styles.revealBtnText,
-            { color: canDone ? '#000' : colors.textTertiary },
+            { color: lockEnabled ? '#000' : colors.textTertiary },
           ]}
         >
           Lock This In

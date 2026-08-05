@@ -816,10 +816,15 @@ export default function IdentityBuilder({ onComplete }: Props) {
         return (
           <ClassifyingPhase
             goalLabel={goalLabel}
-            onClassified={(path, extractedTarget) => {
+            onClassified={(path, extractedTarget, standardAction) => {
               if (path === 'numbers' && extractedTarget) {
                 setGoals(prev => prev.map((g, i) =>
                   i === goalIdx ? { ...g, inheritedTarget: extractedTarget } : g
+                ));
+              }
+              if (path === 'starting' && standardAction) {
+                setGoals(prev => prev.map((g, i) =>
+                  i === goalIdx ? { ...g, practiceSeed: standardAction } : g
                 ));
               }
               navigateReplace({ kind: 'decode', goalIdx, path });
@@ -1102,7 +1107,7 @@ function ClassifyingPhase({
   onClassified,
 }: {
   goalLabel: string;
-  onClassified: (path: DecodePath, extractedTarget: string | null) => void;
+  onClassified: (path: DecodePath, extractedTarget: string | null, standardAction: string | null) => void;
 }) {
   const { colors } = useTheme();
   const opacity = useSharedValue(0);
@@ -1118,15 +1123,18 @@ function ClassifyingPhase({
         });
         if (cancelled) return;
         if (error || !data || (data.path !== 'numbers' && data.path !== 'practice' && data.path !== 'starting')) {
-          onClassified('starting', null);
+          onClassified('starting', null, null);
           return;
         }
         const extracted = typeof data.extractedTarget === 'string' && data.extractedTarget.trim().length > 0
           ? data.extractedTarget.trim()
           : null;
-        onClassified(data.path as DecodePath, extracted);
+        const standard = typeof data.standardAction === 'string' && data.standardAction.trim().length > 0
+          ? data.standardAction.trim()
+          : null;
+        onClassified(data.path as DecodePath, extracted, standard);
       } catch {
-        if (!cancelled) onClassified('starting', null);
+        if (!cancelled) onClassified('starting', null, null);
       }
     })();
     return () => { cancelled = true; };

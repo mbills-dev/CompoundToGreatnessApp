@@ -19,7 +19,7 @@ export interface Suggestion {
   frequency: 'daily' | 'weekly';
 }
 
-interface GoalInputResult {
+export interface GoalInputResult {
   goal: string;
   identityLine?: string;
   specificity: 'high' | 'low';
@@ -304,7 +304,7 @@ function TrimModal({
   );
 }
 
-async function fetchDailyInputs(
+export async function fetchDailyInputs(
   goal: string,
   history?: { question: string; answer: string }[],
   otherGoalsContext?: { goal: string; context: string }[],
