@@ -18,7 +18,7 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import Slider from '@react-native-community/slider';
-import { ArrowLeft, ArrowRight, Check, Zap, Pencil, RotateCw } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Check, Zap, Pencil, RotateCw, Turtle, Rabbit } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FlowGoal, DecodePath } from './types';
 import { GoalBadge } from './AnchorScreens';
@@ -751,9 +751,9 @@ export function PathPractice({
   }));
 
   const zones = [
-    { label: 'Slow', icon: '🐢', range: '15-20 min', min: 15, max: 22 },
-    { label: 'Recommended', icon: '✅', range: '30-40 min', min: 23, max: 60 },
-    { label: 'Fast', icon: '⚡', range: '90-120 min', min: 61, max: 120 },
+    { label: 'Slow', range: '15-20 min', min: 15, max: 22 },
+    { label: 'Recommended', range: '30-40 min', min: 23, max: 60 },
+    { label: 'Fast', range: '90-120 min', min: 61, max: 120 },
   ];
 
   const activeZone = pace <= 22 ? 0 : pace <= 60 ? 1 : 2;
@@ -835,7 +835,17 @@ export function PathPractice({
                 opacity: activeZone === i ? 1 : 0.45,
               }}
             >
-              <Text style={{ fontSize: 16, marginBottom: 2 }}>{zone.icon}</Text>
+              <View style={{ marginBottom: 2 }}>
+                {zone.label === 'Slow' && (
+                  <Turtle size={16} color={activeZone === i ? colors.primary : colors.textTertiary} strokeWidth={2} />
+                )}
+                {zone.label === 'Recommended' && (
+                  <Rabbit size={16} color={activeZone === i ? colors.primary : colors.textTertiary} strokeWidth={2} />
+                )}
+                {zone.label === 'Fast' && (
+                  <Zap size={16} color={activeZone === i ? colors.primary : colors.textTertiary} strokeWidth={2} />
+                )}
+              </View>
               <Text
                 style={{
                   fontSize: 11,
