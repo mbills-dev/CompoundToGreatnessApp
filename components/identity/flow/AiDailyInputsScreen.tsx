@@ -12,6 +12,7 @@ import { ArrowRight, Check, RotateCw, Sparkles, ArrowLeft, Pencil, X, GitMerge, 
 import { useTheme } from '@/contexts/ThemeContext';
 import { FlowGoal } from './types';
 import { ChipGroup } from './PathScreens';
+import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
 
 export interface Suggestion {
   input: string;
@@ -363,6 +364,16 @@ function GoalInputCard({
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalText, setGoalText] = useState(goal);
   const primarySelected = (selectedInputs[goalIndex] ?? [])[0] ?? null;
+  const chipOptions = result?.suggestions?.map(s => s.input) ?? [];
+  const specificity = useInputSpecificity();
+
+  useEffect(() => {
+    if (primarySelected && !chipOptions.includes(primarySelected)) {
+      specificity.validate(primarySelected);
+    } else if (specificity.result) {
+      specificity.dismiss();
+    }
+  }, [primarySelected, chipOptions]);
 
   const handleRegenerate = async () => {
     if (!clarifyText.trim() || regenerating) return;
@@ -371,8 +382,6 @@ function GoalInputCard({
     setClarifyText('');
     setRegenerating(false);
   };
-
-  const chipOptions = result?.suggestions?.map(s => s.input) ?? [];
 
   return (
     <View style={[diStyles.goalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -480,6 +489,13 @@ function GoalInputCard({
                 onSelect={(v) => onSelectPrimary(goalIndex, v)}
                 customPlaceholder="Write your own..."
               />
+              {specificity.result && (
+                <SpecificityNudgeBanner
+                  result={specificity.result}
+                  onAcceptExample={(ex) => { onSelectPrimary(goalIndex, ex); specificity.dismiss(); }}
+                  onDismiss={specificity.dismiss}
+                />
+              )}
             </View>
             {loading && (
               <View style={diStyles.updatingOverlay}>
