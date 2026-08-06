@@ -473,7 +473,7 @@ function GoalInputCard({
                   {regenerating ? (
                     <ActivityIndicator size="small" color="#000" />
                   ) : (
-                    <RotateCw size={16} color="#000" strokeWidth={2.5} />
+                    <ArrowRight size={16} color="#000" strokeWidth={2.5} />
                   )}
                 </TouchableOpacity>
               </View>
