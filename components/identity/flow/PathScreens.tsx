@@ -23,7 +23,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { FlowGoal, DecodePath } from './types';
 import { GoalBadge } from './AnchorScreens';
 import styles from './styles';
-import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
+import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID, KeyboardStepWrapperRef } from './KeyboardStepWrapper';
 import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
 import { fetchDailyInputs, GoalInputResult } from './AiDailyInputsScreen';
 
@@ -372,6 +372,7 @@ export function PathNumbers({
 
   const [revealed, setRevealed] = useState(false);
   const revealAnim = useSharedValue(0);
+  const scrollRef = useRef<KeyboardStepWrapperRef>(null);
 
   const targetCardAnim = useSharedValue(0);
   useEffect(() => {
@@ -419,6 +420,7 @@ export function PathNumbers({
         if (tick >= 8) clearInterval(interval);
       }, 80);
     }
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
   };
 
   const revealStyle = useAnimatedStyle(() => ({
@@ -435,7 +437,7 @@ export function PathNumbers({
     daily >= 10000 ? 36 : daily >= 1000 ? 44 : 56;
 
   return (
-    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
+    <KeyboardStepWrapper ref={scrollRef} contentContainerStyle={styles.decodeScroll}>
       {targetStr.trim() ? (
         <Animated.View
           style={[
@@ -715,6 +717,7 @@ export function PathPractice({
   const [aiLoading, setAiLoading] = useState(false);
   const lastFetchedPace = useRef<number | null>(null);
   const specificity = useInputSpecificity();
+  const scrollRef = useRef<KeyboardStepWrapperRef>(null);
 
   const revealAnim = useSharedValue(0);
 
@@ -768,6 +771,7 @@ export function PathPractice({
         if (tick >= 6) clearInterval(interval);
       }, 90);
     }
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
   };
 
   const revealStyle = useAnimatedStyle(() => ({
@@ -800,7 +804,7 @@ export function PathPractice({
   const pctFor = (val: number) => ((val - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100;
 
   return (
-    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
+    <KeyboardStepWrapper ref={scrollRef} contentContainerStyle={styles.decodeScroll}>
       <View style={{ alignItems: 'center', marginTop: 8, marginBottom: 8 }}>
         <Text
           style={[
@@ -1039,6 +1043,7 @@ export function PathStarting({
   const [text, setText] = useState(seedPrefill);
   const specificity = useInputSpecificity();
   const canDone = text.trim().length > 0;
+  const scrollRef = useRef<KeyboardStepWrapperRef>(null);
 
   const [aiResult, setAiResult] = useState<GoalInputResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -1054,6 +1059,7 @@ export function PathStarting({
       if (cancelled) return;
       setAiResult(res);
       setAiLoading(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
     });
     return () => { cancelled = true; };
   }, [isStandardPath, goal.label]);
@@ -1079,6 +1085,7 @@ export function PathStarting({
     setAiResult(res);
     setClarifyText('');
     setRegenerating(false);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
   };
 
   const handleLock = () => {
@@ -1096,7 +1103,7 @@ export function PathStarting({
   const lockEnabled = isStandardPath ? canDone : !!chipSelected;
 
   return (
-    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
+    <KeyboardStepWrapper ref={scrollRef} contentContainerStyle={styles.decodeScroll}>
       <View
         style={[
           styles.finishLineCard,
