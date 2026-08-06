@@ -51,7 +51,7 @@ import { PathSelectorScreen, PathNumbers, PathPractice, PathStarting } from './f
 import { AnchorScreen, AddInputScreen, GoalLockedScreen, GoalBadge, formatGoalLabel, displayGoalLabel } from './flow/AnchorScreens';
 import { AiDailyInputsScreen } from './flow/AiDailyInputsScreen';
 import { logInputFeedback, InputSource } from './flow/InputValidation';
-import { IdentityScreen, deriveIdentityLine } from './flow/IdentityScreens';
+import { IdentityScreen, deriveIdentityLine, formatTargetDisplay } from './flow/IdentityScreens';
 import { CompassStoryScreen, CompassDominoScreen, CompassMechanismScreen } from './flow/CompassScreens';
 import { FinaleScreen } from './flow/FinaleScreens';
 import { generateIdentityStatements } from './identityAi';
@@ -583,7 +583,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
         setGoalLabelOverrides(prev => ({ ...prev, [goal.id]: goal.deriveLabel!(resolvedTargetStr) }));
       } else {
         const suffix = numbersPayload?.periodSuffix ?? 'month';
-        setGoalLabelOverrides(prev => ({ ...prev, [goal.id]: `earning ${resolvedTargetStr}/${suffix} consistently` }));
+        setGoalLabelOverrides(prev => ({ ...prev, [goal.id]: `earning ${formatTargetDisplay(resolvedTargetStr)}/${suffix} consistently` }));
       }
     }
     setDecodeResults(prev => ({ ...prev, [goalIdx]: result }));

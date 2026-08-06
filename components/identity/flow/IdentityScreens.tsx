@@ -31,7 +31,7 @@ function applyBecomeTransform(text: string): string | null {
   return null;
 }
 
-function formatTargetDisplay(raw: string): string {
+export function formatTargetDisplay(raw: string): string {
   const match = raw.match(/^\$?([\d,]+(?:\.\d+)?)\s*([KkMm])?$/);
   if (!match) return raw;
   const suffix = match[2]?.toUpperCase();

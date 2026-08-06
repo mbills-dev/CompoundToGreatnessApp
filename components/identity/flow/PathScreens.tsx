@@ -26,6 +26,7 @@ import styles from './styles';
 import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID, KeyboardStepWrapperRef } from './KeyboardStepWrapper';
 import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
 import { fetchDailyInputs, GoalInputResult } from './AiDailyInputsScreen';
+import { formatTargetDisplay } from './IdentityScreens';
 
 // ─── Math helpers ─────────────────────────────────────────────────────────────
 
@@ -68,17 +69,6 @@ function normalizeTarget(raw: string): string {
   const s = raw.trim();
   const withDollar = s.startsWith('$') ? s : `$${s}`;
   return withDollar.replace(/([kmKM])$/, m => m.toUpperCase());
-}
-
-function formatTargetDisplay(raw: string): string {
-  const match = raw.match(/^\$?([\d,]+(?:\.\d+)?)\s*([KkMm])?$/);
-  if (!match) return raw;
-  const suffix = match[2]?.toUpperCase();
-  if (suffix) return raw;
-  const num = parseFloat(match[1].replace(/,/g, ''));
-  if (isNaN(num)) return raw;
-  const formatted = Math.round(num).toLocaleString('en-US');
-  return raw.startsWith('$') ? `$${formatted}` : formatted;
 }
 
 function extractTargetFromText(text: string): string | null {
