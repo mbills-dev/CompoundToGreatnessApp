@@ -384,7 +384,7 @@ function GoalInputCard({
   };
 
   return (
-    <View style={[diStyles.goalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View style={diStyles.goalCard}>
       {editingGoal ? (
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
           <TextInput
@@ -838,7 +838,7 @@ const diStyles = StyleSheet.create({
   title: { fontSize: 26, fontWeight: '900', letterSpacing: -0.6, lineHeight: 32 },
   subtitle: { fontSize: 14, fontWeight: '500', lineHeight: 20 },
   goalList: { gap: 16 },
-  goalCard: { borderRadius: 16, borderWidth: 1, padding: 18, gap: 14 },
+  goalCard: { borderRadius: 16, padding: 18, gap: 14 },
   goalLabel: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3, lineHeight: 24 },
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   loadingText: { fontSize: 14, fontWeight: '500' },
