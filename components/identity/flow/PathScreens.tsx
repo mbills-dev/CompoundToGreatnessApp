@@ -751,12 +751,26 @@ export function PathPractice({
   }));
 
   const zones = [
-    { label: 'Slow', range: '15-20 min', min: 15, max: 22 },
-    { label: 'Recommended', range: '30-40 min', min: 23, max: 60 },
-    { label: 'Fast', range: '90-120 min', min: 61, max: 120 },
+    { label: 'Slow', range: '15-20 min', min: 15, max: 20, midpoint: 17.5 },
+    { label: 'Recommended', range: '30-40 min', min: 30, max: 40, midpoint: 35 },
+    { label: 'Fast', range: '90-120 min', min: 90, max: 120, midpoint: 105 },
   ];
 
-  const activeZone = pace <= 22 ? 0 : pace <= 60 ? 1 : 2;
+  const activeZone = (() => {
+    const inside = zones.findIndex(z => pace >= z.min && pace <= z.max);
+    if (inside !== -1) return inside;
+    let best = 0;
+    let bestDist = Infinity;
+    zones.forEach((z, i) => {
+      const d = Math.abs(pace - z.midpoint);
+      if (d < bestDist) { bestDist = d; best = i; }
+    });
+    return best;
+  })();
+
+  const SLIDER_MIN = 15;
+  const SLIDER_MAX = 120;
+  const pctFor = (val: number) => ((val - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100;
 
   return (
     <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
@@ -789,20 +803,60 @@ export function PathPractice({
         >
           min/day
         </Text>
-        <Text
-          style={{
-            fontSize: 15,
-            fontWeight: '500',
-            color: colors.textSecondary,
-            marginTop: 10,
-            textAlign: 'center',
-          }}
-        >
-          At this pace, you'll get there in about {timeline}
-        </Text>
       </View>
 
       <View style={{ marginTop: 16, paddingHorizontal: 4 }}>
+        {/* Zone icons + labels positioned above the track at their true proportional locations */}
+        <View style={{ position: 'relative', height: 52, marginBottom: 4 }}>
+          {zones.map((zone, i) => {
+            const left = pctFor(zone.midpoint);
+            return (
+              <View
+                key={zone.label}
+                style={{
+                  position: 'absolute',
+                  left: `${left}%`,
+                  transform: [{ translateX: '-50%' }],
+                  alignItems: 'center',
+                  opacity: activeZone === i ? 1 : 0.45,
+                }}
+              >
+                <View style={{ marginBottom: 2 }}>
+                  {zone.label === 'Slow' && (
+                    <Turtle size={20} color={activeZone === i ? colors.primary : colors.textTertiary} strokeWidth={2} />
+                  )}
+                  {zone.label === 'Recommended' && (
+                    <Rabbit size={20} color={activeZone === i ? colors.primary : colors.textTertiary} strokeWidth={2} />
+                  )}
+                  {zone.label === 'Fast' && (
+                    <Zap size={20} color={activeZone === i ? colors.primary : colors.textTertiary} strokeWidth={2} />
+                  )}
+                </View>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: activeZone === i ? '800' : '600',
+                    color: activeZone === i ? colors.primary : colors.textSecondary,
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  {zone.label.toUpperCase()}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '500',
+                    color: colors.textTertiary,
+                    marginTop: 1,
+                  }}
+                >
+                  {zone.range}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+
         <Slider
           style={{ width: '100%', height: 48 }}
           minimumValue={15}
@@ -818,57 +872,17 @@ export function PathPractice({
           thumbTintColor={colors.primary}
         />
 
-        <View
+        <Text
           style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            marginTop: 6,
-            paddingHorizontal: 2,
+            fontSize: 15,
+            fontWeight: '500',
+            color: colors.textSecondary,
+            marginTop: 14,
+            textAlign: 'center',
           }}
         >
-          {zones.map((zone, i) => (
-            <View
-              key={zone.label}
-              style={{
-                alignItems: 'center',
-                flex: 1,
-                opacity: activeZone === i ? 1 : 0.45,
-              }}
-            >
-              <View style={{ marginBottom: 2 }}>
-                {zone.label === 'Slow' && (
-                  <Turtle size={16} color={activeZone === i ? colors.primary : colors.textTertiary} strokeWidth={2} />
-                )}
-                {zone.label === 'Recommended' && (
-                  <Rabbit size={16} color={activeZone === i ? colors.primary : colors.textTertiary} strokeWidth={2} />
-                )}
-                {zone.label === 'Fast' && (
-                  <Zap size={16} color={activeZone === i ? colors.primary : colors.textTertiary} strokeWidth={2} />
-                )}
-              </View>
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontWeight: activeZone === i ? '800' : '600',
-                  color: activeZone === i ? colors.primary : colors.textSecondary,
-                  letterSpacing: 0.5,
-                }}
-              >
-                {zone.label.toUpperCase()}
-              </Text>
-              <Text
-                style={{
-                  fontSize: 10,
-                  fontWeight: '500',
-                  color: colors.textTertiary,
-                  marginTop: 1,
-                }}
-              >
-                {zone.range}
-              </Text>
-            </View>
-          ))}
-        </View>
+          At this pace, you'll get there in about {timeline}
+        </Text>
       </View>
 
       <View style={{ marginTop: 24 }}>
