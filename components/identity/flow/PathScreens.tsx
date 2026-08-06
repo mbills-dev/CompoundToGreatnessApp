@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -711,8 +711,35 @@ export function PathPractice({
   const [pace, setPace] = useState(35);
   const [revealed, setRevealed] = useState(false);
   const [actionText, setActionText] = useState('');
+  const [aiResult, setAiResult] = useState<GoalInputResult | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const lastFetchedPace = useRef<number | null>(null);
+  const specificity = useInputSpecificity();
 
   const revealAnim = useSharedValue(0);
+
+  const loadSuggestions = useCallback(async (paceVal: number) => {
+    setAiLoading(true);
+    const goalStr = `${goal.label} — spend exactly ${paceVal} minutes per day on this`;
+    const res = await fetchDailyInputs(goalStr);
+    setAiResult(res);
+    setAiLoading(false);
+  }, [goal.label]);
+
+  useEffect(() => {
+    loadSuggestions(pace);
+    lastFetchedPace.current = pace;
+  }, [loadSuggestions]);
+
+  const chipOptions = aiResult?.suggestions?.map(s => s.input) ?? [];
+
+  useEffect(() => {
+    if (actionText && !chipOptions.includes(actionText)) {
+      specificity.validate(actionText);
+    } else if (specificity.result) {
+      specificity.dismiss();
+    }
+  }, [actionText, chipOptions]);
 
   const timeline = hoursToYears(hours, pace);
 
@@ -867,6 +894,13 @@ export function PathPractice({
             setPace(Math.round(v));
             reset();
           }}
+          onSlidingComplete={(v: number) => {
+            const rounded = Math.round(v);
+            if (rounded !== lastFetchedPace.current) {
+              lastFetchedPace.current = rounded;
+              loadSuggestions(rounded);
+            }
+          }}
           minimumTrackTintColor={colors.primary}
           maximumTrackTintColor={isDark ? '#333' : '#D8D8D8'}
           thumbTintColor={colors.primary}
@@ -885,30 +919,48 @@ export function PathPractice({
         </Text>
       </View>
 
-      <View style={{ marginTop: 24 }}>
-        <Text style={[styles.fieldLabel, { color: colors.primary }]}>
-          What will you actually do?
-        </Text>
-        <TextInput
-          style={[
-            styles.customInlineInput,
-            { flex: 0 },
-            {
-              color: colors.text,
-              borderColor: colors.primary + '80',
-              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-            },
-          ]}
-          value={actionText}
-          onChangeText={t => {
-            setActionText(t);
-            reset();
-          }}
-          placeholder="e.g. listen to a French podcast"
-          placeholderTextColor={colors.textTertiary}
-          returnKeyType="done"
-          inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
-        />
+      <View style={{ marginTop: 24, position: 'relative' }}>
+        {aiLoading && !aiResult ? (
+          <View style={[styles.loadingRow, { marginTop: 0 }]}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+              Generating suggestions...
+            </Text>
+          </View>
+        ) : (
+          <View style={{ position: 'relative' }}>
+            <View pointerEvents={aiLoading ? 'none' : 'auto'} style={[aiLoading && { opacity: 0.4 }]}>
+              <ChipGroup
+                label="WHAT WILL YOU ACTUALLY DO?"
+                options={chipOptions}
+                selected={actionText || null}
+                onSelect={(v: string) => {
+                  setActionText(v);
+                  reset();
+                }}
+                customPlaceholder="Write your own..."
+              />
+              {specificity.result && (
+                <SpecificityNudgeBanner
+                  result={specificity.result}
+                  onAcceptExample={(ex: string) => {
+                    setActionText(ex);
+                    specificity.dismiss();
+                  }}
+                  onDismiss={specificity.dismiss}
+                />
+              )}
+            </View>
+            {aiLoading && (
+              <View style={styles.updatingOverlay}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.updatingText, { color: colors.textSecondary }]}>
+                  Updating...
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
       </View>
 
       {canReveal && !revealed && (
