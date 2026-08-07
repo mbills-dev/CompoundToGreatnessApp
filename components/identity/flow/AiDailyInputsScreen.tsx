@@ -13,6 +13,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { FlowGoal } from './types';
 import { ChipGroup } from './PathScreens';
 import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
+import { AiThinkingIndicator } from './AiThinkingIndicator';
 
 export interface Suggestion {
   input: string;
@@ -701,6 +702,23 @@ export function AiDailyInputsScreen({
     0,
   );
   const allHaveSelection = goals.every((_, i) => (selectedInputs[i] ?? []).length > 0);
+  const anyResultLoaded = goals.some((_, i) => results[i] != null);
+  const allInitiallyLoading = !anyResultLoaded && goals.length > 0 && goals.every((_, i) => loading[i] === true);
+
+  if (allInitiallyLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <AiThinkingIndicator
+          phrases={[
+            'Reading your goals...',
+            'Mapping your path...',
+            'Crafting daily actions...',
+            'Almost there...',
+          ]}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>

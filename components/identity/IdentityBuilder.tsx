@@ -33,14 +33,11 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withSpring,
-  withSequence,
-  withRepeat,
   interpolate,
   Easing,
   runOnJS,
-  cancelAnimation,
 } from 'react-native-reanimated';
-import { ArrowLeft, Check, Sparkles } from 'lucide-react-native';
+import { ArrowLeft, Check } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { IdentityBuilderResult, RawInputEntry, Dimension } from './types';
 import { WhenPickerValue } from './WhenPickerModal';
@@ -55,6 +52,7 @@ import { IdentityScreen, deriveIdentityLine, formatTargetDisplay } from './flow/
 import { CompassStoryScreen, CompassDominoScreen, CompassMechanismScreen } from './flow/CompassScreens';
 import { FinaleScreen } from './flow/FinaleScreens';
 import { generateIdentityStatements } from './identityAi';
+import { AiThinkingIndicator } from './flow/AiThinkingIndicator';
 import { supabase } from '@/lib/supabase';
 import { CHALLENGE_RULES } from '@/constants/challengeRules';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -228,6 +226,21 @@ function SignatureScreen({
     lock.additionalInputs.forEach(inp => { if (inp.dailyInput) checklistItems.push(inp.dailyInput); });
   });
 
+  if (submitting) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <AiThinkingIndicator
+          phrases={[
+            'Building your plan...',
+            'Locking it in...',
+            'Setting up your 77 days...',
+            'Almost ready...',
+          ]}
+        />
+      </View>
+    );
+  }
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -360,12 +373,9 @@ function SignatureScreen({
           disabled={!hasSig || submitting}
         >
           {submitting ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <ActivityIndicator size="small" color="#000" />
-              <Text style={[sigStyles.ctaText, { color: '#000' }]}>
-                Creating your challenge...
-              </Text>
-            </View>
+            <Text style={[sigStyles.ctaText, { color: '#000' }]}>
+              Creating your challenge...
+            </Text>
           ) : (
             <Text style={[sigStyles.ctaText, { color: hasSig ? '#000' : (isDark ? '#3A4A00' : '#7A9A40') }]}>
               {submitError ? 'Try Again' : 'Start My 77-Day Challenge'}
@@ -1118,62 +1128,6 @@ function ClassifyingPhase({
   goalLabel: string;
   onClassified: (path: DecodePath, extractedTarget: string | null, standardAction: string | null, estimatedMasteryHours: number | null) => void;
 }) {
-  const { colors } = useTheme();
-  const opacity = useSharedValue(0);
-  useEffect(() => { opacity.value = withTiming(1, { duration: 300 }); }, []);
-  const fadeStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-
-  // Animated Sparkles icon: continuous pulse + slow rotation
-  const scale = useSharedValue(1);
-  const rotation = useSharedValue(0);
-  useEffect(() => {
-    scale.value = withRepeat(
-      withSequence(
-        withTiming(1.15, { duration: 800, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
-      ),
-      -1,
-      false,
-    );
-    rotation.value = withRepeat(
-      withTiming(360, { duration: 3000, easing: Easing.linear }),
-      -1,
-      false,
-    );
-    return () => {
-      cancelAnimation(scale);
-      cancelAnimation(rotation);
-    };
-  }, []);
-  const iconStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: scale.value },
-      { rotate: `${rotation.value}deg` },
-    ],
-  }));
-
-  // Cycling status phrases
-  const phrases = [
-    'Reading your goal...',
-    'Checking the numbers...',
-    'Choosing your path...',
-    'Almost there...',
-  ];
-  const [phraseIdx, setPhraseIdx] = useState(0);
-  const phraseOpacity = useSharedValue(1);
-  useEffect(() => {
-    let step = 0;
-    const interval = setInterval(() => {
-      phraseOpacity.value = withTiming(0, { duration: 200 }, () => {
-        step = (step + 1) % phrases.length;
-        runOnJS(setPhraseIdx)(step);
-        phraseOpacity.value = withTiming(1, { duration: 200 });
-      });
-    }, 800);
-    return () => clearInterval(interval);
-  }, []);
-  const phraseStyle = useAnimatedStyle(() => ({ opacity: phraseOpacity.value }));
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -1204,19 +1158,15 @@ function ClassifyingPhase({
   }, []);
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}>
-      <Animated.View style={[fadeStyle, { alignItems: 'center', gap: 20 }]}>
-        <Animated.View style={iconStyle}>
-          <Sparkles size={48} color={colors.primary} strokeWidth={2} />
-        </Animated.View>
-        <Animated.Text style={[{ fontSize: 16, fontWeight: '600', color: colors.textSecondary, textAlign: 'center' }, phraseStyle]}>
-          {phrases[phraseIdx]}
-        </Animated.Text>
-        <Text style={{ fontSize: 14, color: colors.textTertiary, textAlign: 'center', maxWidth: 280 }}>
-          {goalLabel}
-        </Text>
-      </Animated.View>
-    </View>
+    <AiThinkingIndicator
+      phrases={[
+        'Reading your goal...',
+        'Checking the numbers...',
+        'Choosing your path...',
+        'Almost there...',
+      ]}
+      subtitle={goalLabel}
+    />
   );
 }
 
