@@ -1038,6 +1038,9 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontStyle: 'italic',
   },
+  compassChipWrap: {
+    marginTop: 4,
+  },
   finaleGoalTag: {
     alignSelf: 'flex-start' as const,
     borderWidth: 1,

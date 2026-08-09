@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -14,10 +15,28 @@ import Animated, {
 } from 'react-native-reanimated';
 import { ArrowLeft, ArrowRight, Check, Sparkles, ListFilter as Filter } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { supabase } from '@/lib/supabase';
 import { FlowGoal, LockedGoal } from './types';
 import { formatGoalLabel, displayGoalLabel } from './AnchorScreens';
+import { ChipGroup } from './PathScreens';
 import styles from './styles';
 import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
+
+// ─── fetchCompassOptions ──────────────────────────────────────────────────────
+
+async function fetchCompassOptions(goal: string): Promise<string[]> {
+  try {
+    const { data, error } = await supabase.functions.invoke('generate-compass-options', {
+      body: { goal },
+    });
+    if (error || !data || !Array.isArray(data.options) || data.options.length === 0) {
+      return [];
+    }
+    return data.options.filter((o: unknown) => typeof o === 'string' && o.trim().length > 0).slice(0, 3);
+  } catch {
+    return [];
+  }
+}
 
 // ─── CompassStoryScreen ───────────────────────────────────────────────────────
 
@@ -317,8 +336,24 @@ export function CompassMechanismScreen({
 
   const [text, setText] = useState(initialText ?? '');
   const dominoLabel = formatGoalLabel(dominoGoal, goalLabelOverrides);
-  const filterPreview = text.trim() ? `Will it help me ${text.trim().replace(/\.$/, '')}?` : '';
+  const filterPreview = text.trim()
+    ? `Will it help me ${text.trim().replace(/\.$/, '')}?`
+    : 'Will it help me ___?';
   const canNext = text.trim().length > 0;
+
+  const [chipOptions, setChipOptions] = useState<string[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(true);
+
+  const loadOptions = useCallback(async () => {
+    setOptionsLoading(true);
+    const options = await fetchCompassOptions(dominoLabel);
+    setChipOptions(options);
+    setOptionsLoading(false);
+  }, [dominoLabel]);
+
+  useEffect(() => {
+    loadOptions();
+  }, [loadOptions]);
 
   return (
     <Animated.View style={[fadeStyle, styles.compassPinnedOuter, { backgroundColor: colors.background }]}>
@@ -337,50 +372,48 @@ export function CompassMechanismScreen({
       </View>
 
       {/* Content */}
-      <KeyboardStepWrapper contentContainerStyle={{ paddingTop: 24, gap: 16 }}>
-        {/* Example row */}
-        <View style={[styles.compassExampleRow, { borderColor: colors.border, backgroundColor: isDark ? colors.backgroundSecondary : '#F5F5F5' }]}>
-          <Text style={[styles.compassExampleLabel, { color: colors.textTertiary }]}>e.g.</Text>
-          <Text style={[styles.compassExampleText, { color: colors.textSecondary }]}>
-            Win Olympic gold → <Text style={{ color: colors.primary, fontWeight: '700' }}>the boat goes faster</Text>
+      <KeyboardStepWrapper contentContainerStyle={{ paddingTop: 16, gap: 16 }}>
+        {/* Live filter preview — always visible, placeholder when empty */}
+        <View style={[
+          styles.compassFilterPreview,
+          {
+            backgroundColor: text.trim()
+              ? (isDark ? 'rgba(204,255,0,0.08)' : 'rgba(204,255,0,0.10)')
+              : (isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'),
+            borderColor: text.trim() ? colors.primary + '60' : colors.border,
+            borderStyle: text.trim() ? 'solid' : 'dashed',
+          },
+        ]}>
+          <Text style={[styles.compassFilterLabel, { color: text.trim() ? colors.primary : colors.textTertiary }]}>
+            YOUR COMPASS QUESTION
+          </Text>
+          <Text style={[
+            styles.compassFilterText,
+            { color: text.trim() ? (isDark ? colors.primary : '#2A4A00') : colors.textTertiary },
+          ]}>
+            {filterPreview}
           </Text>
         </View>
 
-        <TextInput
-          style={[
-            styles.doneLooksInput,
-            {
-              color: colors.text,
-              borderColor: text.trim() ? colors.primary + '80' : isDark ? '#333' : '#D8D8D8',
-              backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-            },
-          ]}
-          value={text}
-          onChangeText={setText}
-          placeholder="e.g. make more offers than anyone"
-          placeholderTextColor={colors.textTertiary}
-          multiline
-          returnKeyType="done"
-          blurOnSubmit={true}
-          autoCapitalize="sentences"
-          textAlignVertical="top"
-          inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
-          autoFocus
-        />
-
-        {/* Live filter preview */}
-        {filterPreview.length > 0 && (
-          <View style={[
-            styles.compassFilterPreview,
-            {
-              backgroundColor: isDark ? 'rgba(204,255,0,0.08)' : 'rgba(204,255,0,0.10)',
-              borderColor: colors.primary + '60',
-            },
-          ]}>
-            <Text style={[styles.compassFilterLabel, { color: colors.primary }]}>YOUR COMPASS QUESTION</Text>
-            <Text style={[styles.compassFilterText, { color: isDark ? colors.primary : '#2A4A00' }]}>
-              {filterPreview}
+        {/* AI-suggested chip options */}
+        {optionsLoading ? (
+          <View style={[styles.loadingRow, { paddingVertical: 12 }]}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+              Generating suggestions...
             </Text>
+          </View>
+        ) : (
+          <View style={{ position: 'relative' }}>
+            <View style={styles.compassChipWrap}>
+              <ChipGroup
+                label="COMPLETE THE SENTENCE"
+                options={chipOptions}
+                selected={text.trim() || null}
+                onSelect={(v: string) => setText(v)}
+                customPlaceholder="Write your own..."
+              />
+            </View>
           </View>
         )}
       </KeyboardStepWrapper>
