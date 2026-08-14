@@ -23,7 +23,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { FlowGoal, DecodePath } from './types';
 import { GoalBadge, formatGoalLabel } from './AnchorScreens';
-import { OverlapGroup, fetchOverlappingGoals, OverlapBanner, MergeEditor, VagueFlag, fetchVagueGoals, VagueGoalBanner } from './AiDailyInputsScreen';
+import { OverlapGroup, fetchOverlappingGoals, OverlapBanner, MergeEditor, VagueFlag, fetchVagueGoals, VagueGoalBanner, GoalCountNudge, TrimModal } from './AiDailyInputsScreen';
 import styles from './styles';
 import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
 import { useInputSpecificity, SpecificityNudgeBanner, logInputFeedback, InputSource } from './InputValidation';
@@ -636,12 +636,14 @@ export function IntroScreen({
   onBack,
   goalLabelOverrides,
   onMergeGoals,
+  onRemoveGoals,
 }: {
   goals: FlowGoal[];
   onNext: () => void;
   onBack: () => void;
   goalLabelOverrides: Record<number, string>;
   onMergeGoals: (keepIndex: number, newLabel: string, removeIndices: number[]) => void;
+  onRemoveGoals: (removeIndices: number[]) => void;
 }) {
   const { colors } = useTheme();
   const [overlapGroups, setOverlapGroups] = useState<OverlapGroup[]>([]);
@@ -649,6 +651,9 @@ export function IntroScreen({
   const [mergeGroupIdx, setMergeGroupIdx] = useState<number | null>(null);
   const [vagueFlags, setVagueFlags] = useState<VagueFlag[]>([]);
   const [dismissedVague, setDismissedVague] = useState<Set<number>>(new Set());
+  const [goalCountResolved, setGoalCountResolved] = useState(goals.length <= 10);
+  const [showTrimModal, setShowTrimModal] = useState(false);
+  const [trimChecked, setTrimChecked] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (goals.length < 2) return;
@@ -672,6 +677,24 @@ export function IntroScreen({
     setDismissedGroups(new Set());
     setMergeGroupIdx(null);
     onMergeGoals(keepIndex, newLabel, removeIndices);
+  };
+
+  const handleConfirmTrim = () => {
+    const removeIndices = goals
+      .map((_, i) => i)
+      .filter(i => !trimChecked.has(i));
+
+    if (removeIndices.length === 0) {
+      setGoalCountResolved(true);
+      setShowTrimModal(false);
+      return;
+    }
+
+    if (removeIndices.length >= goals.length) return;
+
+    setGoalCountResolved(true);
+    setShowTrimModal(false);
+    onRemoveGoals(removeIndices);
   };
 
   return (
@@ -760,14 +783,41 @@ export function IntroScreen({
 
       <View style={styles.bottomSection}>
         <TouchableOpacity
-          style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+          style={[styles.primaryButton, { backgroundColor: goalCountResolved ? colors.primary : colors.border, opacity: goalCountResolved ? 1 : 0.45 }]}
           onPress={onNext}
           activeOpacity={0.85}
+          disabled={!goalCountResolved}
         >
           <Text style={styles.primaryButtonText}>Reverse engineer goal 1</Text>
           <ArrowRight size={20} color="#000" strokeWidth={3} />
         </TouchableOpacity>
       </View>
+
+      {!goalCountResolved && (
+        <GoalCountNudge
+          count={goals.length}
+          onTrim={() => {
+            setTrimChecked(new Set(goals.map((_, i) => i)));
+            setShowTrimModal(true);
+          }}
+          onKeepAll={() => setGoalCountResolved(true)}
+        />
+      )}
+
+      {showTrimModal && (
+        <TrimModal
+          goals={goals}
+          checked={trimChecked}
+          onToggle={(idx) => setTrimChecked(prev => {
+            const next = new Set(prev);
+            if (next.has(idx)) next.delete(idx);
+            else next.add(idx);
+            return next;
+          })}
+          onConfirm={handleConfirmTrim}
+          onCancel={() => setShowTrimModal(false)}
+        />
+      )}
     </View>
   );
 }

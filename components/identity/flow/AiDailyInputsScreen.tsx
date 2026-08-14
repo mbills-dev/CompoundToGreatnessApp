@@ -265,7 +265,7 @@ function remapRecord<T>(
   return next;
 }
 
-function GoalCountNudge({
+export function GoalCountNudge({
   count,
   onTrim,
   onKeepAll,
@@ -310,7 +310,7 @@ function GoalCountNudge({
   );
 }
 
-function TrimModal({
+export function TrimModal({
   goals,
   checked,
   onToggle,

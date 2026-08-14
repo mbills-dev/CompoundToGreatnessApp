@@ -748,7 +748,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
               setIsAiSourced(!!aiSourced);
               setAiSelectedInputs({});
               setAiIdentityLines({});
-              navigate(aiSourced ? { kind: 'ai-daily-inputs' } : { kind: 'intro' });
+              navigate({ kind: 'intro' });
             }}
           />
         );
@@ -872,6 +872,28 @@ export default function IdentityBuilder({ onComplete }: Props) {
                   } else {
                     next.push(prev[i]);
                   }
+                }
+                return next;
+              });
+            }}
+            onRemoveGoals={(removeIndices) => {
+              const removeSet = new Set(removeIndices);
+              setGoals(prev => {
+                const next: FlowGoal[] = [];
+                for (let i = 0; i < prev.length; i++) {
+                  if (removeSet.has(i)) continue;
+                  next.push(prev[i]);
+                }
+                return next;
+              });
+              setAiSelectedInputs(prev => {
+                const maxIdx = Object.keys(prev).reduce((m, k) => Math.max(m, Number(k)), 0);
+                const next: Record<number, string[]> = {};
+                let newIdx = 0;
+                for (let i = 0; i <= maxIdx; i++) {
+                  if (removeSet.has(i)) continue;
+                  next[newIdx] = prev[i] ?? [];
+                  newIdx++;
                 }
                 return next;
               });
