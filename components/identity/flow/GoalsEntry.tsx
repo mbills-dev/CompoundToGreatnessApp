@@ -23,7 +23,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { FlowGoal, DecodePath } from './types';
 import { GoalBadge, formatGoalLabel } from './AnchorScreens';
-import { OverlapGroup, fetchOverlappingGoals, OverlapBanner, MergeEditor } from './AiDailyInputsScreen';
+import { OverlapGroup, fetchOverlappingGoals, OverlapBanner, MergeEditor, VagueFlag, fetchVagueGoals, VagueGoalBanner } from './AiDailyInputsScreen';
 import styles from './styles';
 import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
 import { useInputSpecificity, SpecificityNudgeBanner, logInputFeedback, InputSource } from './InputValidation';
@@ -647,11 +647,19 @@ export function IntroScreen({
   const [overlapGroups, setOverlapGroups] = useState<OverlapGroup[]>([]);
   const [dismissedGroups, setDismissedGroups] = useState<Set<number>>(new Set());
   const [mergeGroupIdx, setMergeGroupIdx] = useState<number | null>(null);
+  const [vagueFlags, setVagueFlags] = useState<VagueFlag[]>([]);
+  const [dismissedVague, setDismissedVague] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (goals.length < 2) return;
     fetchOverlappingGoals(goals.map(g => g.label)).then(groups => {
       setOverlapGroups(groups);
+    });
+  }, [goals]);
+
+  useEffect(() => {
+    fetchVagueGoals(goals.map(g => g.label)).then(flags => {
+      setVagueFlags(flags);
     });
   }, [goals]);
 
@@ -725,6 +733,20 @@ export function IntroScreen({
                     />
                   ),
                 )}
+                {vagueFlags
+                  .filter(f => f.index === i && !dismissedVague.has(f.index))
+                  .map(f => (
+                    <VagueGoalBanner
+                      key={`vague-${f.index}`}
+                      reason={f.reason}
+                      suggestion={f.suggestion}
+                      onUseThis={() => {
+                        setDismissedVague(prev => new Set(prev).add(f.index));
+                        onMergeGoals(i, f.suggestion, []);
+                      }}
+                      onKeepAsIs={() => setDismissedVague(prev => new Set(prev).add(f.index))}
+                    />
+                  ))}
                 <GoalBadge
                   goal={g}
                   n={i + 1}

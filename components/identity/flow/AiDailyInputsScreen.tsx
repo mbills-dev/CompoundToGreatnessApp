@@ -8,7 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import { ArrowRight, Check, RotateCw, Sparkles, ArrowLeft, Pencil, X, GitMerge, Scissors } from 'lucide-react-native';
+import { ArrowRight, Check, RotateCw, Sparkles, ArrowLeft, Pencil, X, GitMerge, Scissors, Lightbulb } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FlowGoal } from './types';
 import { ChipGroup } from './PathScreens';
@@ -160,6 +160,89 @@ export function MergeEditor({
           activeOpacity={0.8}
         >
           <Text style={ovStyles.combineBtnText}>Confirm</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+export interface VagueFlag {
+  index: number;
+  reason: string;
+  suggestion: string;
+}
+
+export async function fetchVagueGoals(goalLabels: string[]): Promise<VagueFlag[]> {
+  try {
+    const response = await fetch(
+      `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/detect-vague-goals`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ goals: goalLabels }),
+      },
+    );
+    if (!response.ok) return [];
+    const data = await response.json();
+    if (data && Array.isArray(data.flags)) {
+      return data.flags as VagueFlag[];
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+export function VagueGoalBanner({
+  reason,
+  suggestion,
+  onUseThis,
+  onKeepAsIs,
+}: {
+  reason: string;
+  suggestion: string;
+  onUseThis: () => void;
+  onKeepAsIs: () => void;
+}) {
+  const { colors, isDark } = useTheme();
+  return (
+    <View
+      style={[
+        vagueStyles.banner,
+        {
+          backgroundColor: isDark ? 'rgba(100,180,255,0.08)' : 'rgba(100,180,255,0.06)',
+          borderColor: '#5099D0' + '50',
+        },
+      ]}
+    >
+      <View style={vagueStyles.bannerHeader}>
+        <Lightbulb size={16} color="#5099D0" strokeWidth={2.5} />
+        <Text style={[vagueStyles.bannerTitle, { color: '#5099D0' }]}>This goal could be more specific</Text>
+        <TouchableOpacity onPress={onKeepAsIs} style={vagueStyles.dismissBtn} activeOpacity={0.6}>
+          <X size={16} color={colors.textSecondary} strokeWidth={2.5} />
+        </TouchableOpacity>
+      </View>
+      <Text style={[vagueStyles.bannerReason, { color: colors.text }]}>{reason}</Text>
+      <Text style={[vagueStyles.bannerSuggestion, { color: colors.textSecondary }]}>
+        Suggested: <Text style={{ fontWeight: '700', color: colors.text }}>"{suggestion}"</Text>
+      </Text>
+      <View style={vagueStyles.bannerActions}>
+        <TouchableOpacity
+          style={[vagueStyles.keepBtn, { borderColor: colors.border }]}
+          onPress={onKeepAsIs}
+          activeOpacity={0.7}
+        >
+          <Text style={[vagueStyles.keepBtnText, { color: colors.textSecondary }]}>Keep As Is</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[vagueStyles.useBtn, { backgroundColor: '#5099D0' }]}
+          onPress={onUseThis}
+          activeOpacity={0.8}
+        >
+          <Text style={vagueStyles.useBtnText}>Use This</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -537,6 +620,8 @@ export function AiDailyInputsScreen({
   const [overlapGroups, setOverlapGroups] = useState<OverlapGroup[]>([]);
   const [dismissedGroups, setDismissedGroups] = useState<Set<number>>(new Set());
   const [mergeGroupIdx, setMergeGroupIdx] = useState<number | null>(null);
+  const [vagueFlags, setVagueFlags] = useState<VagueFlag[]>([]);
+  const [dismissedVague, setDismissedVague] = useState<Set<number>>(new Set());
   const [goalCountResolved, setGoalCountResolved] = useState(goals.length <= 10);
   const [showTrimModal, setShowTrimModal] = useState(false);
   const [trimChecked, setTrimChecked] = useState<Set<number>>(new Set());
@@ -566,6 +651,9 @@ export function AiDailyInputsScreen({
         setOverlapGroups(groups);
       });
     }
+    fetchVagueGoals(goals.map(g => g.label)).then(flags => {
+      setVagueFlags(flags);
+    });
   }, [goals, callForGoal, goalCountResolved]);
 
   const selectPrimary = (goalIndex: number, input: string) => {
@@ -776,6 +864,20 @@ export function AiDailyInputsScreen({
                     />
                   ),
                 )}
+                {vagueFlags
+                  .filter(f => f.index === i && !dismissedVague.has(f.index))
+                  .map(f => (
+                    <VagueGoalBanner
+                      key={`vague-${f.index}`}
+                      reason={f.reason}
+                      suggestion={f.suggestion}
+                      onUseThis={() => {
+                        setDismissedVague(prev => new Set(prev).add(f.index));
+                        onEditGoal(i, f.suggestion);
+                      }}
+                      onKeepAsIs={() => setDismissedVague(prev => new Set(prev).add(f.index))}
+                    />
+                  ))}
                 <GoalInputCard
                   goalIndex={i}
                   goal={goal.label}
@@ -981,6 +1083,72 @@ export const ovStyles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     minHeight: 48,
+  },
+});
+
+const vagueStyles = StyleSheet.create({
+  banner: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 10,
+    marginBottom: 8,
+  },
+  bannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bannerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    flex: 1,
+  },
+  bannerReason: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 19,
+  },
+  bannerSuggestion: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 19,
+  },
+  bannerActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 2,
+  },
+  keepBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  keepBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  useBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  useBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  dismissBtn: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 
