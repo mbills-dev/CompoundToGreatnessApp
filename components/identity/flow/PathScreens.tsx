@@ -682,6 +682,17 @@ export function PathNumbers({
 
 // ─── PathPractice ─────────────────────────────────────────────────────────────
 
+function positionToPace(pos: number): number {
+  const THIRD = 100 / 3;
+  if (pos <= THIRD) {
+    return Math.round(15 + (pos / THIRD) * 5);
+  } else if (pos <= 2 * THIRD) {
+    return Math.round(30 + ((pos - THIRD) / THIRD) * 10);
+  } else {
+    return Math.round(90 + ((pos - 2 * THIRD) / THIRD) * 30);
+  }
+}
+
 const DEADLINE_MONTHS: Record<string, number> = {
   ongoing: 12,
   '6 months': 6,
@@ -700,7 +711,8 @@ export function PathPractice({
 
   const hours = goal.estimatedMasteryHours ?? 300;
 
-  const [pace, setPace] = useState(35);
+  const [trackPosition, setTrackPosition] = useState(50);
+  const pace = positionToPace(trackPosition);
   const [revealed, setRevealed] = useState(false);
   const [actionText, setActionText] = useState('');
   const [aiResult, setAiResult] = useState<GoalInputResult | null>(null);
@@ -772,26 +784,14 @@ export function PathPractice({
   }));
 
   const zones = [
-    { label: 'Slow', range: '15-20 min', min: 15, max: 20, midpoint: 17.5 },
-    { label: 'Recommended', range: '30-40 min', min: 30, max: 40, midpoint: 35 },
-    { label: 'Fast', range: '90-120 min', min: 90, max: 120, midpoint: 105 },
+    { label: 'Slow', range: '15-20 min' },
+    { label: 'Recommended', range: '30-40 min' },
+    { label: 'Fast', range: '90-120 min' },
   ];
 
-  const activeZone = (() => {
-    const inside = zones.findIndex(z => pace >= z.min && pace <= z.max);
-    if (inside !== -1) return inside;
-    let best = 0;
-    let bestDist = Infinity;
-    zones.forEach((z, i) => {
-      const d = Math.abs(pace - z.midpoint);
-      if (d < bestDist) { bestDist = d; best = i; }
-    });
-    return best;
-  })();
+  const activeZone = trackPosition <= 100 / 3 ? 0 : trackPosition <= 200 / 3 ? 1 : 2;
 
-  const SLIDER_MIN = 15;
-  const SLIDER_MAX = 120;
-  const pctFor = (val: number) => ((val - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100;
+  const zoneIconPositions = [100 / 6, 50, 100 - 100 / 6];
 
   return (
     <KeyboardStepWrapper ref={scrollRef} contentContainerStyle={styles.decodeScroll}>
@@ -830,7 +830,7 @@ export function PathPractice({
         {/* Zone icons + labels positioned above the track at their true proportional locations */}
         <View style={{ position: 'relative', height: 52, marginBottom: 4 }}>
           {zones.map((zone, i) => {
-            const left = pctFor(zone.midpoint);
+            const left = zoneIconPositions[i];
             return (
               <View
                 key={zone.label}
@@ -880,19 +880,19 @@ export function PathPractice({
 
         <Slider
           style={{ width: '100%', height: 48 }}
-          minimumValue={15}
-          maximumValue={120}
-          step={5}
-          value={pace}
+          minimumValue={0}
+          maximumValue={100}
+          step={1}
+          value={trackPosition}
           onValueChange={(v: number) => {
-            setPace(Math.round(v));
+            setTrackPosition(Math.round(v));
             reset();
           }}
           onSlidingComplete={(v: number) => {
-            const rounded = Math.round(v);
-            if (rounded !== lastFetchedPace.current) {
-              lastFetchedPace.current = rounded;
-              loadSuggestions(rounded);
+            const newPace = positionToPace(v);
+            if (newPace !== lastFetchedPace.current) {
+              lastFetchedPace.current = newPace;
+              loadSuggestions(newPace);
             }
           }}
           minimumTrackTintColor={colors.primary}
