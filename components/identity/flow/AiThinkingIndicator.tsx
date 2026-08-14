@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Image } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,7 +10,6 @@ import Animated, {
   runOnJS,
   cancelAnimation,
 } from 'react-native-reanimated';
-import { Sparkles } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export function AiThinkingIndicator({
@@ -74,7 +73,11 @@ export function AiThinkingIndicator({
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}>
       <Animated.View style={[fadeStyle, { alignItems: 'center', gap: 20 }]}>
         <Animated.View style={iconStyle}>
-          <Sparkles size={size} color={colors.primary} strokeWidth={2} />
+          <Image
+            source={require('@/assets/images/logo-mark-trimmed.png')}
+            style={{ width: size, height: size }}
+            resizeMode="contain"
+          />
         </Animated.View>
         <Animated.Text style={[{ fontSize: 16, fontWeight: '600', color: colors.textSecondary, textAlign: 'center' }, phraseStyle]}>
           {phrases[phraseIdx]}
