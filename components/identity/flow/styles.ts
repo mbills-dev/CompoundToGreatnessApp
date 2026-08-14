@@ -157,10 +157,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1.5,
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   chipText: {
     fontSize: 14,
     fontWeight: '700',
+    flexShrink: 1,
   },
   customRow: {
     flexDirection: 'row',
