@@ -143,12 +143,13 @@ export default function UsernamePicker({ onComplete }: Props) {
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
       <LinearGradient
         colors={isDarkGradient(colors) ? ['#000000', '#0A0A0A', '#000000'] : ['#F5F5F0', '#EBEBE6', '#F5F5F0']}
         style={styles.container}
       >
-        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={true}>
           <View style={[styles.iconCircle, { borderColor: 'rgba(204,255,0,0.3)' }]}>
             <AtSign size={32} color="#ccff00" strokeWidth={2} />
           </View>

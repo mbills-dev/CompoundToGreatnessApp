@@ -44,6 +44,7 @@ const KeyboardStepWrapper = forwardRef<KeyboardStepWrapperRef, {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           scrollEnabled={scrollEnabled}
+          automaticallyAdjustKeyboardInsets={true}
         >
           {children}
         </ScrollView>
