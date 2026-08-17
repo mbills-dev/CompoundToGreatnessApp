@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.58.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,6 +7,23 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
+
+function logInvocation(functionName: string, summary: string) {
+  try {
+    const url = Deno.env.get("SUPABASE_URL");
+    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!url || !key) return;
+    const client = createClient(url, key);
+    EdgeRuntime.waitUntil(
+      client.from("edge_function_invocations").insert({
+        function_name: functionName,
+        request_summary: summary.slice(0, 100),
+      }),
+    );
+  } catch {
+    // logging must never break the function
+  }
+}
 
 const SYSTEM_PROMPT = `You classify personal goals into one of three approaches for a habit-building app.
 
@@ -62,6 +80,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const cleanedGoal = goal.trim().slice(0, 300);
+
+    logInvocation("classify-goal-path", cleanedGoal);
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",

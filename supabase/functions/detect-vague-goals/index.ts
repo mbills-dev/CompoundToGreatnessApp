@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.58.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,6 +7,23 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
+
+function logInvocation(functionName: string, summary: string) {
+  try {
+    const url = Deno.env.get("SUPABASE_URL");
+    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!url || !key) return;
+    const client = createClient(url, key);
+    EdgeRuntime.waitUntil(
+      client.from("edge_function_invocations").insert({
+        function_name: functionName,
+        request_summary: summary.slice(0, 100),
+      }),
+    );
+  } catch {
+    // logging must never break the function
+  }
+}
 
 const SYSTEM_PROMPT = `You are a goal-clarity checker for a habit-building app. You are given a list of personal goals (each with a 0-based index). Your job is to identify goals that are too vague to confidently act on — broad aspirations without a clear target or scope.
 
@@ -64,6 +82,8 @@ Deno.serve(async (req: Request) => {
     if (cleanedGoals.length === 0) {
       return json({ flags: [] });
     }
+
+    logInvocation("detect-vague-goals", cleanedGoals.join(", "));
 
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {
