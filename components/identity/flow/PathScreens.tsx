@@ -14,6 +14,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   interpolate,
+  runOnJS,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -401,7 +402,8 @@ export function PathNumbers({
 
   const doReveal = () => {
     setRevealed(true);
-    revealAnim.value = withSpring(1, { damping: 14, stiffness: 100 });
+    const triggerScroll = () => scrollRef.current?.scrollToEnd({ animated: true });
+    revealAnim.value = withSpring(1, { damping: 14, stiffness: 100 }, (finished) => { if (finished) runOnJS(triggerScroll)(); });
     if (Platform.OS !== 'web') {
       let tick = 0;
       const interval = setInterval(() => {
@@ -410,7 +412,6 @@ export function PathNumbers({
         if (tick >= 8) clearInterval(interval);
       }, 80);
     }
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
   };
 
   const revealStyle = useAnimatedStyle(() => ({
@@ -764,7 +765,8 @@ export function PathPractice({
 
   const doReveal = () => {
     setRevealed(true);
-    revealAnim.value = withSpring(1, { damping: 14, stiffness: 100 });
+    const triggerScroll = () => scrollRef.current?.scrollToEnd({ animated: true });
+    revealAnim.value = withSpring(1, { damping: 14, stiffness: 100 }, (finished) => { if (finished) runOnJS(triggerScroll)(); });
     if (Platform.OS !== 'web') {
       let tick = 0;
       const interval = setInterval(() => {
@@ -773,7 +775,6 @@ export function PathPractice({
         if (tick >= 6) clearInterval(interval);
       }, 90);
     }
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
   };
 
   const revealStyle = useAnimatedStyle(() => ({

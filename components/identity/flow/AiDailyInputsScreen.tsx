@@ -213,14 +213,14 @@ export function VagueGoalBanner({
       style={[
         vagueStyles.banner,
         {
-          backgroundColor: isDark ? 'rgba(100,180,255,0.08)' : 'rgba(100,180,255,0.06)',
-          borderColor: '#5099D0' + '50',
+          backgroundColor: isDark ? 'rgba(232,146,60,0.08)' : 'rgba(232,146,60,0.06)',
+          borderColor: '#E8923C' + '50',
         },
       ]}
     >
       <View style={vagueStyles.bannerHeader}>
-        <Lightbulb size={16} color="#5099D0" strokeWidth={2.5} />
-        <Text style={[vagueStyles.bannerTitle, { color: '#5099D0' }]}>This goal could be more specific</Text>
+        <Lightbulb size={16} color="#E8923C" strokeWidth={2.5} />
+        <Text style={[vagueStyles.bannerTitle, { color: '#E8923C' }]}>This goal could be more specific</Text>
         <TouchableOpacity onPress={onKeepAsIs} style={vagueStyles.dismissBtn} activeOpacity={0.6}>
           <X size={16} color={colors.textSecondary} strokeWidth={2.5} />
         </TouchableOpacity>
@@ -238,7 +238,7 @@ export function VagueGoalBanner({
           <Text style={[vagueStyles.keepBtnText, { color: colors.textSecondary }]}>Keep As Is</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[vagueStyles.useBtn, { backgroundColor: '#5099D0' }]}
+          style={[vagueStyles.useBtn, { backgroundColor: '#E8923C' }]}
           onPress={onUseThis}
           activeOpacity={0.8}
         >

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -23,7 +23,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import WhenPickerModal, { WhenPickerValue } from '../WhenPickerModal';
 import { FlowGoal, LockedGoal, AnchoredInput } from './types';
 import styles from './styles';
-import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
+import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID, KeyboardStepWrapperRef } from './KeyboardStepWrapper';
 import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -103,6 +103,15 @@ export function AnchorScreen({
   const [whenPickerOpen, setWhenPickerOpen] = useState(false);
   const [whenValue, setWhenValue] = useState<WhenPickerValue | null>(null);
   const [where, setWhere] = useState('');
+  const scrollRef = useRef<KeyboardStepWrapperRef>(null);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const debouncedScrollToEnd = useCallback(() => {
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, 160);
+  }, []);
 
   const canCommit = whenValue !== null && where.trim().length > 0;
 
@@ -131,7 +140,7 @@ export function AnchorScreen({
   };
 
   return (
-    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
+    <KeyboardStepWrapper ref={scrollRef} contentContainerStyle={styles.decodeScroll}>
       {/* WHAT */}
       <Text style={[styles.fieldLabel, { color: colors.primary }]}>
         WHAT
@@ -280,7 +289,7 @@ export function AnchorScreen({
           },
         ]}
         value={where}
-        onChangeText={setWhere}
+        onChangeText={(t) => { setWhere(t); debouncedScrollToEnd(); }}
         placeholder="e.g. my home office desk"
         placeholderTextColor={colors.textTertiary}
         autoCapitalize="sentences"

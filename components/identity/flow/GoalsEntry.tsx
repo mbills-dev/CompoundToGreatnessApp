@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -654,19 +654,25 @@ export function IntroScreen({
   const [goalCountResolved, setGoalCountResolved] = useState(goals.length <= 10);
   const [showTrimModal, setShowTrimModal] = useState(false);
   const [trimChecked, setTrimChecked] = useState<Set<number>>(new Set());
+  const overlapFetchedRef = useRef(false);
+  const vagueFetchedRef = useRef(false);
 
   useEffect(() => {
+    if (overlapFetchedRef.current) return;
+    overlapFetchedRef.current = true;
     if (goals.length < 2) return;
     fetchOverlappingGoals(goals.map(g => g.label)).then(groups => {
       setOverlapGroups(groups);
     });
-  }, [goals]);
+  }, []);
 
   useEffect(() => {
+    if (vagueFetchedRef.current) return;
+    vagueFetchedRef.current = true;
     fetchVagueGoals(goals.map(g => g.label)).then(flags => {
       setVagueFlags(flags);
     });
-  }, [goals]);
+  }, []);
 
   const handleConfirmMerge = (groupIdx: number, newLabel: string) => {
     const group = overlapGroups[groupIdx];

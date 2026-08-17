@@ -24,8 +24,9 @@ Rules:
 1. Only flag goals that are genuinely vague — broad aspirations where the person could succeed in many conflicting ways.
 2. Do NOT flag goals that are already reasonably specific, even if they lack a number. If a goal has a concrete outcome, target, or action, leave it alone.
 3. For each flagged goal, provide a short "reason" (under 100 characters) explaining why it's vague, and a "suggestion" — a tightened, more specific rewrite of that SAME goal (not a different goal). Keep suggestions under 80 characters.
-4. If no goals are vague, return an empty flags array.
-5. Each goal index may appear in at most one flag.
+4. Suggestions should be realistic and moderate, not maximal or extreme. Prefer behavioral or consistency-based rewrites over clinical precision. For example, "get a six-pack" → "define my abs through consistent training" is better than "reach 10% body fat." Do NOT add body-fat percentages, exact numeric health targets, or other clinical metrics unless the original goal already implied that level of precision.
+5. If no goals are vague, return an empty flags array.
+6. Each goal index may appear in at most one flag.
 
 Output ONLY a JSON object matching this shape — no preamble, no markdown fences:
 {
