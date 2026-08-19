@@ -86,6 +86,7 @@ export function useInputSpecificity() {
   const [result, setResult] = useState<SpecificityResult | null>(null);
   const [checking, setChecking] = useState(false);
   const lastCheckedRef = useRef('');
+  const inFlightRef = useRef(false);
 
   const validate = useCallback(async (text: string): Promise<SpecificityResult | null> => {
     const trimmed = text.trim();
@@ -93,12 +94,14 @@ export function useInputSpecificity() {
       setResult(null);
       return null;
     }
-    if (lastCheckedRef.current === trimmed && result) {
+    if (lastCheckedRef.current === trimmed && (inFlightRef.current || result)) {
       return result;
     }
     lastCheckedRef.current = trimmed;
+    inFlightRef.current = true;
     setChecking(true);
     const res = await checkSpecificity(trimmed);
+    inFlightRef.current = false;
     setChecking(false);
     if (res && !res.specific) {
       setResult(res);
@@ -106,7 +109,7 @@ export function useInputSpecificity() {
       setResult(null);
     }
     return res;
-  }, [result]);
+  }, [result]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dismiss = useCallback(() => setResult(null), []);
 

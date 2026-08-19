@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -452,7 +452,7 @@ function GoalInputCard({
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalText, setGoalText] = useState(goal);
   const primarySelected = (selectedInputs[goalIndex] ?? [])[0] ?? null;
-  const chipOptions = result?.suggestions?.map(s => s.input) ?? [];
+  const chipOptions = useMemo(() => result?.suggestions?.map(s => s.input) ?? [], [result]);
   const specificity = useInputSpecificity();
 
   useEffect(() => {

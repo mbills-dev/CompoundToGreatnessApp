@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -737,7 +737,7 @@ export function PathPractice({
     lastFetchedPace.current = pace;
   }, [loadSuggestions]);
 
-  const chipOptions = aiResult?.suggestions?.map(s => s.input) ?? [];
+  const chipOptions = useMemo(() => aiResult?.suggestions?.map(s => s.input) ?? [], [aiResult]);
 
   useEffect(() => {
     if (actionText && !chipOptions.includes(actionText)) {
@@ -1055,7 +1055,7 @@ export function PathStarting({
     return () => { cancelled = true; };
   }, [isStandardPath, goal.label]);
 
-  const chipOptions = aiResult?.suggestions?.map(s => s.input) ?? [];
+  const chipOptions = useMemo(() => aiResult?.suggestions?.map(s => s.input) ?? [], [aiResult]);
 
   useEffect(() => {
     if (isStandardPath) return;
