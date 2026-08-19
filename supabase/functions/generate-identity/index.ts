@@ -1,28 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.58.0";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
-
-function logInvocation(functionName: string, summary: string) {
-  try {
-    const url = Deno.env.get("SUPABASE_URL");
-    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!url || !key) return;
-    const client = createClient(url, key);
-    EdgeRuntime.waitUntil(
-      client.from("edge_function_invocations").insert({
-        function_name: functionName,
-        request_summary: summary.slice(0, 100),
-      }),
-    );
-  } catch {
-    // logging must never break the function
-  }
-}
 
 const MAX_GOALS = 10;
 const MAX_GOAL_LEN = 200;
@@ -77,7 +59,7 @@ Deno.serve(async (req) => {
 
     const cleaned = goals.map((g: string) => g.trim().slice(0, MAX_GOAL_LEN));
 
-    logInvocation("generate-identity", cleaned.join(", "));
+    console.log(`[INVOKED] generate-identity at ${new Date().toISOString()} - goals: ${cleaned.join(", ").slice(0, 80)}`);
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",

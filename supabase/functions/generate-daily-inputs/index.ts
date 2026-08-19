@@ -1,5 +1,4 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.58.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,23 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
-
-function logInvocation(functionName: string, summary: string) {
-  try {
-    const url = Deno.env.get("SUPABASE_URL");
-    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!url || !key) return;
-    const client = createClient(url, key);
-    EdgeRuntime.waitUntil(
-      client.from("edge_function_invocations").insert({
-        function_name: functionName,
-        request_summary: summary.slice(0, 100),
-      }),
-    );
-  } catch {
-    // logging must never break the function
-  }
-}
 
 const SYSTEM_PROMPT = `You are a daily-input generator for a habit-building app. Given a personal goal, you propose specific, measurable daily inputs that, if done consistently, would lead to achieving that goal.
 
@@ -79,7 +61,7 @@ Deno.serve(async (req: Request) => {
     const cleanedGoal = goal.trim().slice(0, 300);
     let userContent = `Goal: ${cleanedGoal}`;
 
-    logInvocation("generate-daily-inputs", cleanedGoal);
+    console.log(`[INVOKED] generate-daily-inputs at ${new Date().toISOString()} - goal: ${cleanedGoal.slice(0, 80)}`);
 
     if (Array.isArray(history)) {
       for (const entry of history) {

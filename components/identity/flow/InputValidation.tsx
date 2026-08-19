@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CircleAlert as AlertCircle, ArrowRight } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
+import { logEdgeFunctionCall } from '@/lib/edgeFunctionLogger';
 
 export interface SpecificityResult {
   specific: boolean;
@@ -20,6 +21,7 @@ export async function checkSpecificity(input: string): Promise<SpecificityResult
   const trimmed = input.trim();
   if (trimmed.length < 3) return null;
   try {
+    logEdgeFunctionCall('validate-input-specificity');
     const response = await fetch(
       `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/validate-input-specificity`,
       {

@@ -16,6 +16,7 @@ import Animated, {
 import { ArrowLeft, ArrowRight, Check, Sparkles, ListFilter as Filter } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
+import { logEdgeFunctionCall } from '@/lib/edgeFunctionLogger';
 import { FlowGoal, LockedGoal } from './types';
 import { formatGoalLabel, displayGoalLabel } from './AnchorScreens';
 import { ChipGroup } from './PathScreens';
@@ -26,6 +27,7 @@ import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepW
 
 async function fetchCompassOptions(goal: string): Promise<string[]> {
   try {
+    logEdgeFunctionCall('generate-compass-options');
     const { data, error } = await supabase.functions.invoke('generate-compass-options', {
       body: { goal },
     });

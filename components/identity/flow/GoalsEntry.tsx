@@ -21,6 +21,7 @@ import { decode } from 'base64-arraybuffer';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
+import { logEdgeFunctionCall } from '@/lib/edgeFunctionLogger';
 import { FlowGoal, DecodePath } from './types';
 import { GoalBadge, formatGoalLabel } from './AnchorScreens';
 import { OverlapGroup, fetchOverlappingGoals, OverlapBanner, MergeEditor, VagueFlag, fetchVagueGoals, VagueGoalBanner, GoalCountNudge, TrimModal } from './AiDailyInputsScreen';
@@ -113,6 +114,7 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
         throw signedError ?? new Error('Failed to generate signed URL');
       }
 
+      logEdgeFunctionCall('extract-goals-from-photo');
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/extract-goals-from-photo`,
         {

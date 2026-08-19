@@ -14,6 +14,7 @@ import { FlowGoal } from './types';
 import { ChipGroup } from './PathScreens';
 import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
 import { AiThinkingIndicator } from './AiThinkingIndicator';
+import { logEdgeFunctionCall } from '@/lib/edgeFunctionLogger';
 
 export interface Suggestion {
   input: string;
@@ -37,6 +38,7 @@ export interface OverlapGroup {
 
 export async function fetchOverlappingGoals(goalLabels: string[]): Promise<OverlapGroup[]> {
   try {
+    logEdgeFunctionCall('detect-overlapping-goals');
     const response = await fetch(
       `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/detect-overlapping-goals`,
       {
@@ -174,6 +176,7 @@ export interface VagueFlag {
 
 export async function fetchVagueGoals(goalLabels: string[]): Promise<VagueFlag[]> {
   try {
+    logEdgeFunctionCall('detect-vague-goals');
     const response = await fetch(
       `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/detect-vague-goals`,
       {
@@ -401,6 +404,7 @@ export async function fetchDailyInputs(
     if (otherGoalsContext && otherGoalsContext.length > 0) {
       body.otherGoalsContext = otherGoalsContext;
     }
+    logEdgeFunctionCall('generate-daily-inputs');
     const response = await fetch(
       `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/generate-daily-inputs`,
       {

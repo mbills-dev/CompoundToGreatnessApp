@@ -1,5 +1,4 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.58.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,23 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
-
-function logInvocation(functionName: string, summary: string) {
-  try {
-    const url = Deno.env.get("SUPABASE_URL");
-    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!url || !key) return;
-    const client = createClient(url, key);
-    EdgeRuntime.waitUntil(
-      client.from("edge_function_invocations").insert({
-        function_name: functionName,
-        request_summary: summary.slice(0, 100),
-      }),
-    );
-  } catch {
-    // logging must never break the function
-  }
-}
 
 const SYSTEM_PROMPT = `You are a goal-overlap detector for a habit-building app. You are given a list of personal goals (each with a 0-based index). Your job is to identify goals that are substantially the SAME underlying outcome — where achieving one would likely produce the other, or they describe the same end result in different terms.
 
@@ -82,7 +64,7 @@ Deno.serve(async (req: Request) => {
       return json({ groups: [] });
     }
 
-    logInvocation("detect-overlapping-goals", cleanedGoals.join(", "));
+    console.log(`[INVOKED] detect-overlapping-goals at ${new Date().toISOString()} - goals: ${cleanedGoals.join(", ").slice(0, 80)}`);
 
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {

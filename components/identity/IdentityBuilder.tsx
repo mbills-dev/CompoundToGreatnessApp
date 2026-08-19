@@ -54,6 +54,7 @@ import { FinaleScreen } from './flow/FinaleScreens';
 import { generateIdentityStatements } from './identityAi';
 import { AiThinkingIndicator } from './flow/AiThinkingIndicator';
 import { supabase } from '@/lib/supabase';
+import { logEdgeFunctionCall } from '@/lib/edgeFunctionLogger';
 import { CHALLENGE_RULES } from '@/constants/challengeRules';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -1154,6 +1155,7 @@ function ClassifyingPhase({
     let cancelled = false;
     (async () => {
       try {
+        logEdgeFunctionCall('classify-goal-path');
         const { data, error } = await supabase.functions.invoke('classify-goal-path', {
           body: { goal: goalLabel },
         });

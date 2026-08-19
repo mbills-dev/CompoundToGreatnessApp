@@ -1,5 +1,4 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.58.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,23 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
-
-function logInvocation(functionName: string, summary: string) {
-  try {
-    const url = Deno.env.get("SUPABASE_URL");
-    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!url || !key) return;
-    const client = createClient(url, key);
-    EdgeRuntime.waitUntil(
-      client.from("edge_function_invocations").insert({
-        function_name: functionName,
-        request_summary: summary.slice(0, 100),
-      }),
-    );
-  } catch {
-    // logging must never break the function
-  }
-}
 
 const SYSTEM_PROMPT = `You are a goal-extraction assistant for a habit-building app. The user uploads a photo that may contain handwritten or typed text listing their personal goals.
 
@@ -62,7 +44,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: "imageUrl is required" }, 400);
     }
 
-    logInvocation("extract-goals-from-photo", imageUrl.slice(0, 100));
+    console.log(`[INVOKED] extract-goals-from-photo at ${new Date().toISOString()} - imageUrl: ${imageUrl.slice(0, 80)}`);
 
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {
