@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   Image,
+  AppState,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, ChevronRight, Zap, Share2 } from 'lucide-react-native';
@@ -68,6 +69,9 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
     queryFn: () => fetchCompletions(goal.id),
   });
 
+  const prevAppStateRef = useRef<string>('active');
+  const [, setDayTick] = useState(0);
+
   useEffect(() => {
     if (completionsData) setCompletions(completionsData);
   }, [completionsData]);
@@ -81,6 +85,21 @@ export default function MonthCalendarView({ goal, onRefresh }: MonthCalendarView
       loadData();
     }, [goal.id])
   );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      const prev = prevAppStateRef.current;
+      prevAppStateRef.current = nextAppState;
+      if (nextAppState === 'active' && (prev === 'background' || prev === 'inactive')) {
+        const cachedToday = getTodayDateString();
+        if (cachedToday !== today) {
+          setDayTick((t) => t + 1);
+          loadData();
+        }
+      }
+    });
+    return () => subscription.remove();
+  }, [today]);
 
   const loadData = async () => {
     await Promise.all([loadCompletions(), loadActivities()]);

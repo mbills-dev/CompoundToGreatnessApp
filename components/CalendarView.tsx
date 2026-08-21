@@ -8,6 +8,7 @@ import {
   Alert,
   Platform,
   Image,
+  AppState,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Share2, Lock, ArrowUpFromLine, CircleCheck } from 'lucide-react-native';
@@ -57,6 +58,8 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
   const statsCarouselRef = useRef<ScrollView>(null);
   const [statsPage, setStatsPage] = useState(0);
   const [carouselWidth, setCarouselWidth] = useState(0);
+  const prevAppStateRef = useRef<string>('active');
+  const [, setDayTick] = useState(0);
 
   const queryClient = useQueryClient();
   const [completions, setCompletions] = useState<DailyCompletion[]>(
@@ -82,6 +85,18 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
   useEffect(() => {
     checkForMissedDays();
   }, [completions, goal]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      const prev = prevAppStateRef.current;
+      prevAppStateRef.current = nextAppState;
+      if (nextAppState === 'active' && (prev === 'background' || prev === 'inactive')) {
+        setDayTick((t) => t + 1);
+        loadCompletions();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   // Longest streak across the current goal and all archived challenges.
   const { data: longestStreak } = useQuery({

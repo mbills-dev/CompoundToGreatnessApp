@@ -655,9 +655,11 @@ export default function DailyDashboard({
       completionRef.current?.completion_date &&
       completionRef.current.completion_date !== freshToday
     ) {
+      setCompletion(null);
       setCompletedActivities([]);
       setConfettiCompleted(false);
       setEditMode(false);
+      setLoading(true);
       loadTodayCompletion();
     }
   };
