@@ -242,6 +242,8 @@ export default function DailyDashboard({
   const [gracePeriodMode, setGracePeriodMode] = useState<'grace' | 'reset'>('grace');
   const [realtimeGen, setRealtimeGen] = useState(0);
   const prevAppStateRef = useRef<string>('active');
+  const completionRef = useRef<DailyCompletion | null>(null);
+  const refetchIfDayChangedRef = useRef<(() => void) | null>(null);
 
   const { streak, perfectDays, phase2ThisMonth, invalidate: refreshStreakSummary } = useStreakSummary(goal.id);
   const queryClient = useQueryClient();
@@ -311,6 +313,8 @@ export default function DailyDashboard({
     }
 
     loadWatcherCount();
+
+    refetchIfDayChangedRef.current?.();
 
     return () => {
       isFocusedRef.current = false;
@@ -423,6 +427,7 @@ export default function DailyDashboard({
             console.error('checkForNewReactions failed:', err);
           });
         }
+        refetchIfDayChangedRef.current?.();
       }
     });
 
@@ -602,13 +607,14 @@ export default function DailyDashboard({
   const loadTodayCompletion = async () => {
     if (onLockedInteraction) { setLoading(false); return; }
     try {
+      const freshToday = toLocalDateString(new Date());
       await checkForMissedDays();
 
       const { data, error } = await supabase
         .from('daily_completions')
         .select('*')
         .eq('goal_id', goal.id)
-        .eq('completion_date', today)
+        .eq('completion_date', freshToday)
         .maybeSingle();
 
       if (error) throw error;
@@ -621,7 +627,7 @@ export default function DailyDashboard({
           .from('daily_completions')
           .insert({
             goal_id: goal.id,
-            completion_date: today,
+            completion_date: freshToday,
             is_rest_day: false,
             activities_completed: [],
           })
@@ -636,6 +642,23 @@ export default function DailyDashboard({
       console.error('Error loading completion:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    completionRef.current = completion;
+  }, [completion]);
+
+  refetchIfDayChangedRef.current = () => {
+    const freshToday = toLocalDateString(new Date());
+    if (
+      completionRef.current?.completion_date &&
+      completionRef.current.completion_date !== freshToday
+    ) {
+      setCompletedActivities([]);
+      setConfettiCompleted(false);
+      setEditMode(false);
+      loadTodayCompletion();
     }
   };
 
