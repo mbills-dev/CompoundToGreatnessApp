@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   decodeScroll: {
-    paddingBottom: 80,
+    paddingBottom: 240,
     paddingTop: 8,
   },
   decodeQuestion: {

@@ -387,6 +387,15 @@ export function AddInputScreen({
   const [whenValue, setWhenValue] = useState<WhenPickerValue | null>(null);
   const [where, setWhere] = useState('');
   const specificity = useInputSpecificity();
+  const scrollRef = useRef<KeyboardStepWrapperRef>(null);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const debouncedScrollToEnd = useCallback(() => {
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, 160);
+  }, []);
 
   const canCommit =
     text.trim().length > 0 && whenValue !== null && where.trim().length > 0;
@@ -410,7 +419,7 @@ export function AddInputScreen({
   };
 
   return (
-    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
+    <KeyboardStepWrapper ref={scrollRef} contentContainerStyle={styles.decodeScroll}>
       <Text style={[styles.fieldLabel, { color: colors.primary }]}>WHAT</Text>
       <TextInput
         style={[
@@ -485,7 +494,7 @@ export function AddInputScreen({
           },
         ]}
         value={where}
-        onChangeText={setWhere}
+        onChangeText={(t) => { setWhere(t); debouncedScrollToEnd(); }}
         placeholder="e.g. outside around the block"
         placeholderTextColor={colors.textTertiary}
         autoCapitalize="sentences"
