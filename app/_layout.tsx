@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
+import Purchases from 'react-native-purchases';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -31,6 +32,10 @@ function isWatchInviteUrl(): boolean {
 }
 
 SplashScreen.preventAutoHideAsync();
+
+if (Platform.OS === 'ios') {
+  Purchases.configure({ apiKey: 'appl_tmLwtbeJFSUTbMOjWxQWtDxJyNN' });
+}
 
 function AppContent() {
   const { isDark, colors } = useTheme();
