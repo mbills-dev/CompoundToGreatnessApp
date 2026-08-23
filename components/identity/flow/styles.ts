@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   decodeScroll: {
-    paddingBottom: 80,
+    paddingBottom: 240,
     paddingTop: 8,
   },
   decodeQuestion: {
@@ -157,10 +157,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1.5,
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   chipText: {
     fontSize: 14,
     fontWeight: '700',
+    flexShrink: 1,
   },
   customRow: {
     flexDirection: 'row',
@@ -1038,6 +1041,9 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontStyle: 'italic',
   },
+  compassChipWrap: {
+    marginTop: 4,
+  },
   finaleGoalTag: {
     alignSelf: 'flex-start' as const,
     borderWidth: 1,
@@ -1166,6 +1172,67 @@ const styles = StyleSheet.create({
   },
   compassPinnedBottom: {
     paddingBottom: 20,
+  },
+  clarifyCard: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 16,
+    gap: 10,
+  },
+  clarifyLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  clarifyQuestion: {
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 21,
+  },
+  clarifyInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  clarifyInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontWeight: '500',
+    minHeight: 44,
+  },
+  regenerateBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  updatingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  updatingText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
 });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  AppState,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, Zap, Calendar, Target, LogOut, Star, Shield, Layers, Flame, Check } from 'lucide-react-native';
@@ -89,9 +90,21 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
   const [watcherName, setWatcherName] = useState('');
   const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>([]);
   const [watcherCount, setWatcherCount] = useState(0);
+  const prevAppStateRef = useRef<string>('active');
 
   useEffect(() => {
     loadData();
+  }, [watchedId, watcherId]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      const prev = prevAppStateRef.current;
+      prevAppStateRef.current = nextAppState;
+      if (nextAppState === 'active' && (prev === 'background' || prev === 'inactive')) {
+        loadData();
+      }
+    });
+    return () => subscription.remove();
   }, [watchedId, watcherId]);
 
   const loadData = async () => {

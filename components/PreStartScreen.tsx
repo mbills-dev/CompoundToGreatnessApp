@@ -143,6 +143,8 @@ export default function PreStartScreen({
           paddingBottom: insets.bottom + 40,
         }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
       >
         <LinearGradient
           colors={

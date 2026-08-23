@@ -59,6 +59,8 @@ Deno.serve(async (req) => {
 
     const cleaned = goals.map((g: string) => g.trim().slice(0, MAX_GOAL_LEN));
 
+    console.log(`[INVOKED] generate-identity at ${new Date().toISOString()} - goals: ${cleaned.join(", ").slice(0, 80)}`);
+
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {

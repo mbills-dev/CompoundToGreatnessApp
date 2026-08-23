@@ -1,21 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   TextInput,
+  ActivityIndicator,
+  Platform,
+  Alert,
+  StyleSheet,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
 } from 'react-native-reanimated';
-import { ArrowLeft, ArrowRight, Check, Zap } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Check, Zap, Camera, Image as ImageIcon, RotateCw } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
+import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
+import { supabase } from '@/lib/supabase';
+import { logEdgeFunctionCall } from '@/lib/edgeFunctionLogger';
 import { FlowGoal, DecodePath } from './types';
 import { GoalBadge, formatGoalLabel } from './AnchorScreens';
+import { OverlapGroup, fetchOverlappingGoals, OverlapBanner, MergeEditor, VagueFlag, fetchVagueGoals, VagueGoalBanner, GoalCountNudge, TrimModal } from './AiDailyInputsScreen';
 import styles from './styles';
 import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
+import { useInputSpecificity, SpecificityNudgeBanner, logInputFeedback, InputSource } from './InputValidation';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -55,9 +67,12 @@ function goalHasNumber(s: string): boolean {
 
 // ─── GoalsEntryScreen ─────────────────────────────────────────────────────────
 
-export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: FlowGoal[]) => void; onBack: () => void }) {
+export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: FlowGoal[], isAiSourced?: boolean) => void; onBack: () => void }) {
   const { colors, isDark } = useTheme();
+  const router = useRouter();
   const [text, setText] = useState('');
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoLoading, setPhotoLoading] = useState(false);
   const opacity = useSharedValue(0);
   useEffect(() => { opacity.value = withTiming(1, { duration: 400 }); }, []);
   const fadeStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
@@ -67,6 +82,118 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
   const handleContinue = () => {
     if (!canContinue) return;
     onContinue(parseGoalsFromText(text));
+  };
+
+  const uploadAndExtract = async (uri: string) => {
+    setPhotoError(null);
+    setPhotoLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const ext = uri.split('.').pop() ?? 'jpg';
+      const fileName = `goal-photo-${Date.now()}.${ext}`;
+      const path = `${user.id}/${fileName}`;
+
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const arrayBuffer = decode(base64);
+
+      const { error: uploadError } = await supabase.storage
+        .from('goal-photos')
+        .upload(path, arrayBuffer, { contentType: `image/${ext}` });
+
+      if (uploadError) throw uploadError;
+
+      const { data: signedData, error: signedError } = await supabase.storage
+        .from('goal-photos')
+        .createSignedUrl(path, 300);
+
+      if (signedError || !signedData?.signedUrl) {
+        throw signedError ?? new Error('Failed to generate signed URL');
+      }
+
+      logEdgeFunctionCall('extract-goals-from-photo');
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/extract-goals-from-photo`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ imageUrl: signedData.signedUrl }),
+        },
+      );
+
+      if (!response.ok) throw new Error('Extraction failed');
+      const result = await response.json();
+
+      if (result.success && Array.isArray(result.goals) && result.goals.length > 0) {
+        const flowGoals: FlowGoal[] = result.goals.map((rawLabel: string) => ({
+          id: _goalIdSeq++,
+          label: normalizeMoneyInLabel(rawLabel),
+          category: 'General',
+          deadline: 'ongoing',
+          defaultPath: 'starting' as DecodePath,
+        }));
+        onContinue(flowGoals, true);
+        return;
+      }
+
+      if (result.success === false && result.reason === 'not_goals') {
+        setPhotoError("Couldn't find goals in that photo — try another or type them in");
+      } else {
+        setPhotoError("Couldn't find goals in that photo — try another or type them in");
+      }
+    } catch (err) {
+      setPhotoError("Couldn't find goals in that photo — try another or type them in");
+    } finally {
+      setPhotoLoading(false);
+    }
+  };
+
+  const handlePickFromLibrary = async () => {
+    setPhotoError(null);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+      allowsEditing: false,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    await uploadAndExtract(result.assets[0].uri);
+  };
+
+  const handleTakePhoto = async () => {
+    setPhotoError(null);
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please allow camera access to take a photo.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.8,
+      allowsEditing: false,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    await uploadAndExtract(result.assets[0].uri);
+  };
+
+  const handleUploadPhoto = () => {
+    if (Platform.OS === 'web') {
+      handlePickFromLibrary();
+      return;
+    }
+    Alert.alert(
+      'Add a photo',
+      'Take a photo of your goals or pick one from your library.',
+      [
+        { text: 'Take Photo', onPress: handleTakePhoto },
+        { text: 'Choose from Library', onPress: handlePickFromLibrary },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
   };
 
   return (
@@ -103,7 +230,35 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
             textAlignVertical="top"
             inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
           />
+
+          <TouchableOpacity
+            style={[photoStyles.uploadBtn, { borderColor: colors.primary, opacity: photoLoading ? 0.6 : 1, marginTop: 12 }]}
+            onPress={handleUploadPhoto}
+            activeOpacity={0.8}
+            disabled={photoLoading}
+          >
+            {photoLoading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <>
+                <ImageIcon size={18} color={colors.primary} strokeWidth={2.5} />
+                <Text style={[photoStyles.uploadBtnText, { color: colors.primary }]}>
+                  Upload a photo instead
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
+
+        {photoError && (
+          <View style={[photoStyles.errorCard, { backgroundColor: isDark ? 'rgba(255,68,0,0.08)' : 'rgba(255,68,0,0.06)', borderColor: 'rgba(255,68,0,0.3)' }]}>
+            <Text style={photoStyles.errorText}>{photoError}</Text>
+            <TouchableOpacity style={photoStyles.retryBtn} onPress={handleUploadPhoto} activeOpacity={0.7}>
+              <RotateCw size={14} color={colors.primary} strokeWidth={2.5} />
+              <Text style={[photoStyles.retryText, { color: colors.primary }]}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={styles.bottomSection}>
           <TouchableOpacity
@@ -121,10 +276,51 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
   );
 }
 
+const photoStyles = StyleSheet.create({
+  uploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 15,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  uploadBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  errorCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 14,
+    gap: 10,
+    marginBottom: 12,
+  },
+  errorText: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+    color: '#FF4400',
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+  },
+  retryText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+});
+
 // ─── GoalFuelRedirectScreen ───────────────────────────────────────────────────
 
 export function GoalFuelRedirectScreen({
   practiceText,
+  goalLabel,
   initialText,
   onSkipAsStandard,
   onContinue,
@@ -132,6 +328,7 @@ export function GoalFuelRedirectScreen({
   onStateChange,
 }: {
   practiceText: string;
+  goalLabel: string;
   initialText?: string;
   onSkipAsStandard: (actionText: string) => void;
   onContinue: (redirectText: string) => void;
@@ -142,6 +339,7 @@ export function GoalFuelRedirectScreen({
   const [actionText, setActionText] = useState(practiceText);
   const [fuelText, setFuelText] = useState(initialText ?? '');
   const [showFuelMode, setShowFuelMode] = useState(false);
+  const specificity = useInputSpecificity();
   const opacity = useSharedValue(0);
   useEffect(() => { opacity.value = withTiming(1, { duration: 400 }); }, []);
   const fadeStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
@@ -182,7 +380,16 @@ export function GoalFuelRedirectScreen({
             autoCapitalize="sentences"
             textAlignVertical="top"
             inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
+            onBlur={() => specificity.validate(actionText)}
           />
+
+          {specificity.result && !showFuelMode && (
+            <SpecificityNudgeBanner
+              result={specificity.result}
+              onAcceptExample={(ex) => { setActionText(ex); specificity.dismiss(); }}
+              onDismiss={specificity.dismiss}
+            />
+          )}
 
           {showFuelMode && (
             <View style={{ marginTop: 20 }}>
@@ -232,7 +439,20 @@ export function GoalFuelRedirectScreen({
             <>
               <TouchableOpacity
                 style={[styles.primaryButton, { backgroundColor: canLock ? colors.primary : colors.border, opacity: canLock ? 1 : 0.45 }]}
-                onPress={() => canLock && onSkipAsStandard(actionText.trim())}
+                onPress={() => {
+                  if (!canLock) return;
+                  const finalText = actionText.trim();
+                  const source: InputSource = (practiceText.trim().length > 0 && finalText === practiceText.trim())
+                    ? 'ai_suggested'
+                    : (practiceText.trim().length > 0 ? 'ai_edited' : 'user_written');
+                  logInputFeedback({
+                    goalText: goalLabel,
+                    source,
+                    finalInputText: finalText,
+                    specificityFlagTriggered: !!specificity.result,
+                  });
+                  onSkipAsStandard(finalText);
+                }}
                 disabled={!canLock}
                 activeOpacity={0.85}
               >
@@ -417,13 +637,74 @@ export function IntroScreen({
   onNext,
   onBack,
   goalLabelOverrides,
+  onMergeGoals,
+  onRemoveGoals,
 }: {
   goals: FlowGoal[];
   onNext: () => void;
   onBack: () => void;
   goalLabelOverrides: Record<number, string>;
+  onMergeGoals: (keepIndex: number, newLabel: string, removeIndices: number[]) => void;
+  onRemoveGoals: (removeIndices: number[]) => void;
 }) {
   const { colors } = useTheme();
+  const [overlapGroups, setOverlapGroups] = useState<OverlapGroup[]>([]);
+  const [dismissedGroups, setDismissedGroups] = useState<Set<number>>(new Set());
+  const [mergeGroupIdx, setMergeGroupIdx] = useState<number | null>(null);
+  const [vagueFlags, setVagueFlags] = useState<VagueFlag[]>([]);
+  const [dismissedVague, setDismissedVague] = useState<Set<number>>(new Set());
+  const [goalCountResolved, setGoalCountResolved] = useState(goals.length <= 10);
+  const [showTrimModal, setShowTrimModal] = useState(false);
+  const [trimChecked, setTrimChecked] = useState<Set<number>>(new Set());
+  const overlapFetchedRef = useRef(false);
+  const vagueFetchedRef = useRef(false);
+
+  useEffect(() => {
+    if (overlapFetchedRef.current) return;
+    overlapFetchedRef.current = true;
+    if (goals.length < 2) return;
+    fetchOverlappingGoals(goals.map(g => g.label)).then(groups => {
+      setOverlapGroups(groups);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (vagueFetchedRef.current) return;
+    vagueFetchedRef.current = true;
+    fetchVagueGoals(goals.map(g => g.label)).then(flags => {
+      setVagueFlags(flags);
+    });
+  }, []);
+
+  const handleConfirmMerge = (groupIdx: number, newLabel: string) => {
+    const group = overlapGroups[groupIdx];
+    if (!group || group.indices.length < 2) return;
+    const keepIndex = group.indices[0];
+    const removeIndices = group.indices.slice(1);
+    setOverlapGroups([]);
+    setDismissedGroups(new Set());
+    setMergeGroupIdx(null);
+    onMergeGoals(keepIndex, newLabel, removeIndices);
+  };
+
+  const handleConfirmTrim = () => {
+    const removeIndices = goals
+      .map((_, i) => i)
+      .filter(i => !trimChecked.has(i));
+
+    if (removeIndices.length === 0) {
+      setGoalCountResolved(true);
+      setShowTrimModal(false);
+      return;
+    }
+
+    if (removeIndices.length >= goals.length) return;
+
+    setGoalCountResolved(true);
+    setShowTrimModal(false);
+    onRemoveGoals(removeIndices);
+  };
+
   return (
     <View style={styles.screen}>
       <View style={{ flex: 1, justifyContent: 'center' }}>
@@ -454,27 +735,97 @@ export function IntroScreen({
         </Text>
 
         <View style={{ gap: 12, marginTop: 32 }}>
-          {goals.map((g, i) => (
-            <GoalBadge
-              key={g.id}
-              goal={g}
-              n={i + 1}
-              resolvedLabel={formatGoalLabel(g, goalLabelOverrides)}
-            />
-          ))}
+          {goals.map((g, i) => {
+            const activeGroups = overlapGroups
+              .map((grp, gi) => ({ group: grp, groupIdx: gi }))
+              .filter(({ group }) =>
+                group.indices.includes(i) &&
+                group.indices[0] === i &&
+                !dismissedGroups.has(group.indices[0]) &&
+                mergeGroupIdx === null,
+              );
+
+            return (
+              <View key={g.id}>
+                {activeGroups.map(({ group, groupIdx }) =>
+                  mergeGroupIdx === groupIdx ? (
+                    <MergeEditor
+                      key={`merge-${groupIdx}`}
+                      defaultLabel={`${goals[group.indices[0]]?.label ?? ''} (includes ${group.indices.slice(1).map(idx => goals[idx]?.label ?? '').join(', ')})`}
+                      onConfirm={(label) => handleConfirmMerge(groupIdx, label)}
+                      onCancel={() => setMergeGroupIdx(null)}
+                    />
+                  ) : (
+                    <OverlapBanner
+                      key={`overlap-${groupIdx}`}
+                      reason={group.reason}
+                      onKeepSeparate={() => setDismissedGroups(prev => new Set(prev).add(group.indices[0]))}
+                      onCombine={() => setMergeGroupIdx(groupIdx)}
+                    />
+                  ),
+                )}
+                {vagueFlags
+                  .filter(f => f.index === i && !dismissedVague.has(f.index))
+                  .map(f => (
+                    <VagueGoalBanner
+                      key={`vague-${f.index}`}
+                      reason={f.reason}
+                      suggestion={f.suggestion}
+                      onUseThis={() => {
+                        setDismissedVague(prev => new Set(prev).add(f.index));
+                        onMergeGoals(i, f.suggestion, []);
+                      }}
+                      onKeepAsIs={() => setDismissedVague(prev => new Set(prev).add(f.index))}
+                    />
+                  ))}
+                <GoalBadge
+                  goal={g}
+                  n={i + 1}
+                  resolvedLabel={formatGoalLabel(g, goalLabelOverrides)}
+                />
+              </View>
+            );
+          })}
         </View>
       </View>
 
       <View style={styles.bottomSection}>
         <TouchableOpacity
-          style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+          style={[styles.primaryButton, { backgroundColor: goalCountResolved ? colors.primary : colors.border, opacity: goalCountResolved ? 1 : 0.45 }]}
           onPress={onNext}
           activeOpacity={0.85}
+          disabled={!goalCountResolved}
         >
           <Text style={styles.primaryButtonText}>Reverse engineer goal 1</Text>
           <ArrowRight size={20} color="#000" strokeWidth={3} />
         </TouchableOpacity>
       </View>
+
+      {!goalCountResolved && (
+        <GoalCountNudge
+          count={goals.length}
+          onTrim={() => {
+            setTrimChecked(new Set(goals.map((_, i) => i)));
+            setShowTrimModal(true);
+          }}
+          onKeepAll={() => setGoalCountResolved(true)}
+        />
+      )}
+
+      {showTrimModal && (
+        <TrimModal
+          goals={goals}
+          checked={trimChecked}
+          onToggle={(idx) => setTrimChecked(prev => {
+            const next = new Set(prev);
+            if (next.has(idx)) next.delete(idx);
+            else next.add(idx);
+            return next;
+          })}
+          onConfirm={handleConfirmTrim}
+          onCancel={() => setShowTrimModal(false)}
+        />
+      )}
     </View>
   );
 }

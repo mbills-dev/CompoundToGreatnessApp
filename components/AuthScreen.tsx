@@ -119,6 +119,7 @@ export default function AuthScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
       style={[styles.container, { backgroundColor: colors.background }]}
     >
       <LinearGradient
@@ -129,6 +130,7 @@ export default function AuthScreen() {
           contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
         >
         <View style={styles.contentColumn}>
           <View style={styles.header}>

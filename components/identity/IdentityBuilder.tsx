@@ -22,6 +22,8 @@ import {
   Platform,
   PanResponder,
   Animated as RNAnimated,
+  ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Confetti from '@/components/Confetti';
@@ -31,6 +33,7 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withSpring,
+  interpolate,
   Easing,
   runOnJS,
 } from 'react-native-reanimated';
@@ -43,11 +46,15 @@ import { WelcomeSeriesScreen } from './flow/WelcomeScreens';
 import { GoalsEntryScreen, IntroScreen, GoalDoneLooksScreen, GoalFuelRedirectScreen } from './flow/GoalsEntry';
 import { PathSelectorScreen, PathNumbers, PathPractice, PathStarting } from './flow/PathScreens';
 import { AnchorScreen, AddInputScreen, GoalLockedScreen, GoalBadge, formatGoalLabel, displayGoalLabel } from './flow/AnchorScreens';
-import { IdentityScreen, deriveIdentityLine } from './flow/IdentityScreens';
+import { AiDailyInputsScreen } from './flow/AiDailyInputsScreen';
+import { logInputFeedback, InputSource } from './flow/InputValidation';
+import { IdentityScreen, deriveIdentityLine, formatTargetDisplay } from './flow/IdentityScreens';
 import { CompassStoryScreen, CompassDominoScreen, CompassMechanismScreen } from './flow/CompassScreens';
 import { FinaleScreen } from './flow/FinaleScreens';
 import { generateIdentityStatements } from './identityAi';
+import { AiThinkingIndicator } from './flow/AiThinkingIndicator';
 import { supabase } from '@/lib/supabase';
+import { logEdgeFunctionCall } from '@/lib/edgeFunctionLogger';
 import { CHALLENGE_RULES } from '@/constants/challengeRules';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -167,7 +174,7 @@ function SignatureScreen({
 }: {
   locked: ExtendedLockedGoal[];
   displayName: string;
-  onComplete: () => void;
+  onComplete: () => Promise<boolean>;
 }) {
   const { colors, isDark } = useTheme();
   const screenFade = useSharedValue(0);
@@ -177,6 +184,8 @@ function SignatureScreen({
   const [paths, setPaths] = useState<string[]>([]);
   const [currentPath, setCurrentPath] = useState<string>('');
   const [committed, setCommitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
   const [sigActive, setSigActive] = useState(false);
   const placeholderAnim = useRef(new RNAnimated.Value(1)).current;
   const hasSig = paths.length > 0 || currentPath.length > 0;
@@ -217,6 +226,21 @@ function SignatureScreen({
     if (lock.dailyInput) checklistItems.push(lock.dailyInput);
     lock.additionalInputs.forEach(inp => { if (inp.dailyInput) checklistItems.push(inp.dailyInput); });
   });
+
+  if (submitting) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <AiThinkingIndicator
+          phrases={[
+            'Building your plan...',
+            'Locking it in...',
+            'Setting up your 77 days...',
+            'Almost ready...',
+          ]}
+        />
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -317,26 +341,47 @@ function SignatureScreen({
           )}
         </View>
 
+        {submitError && (
+          <View style={{ marginTop: 24, paddingHorizontal: 24, alignItems: 'center' }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#FF4444', textAlign: 'center', lineHeight: 20 }}>
+              Something went wrong creating your challenge. Please try again.
+            </Text>
+          </View>
+        )}
+
         <TouchableOpacity
           style={[sigStyles.ctaBtn, {
             backgroundColor: hasSig ? '#CCFF00' : (isDark ? '#1C2400' : '#D8E8C0'),
-            marginTop: 24,
-            opacity: (hasSig && !committed) ? 1 : 0.38,
+            marginTop: submitError ? 16 : 24,
+            opacity: (hasSig && !submitting) ? 1 : 0.38,
           }]}
-          onPress={() => {
-            if (!hasSig || committed) return;
+          onPress={async () => {
+            if (!hasSig || submitting) return;
             setCommitted(true);
+            setSubmitting(true);
+            setSubmitError(false);
             if (Platform.OS !== 'web') {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }
-            onComplete();
+            const success = await onComplete();
+            if (!success) {
+              setSubmitting(false);
+              setSubmitError(true);
+              setCommitted(false);
+            }
           }}
-          activeOpacity={(hasSig && !committed) ? 0.85 : 1}
-          disabled={!hasSig || committed}
+          activeOpacity={(hasSig && !submitting) ? 0.85 : 1}
+          disabled={!hasSig || submitting}
         >
-          <Text style={[sigStyles.ctaText, { color: (hasSig && !committed) ? '#000' : (isDark ? '#3A4A00' : '#7A9A40') }]}>
-            Start My 77-Day Challenge
-          </Text>
+          {submitting ? (
+            <Text style={[sigStyles.ctaText, { color: '#000' }]}>
+              Creating your challenge...
+            </Text>
+          ) : (
+            <Text style={[sigStyles.ctaText, { color: hasSig ? '#000' : (isDark ? '#3A4A00' : '#7A9A40') }]}>
+              {submitError ? 'Try Again' : 'Start My 77-Day Challenge'}
+            </Text>
+          )}
         </TouchableOpacity>
       </Animated.View>
     </ScrollView>
@@ -396,12 +441,14 @@ type Phase =
   | { kind: 'welcome'; screen: 0 | 1 | 2 }
   | { kind: 'goals-entry' }
   | { kind: 'intro' }
+  | { kind: 'classifying'; goalIdx: number }
   | { kind: 'path-select'; goalIdx: number }
   | { kind: 'goal-done-looks'; goalIdx: number; chosenPath: DecodePath; doneLooksInitial?: string }
   | { kind: 'goal-fuel-redirect'; goalIdx: number; practiceText: string; redirectInitial?: string }
   | { kind: 'decode'; goalIdx: number; path: DecodePath; doneLooksText?: string }
   | { kind: 'anchor'; goalIdx: number; dailyInput: string; isStandard?: boolean; decodePath: DecodePath; resolvedTargetStr?: string; doneLooksText?: string; dailyNumber?: number; winNoun?: string; actionNoun?: string; ratio?: number; periodSuffix?: 'week' | 'month' | 'year' }
-  | { kind: 'add-input'; goalIdx: number }
+  | { kind: 'ai-daily-inputs' }
+  | { kind: 'add-input'; goalIdx: number; prefillText?: string }
   | { kind: 'locked'; goalIdx: number; dailyInput: string }
   | { kind: 'identity' }
   | { kind: 'compass-story' }
@@ -413,7 +460,7 @@ type Phase =
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
-  onComplete: (result: IdentityBuilderResult) => void;
+  onComplete: (result: IdentityBuilderResult) => Promise<boolean>;
 }
 
 export default function IdentityBuilder({ onComplete }: Props) {
@@ -434,6 +481,9 @@ export default function IdentityBuilder({ onComplete }: Props) {
   const [dominoGoalId, setDominoGoalId] = useState<number | null>(null);
   const [savedStates, setSavedStates] = useState<Record<string, string>>({});
   const [displayName, setDisplayName] = useState<string>('');
+  const [isAiSourced, setIsAiSourced] = useState(false);
+  const [aiSelectedInputs, setAiSelectedInputs] = useState<Record<number, string[]>>({});
+  const [aiIdentityLines, setAiIdentityLines] = useState<Record<number, string>>({});
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -502,6 +552,18 @@ export default function IdentityBuilder({ onComplete }: Props) {
     slideAnim.value = withTiming(-20, { duration: 220 });
   };
 
+  const navigateReplace = (next: Phase) => {
+    screenAnim.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.ease) }, (finished) => {
+      if (finished) {
+        runOnJS(setPhase)(next);
+        slideAnim.value = 30;
+        screenAnim.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.ease) });
+        slideAnim.value = withSpring(0, { damping: 20, stiffness: 160 });
+      }
+    });
+    slideAnim.value = withTiming(-20, { duration: 220 });
+  };
+
   const goBack = () => {
     if (history.length === 0) return;
     const prev = history[history.length - 1];
@@ -532,7 +594,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
         setGoalLabelOverrides(prev => ({ ...prev, [goal.id]: goal.deriveLabel!(resolvedTargetStr) }));
       } else {
         const suffix = numbersPayload?.periodSuffix ?? 'month';
-        setGoalLabelOverrides(prev => ({ ...prev, [goal.id]: `earning ${resolvedTargetStr}/${suffix} consistently` }));
+        setGoalLabelOverrides(prev => ({ ...prev, [goal.id]: `earning ${formatTargetDisplay(resolvedTargetStr)}/${suffix} consistently` }));
       }
     }
     setDecodeResults(prev => ({ ...prev, [goalIdx]: result }));
@@ -582,6 +644,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
     actionNoun?: string,
     ratio?: number,
     periodSuffix?: 'week' | 'month' | 'year',
+    wasFlaggedNonSpecific?: boolean,
   ) => {
     const goal = goals[goalIdx];
     const goalLabel = formatGoalLabel(goal, goalLabelOverrides);
@@ -591,28 +654,52 @@ export default function IdentityBuilder({ onComplete }: Props) {
         goalId: goal.id, dailyInput, goalLabel, doneLooksText,
         what: dailyInput, when, where, schedule, isStandard, decodePath,
         resolvedTargetStr, dailyNumber, winNoun, actionNoun, ratio, periodSuffix,
+        identityLine: isAiSourced ? aiIdentityLines[goalIdx] : undefined,
         additionalInputs: [],
       },
     ]);
+    const source: InputSource = isAiSourced ? 'ai_suggested' : 'user_written';
+    logInputFeedback({
+      goalText: goalLabel,
+      source,
+      finalInputText: dailyInput,
+      specificityFlagTriggered: !!wasFlaggedNonSpecific,
+    });
     navigate({ kind: 'locked', goalIdx, dailyInput });
   };
 
-  const handleAddInputDone = (goalIdx: number, inp: AnchoredInput) => {
+  const handleAddInputDone = (goalIdx: number, inp: AnchoredInput, wasFlaggedNonSpecific?: boolean) => {
     const goal = goals[goalIdx];
+    const goalLabel = formatGoalLabel(goal, goalLabelOverrides);
     setLocked(prev => prev.map(l => l.goalId === goal.id ? { ...l, additionalInputs: [...l.additionalInputs, inp] } : l));
+    const isFromAi = (aiSelectedInputs[goalIdx] ?? []).includes(inp.dailyInput);
+    const source: InputSource = isFromAi ? 'ai_suggested' : 'user_written';
+    logInputFeedback({
+      goalText: goalLabel,
+      source,
+      finalInputText: inp.dailyInput,
+      specificityFlagTriggered: !!wasFlaggedNonSpecific,
+    });
     navigate({ kind: 'locked', goalIdx, dailyInput: inp.dailyInput });
   };
 
   const handleLockedNext = (goalIdx: number) => {
     const nextIdx = goalIdx + 1;
     if (nextIdx < goals.length) {
-      navigate({ kind: 'path-select', goalIdx: nextIdx });
+      if (isAiSourced) {
+        const nextInput = (aiSelectedInputs[nextIdx] ?? [])[0];
+        if (nextInput) {
+          navigate({ kind: 'anchor', goalIdx: nextIdx, dailyInput: nextInput, decodePath: 'starting' });
+          return;
+        }
+      }
+      navigate({ kind: 'classifying', goalIdx: nextIdx });
     } else {
       navigate({ kind: 'identity' });
     }
   };
 
-  const handleSignatureComplete = () => {
+  const handleSignatureComplete = async (): Promise<boolean> => {
     const identityStatement = buildIdentityStatement(goals, locked, acceptedIdentity ?? {});
     const dimensions = buildDimensions(goals, locked, goalLabelOverrides);
     const { inputs, rawInputs } = buildInputsAndRaw(locked);
@@ -629,7 +716,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
       ? `Will it help me ${compassFilter.trim().replace(/\.$/, '')}?`
       : '';
 
-    onComplete({ identityStatement, dimensions, inputs, rawInputs, compass: { vision: compassVision, declaration: '', filterQuestion } });
+    return onComplete({ identityStatement, dimensions, inputs, rawInputs, compass: { vision: compassVision, declaration: '', filterQuestion } });
   };
 
   const renderPhase = () => {
@@ -653,24 +740,165 @@ export default function IdentityBuilder({ onComplete }: Props) {
         return (
           <GoalsEntryScreen
             onBack={goBack}
-            onContinue={parsedGoals => {
+            onContinue={(parsedGoals, aiSourced) => {
               setGoals(parsedGoals);
               setLocked([]);
               setDecodeResults({});
               setGoalLabelOverrides({});
               setIdentityOverrides({});
+              setIsAiSourced(!!aiSourced);
+              setAiSelectedInputs({});
+              setAiIdentityLines({});
               navigate({ kind: 'intro' });
             }}
           />
         );
+
+      case 'ai-daily-inputs':
+        return (
+          <AiDailyInputsScreen
+            goals={goals}
+            onBack={goBack}
+            onEditGoal={(goalIdx, newLabel) => {
+              setGoals(prev => prev.map((g, i) => i === goalIdx ? { ...g, label: newLabel } : g));
+            }}
+            onMergeGoals={(keepIndex, newLabel, removeIndices) => {
+              const removeSet = new Set(removeIndices);
+              setGoals(prev => {
+                const kept = prev[keepIndex];
+                if (!kept) return prev;
+                const next: FlowGoal[] = [];
+                for (let i = 0; i < prev.length; i++) {
+                  if (removeSet.has(i)) continue;
+                  if (i === keepIndex) {
+                    next.push({ ...prev[i], label: newLabel });
+                  } else {
+                    next.push(prev[i]);
+                  }
+                }
+                return next;
+              });
+              setAiSelectedInputs(prev => {
+                const maxIdx = Object.keys(prev).reduce((m, k) => Math.max(m, Number(k)), 0);
+                const next: Record<number, string[]> = {};
+                let newIdx = 0;
+                for (let i = 0; i <= maxIdx; i++) {
+                  if (removeSet.has(i)) continue;
+                  next[newIdx] = prev[i] ?? [];
+                  newIdx++;
+                }
+                return next;
+              });
+            }}
+            onRemoveGoals={(removeIndices) => {
+              const removeSet = new Set(removeIndices);
+              setGoals(prev => {
+                const next: FlowGoal[] = [];
+                for (let i = 0; i < prev.length; i++) {
+                  if (removeSet.has(i)) continue;
+                  next.push(prev[i]);
+                }
+                return next;
+              });
+              setAiSelectedInputs(prev => {
+                const maxIdx = Object.keys(prev).reduce((m, k) => Math.max(m, Number(k)), 0);
+                const next: Record<number, string[]> = {};
+                let newIdx = 0;
+                for (let i = 0; i <= maxIdx; i++) {
+                  if (removeSet.has(i)) continue;
+                  next[newIdx] = prev[i] ?? [];
+                  newIdx++;
+                }
+                return next;
+              });
+            }}
+            onDone={(selected, idLines) => {
+              setAiSelectedInputs(selected);
+              setAiIdentityLines(idLines);
+              const firstInput = (selected[0] ?? [])[0];
+              if (firstInput) {
+                navigate({ kind: 'anchor', goalIdx: 0, dailyInput: firstInput, decodePath: 'starting' });
+              } else {
+                navigate({ kind: 'path-select', goalIdx: 0 });
+              }
+            }}
+          />
+        );
+
+      case 'classifying': {
+        const goalIdx = phase.goalIdx;
+        const goalLabel = goals[goalIdx]?.label ?? '';
+        return (
+          <ClassifyingPhase
+            goalLabel={goalLabel}
+            onClassified={(path, extractedTarget, standardAction, estimatedMasteryHours) => {
+              if (path === 'numbers' && extractedTarget) {
+                setGoals(prev => prev.map((g, i) =>
+                  i === goalIdx ? { ...g, inheritedTarget: extractedTarget } : g
+                ));
+              }
+              if (path === 'starting' && standardAction) {
+                setGoals(prev => prev.map((g, i) =>
+                  i === goalIdx ? { ...g, practiceSeed: standardAction } : g
+                ));
+              }
+              if (path === 'practice' && estimatedMasteryHours) {
+                setGoals(prev => prev.map((g, i) =>
+                  i === goalIdx ? { ...g, estimatedMasteryHours } : g
+                ));
+              }
+              navigateReplace({ kind: 'decode', goalIdx, path });
+            }}
+          />
+        );
+      }
 
       case 'intro':
         return (
           <IntroScreen
             goals={goals}
             goalLabelOverrides={goalLabelOverrides}
-            onNext={() => navigate({ kind: 'path-select', goalIdx: 0 })}
+            onNext={() => navigate({ kind: 'classifying', goalIdx: 0 })}
             onBack={goBack}
+            onMergeGoals={(keepIndex, newLabel, removeIndices) => {
+              const removeSet = new Set(removeIndices);
+              setGoals(prev => {
+                const kept = prev[keepIndex];
+                if (!kept) return prev;
+                const next: FlowGoal[] = [];
+                for (let i = 0; i < prev.length; i++) {
+                  if (removeSet.has(i)) continue;
+                  if (i === keepIndex) {
+                    next.push({ ...prev[i], label: newLabel });
+                  } else {
+                    next.push(prev[i]);
+                  }
+                }
+                return next;
+              });
+            }}
+            onRemoveGoals={(removeIndices) => {
+              const removeSet = new Set(removeIndices);
+              setGoals(prev => {
+                const next: FlowGoal[] = [];
+                for (let i = 0; i < prev.length; i++) {
+                  if (removeSet.has(i)) continue;
+                  next.push(prev[i]);
+                }
+                return next;
+              });
+              setAiSelectedInputs(prev => {
+                const maxIdx = Object.keys(prev).reduce((m, k) => Math.max(m, Number(k)), 0);
+                const next: Record<number, string[]> = {};
+                let newIdx = 0;
+                for (let i = 0; i <= maxIdx; i++) {
+                  if (removeSet.has(i)) continue;
+                  next[newIdx] = prev[i] ?? [];
+                  newIdx++;
+                }
+                return next;
+              });
+            }}
           />
         );
 
@@ -707,6 +935,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
         return (
           <GoalFuelRedirectScreen
             practiceText={phase.practiceText}
+            goalLabel={formatGoalLabel(goals[goalIdx], goalLabelOverrides)}
             initialText={savedStates[phaseKey(phase)]}
             onBack={goBack}
             onStateChange={v => saveState(phaseKey(phase), v)}
@@ -714,7 +943,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
             onContinue={redirectText => {
               const updated = { ...goals[goalIdx], label: redirectText };
               setGoals(prev => prev.map((x, i) => i === goalIdx ? updated : x));
-              navigate({ kind: 'path-select', goalIdx });
+              navigate({ kind: 'classifying', goalIdx });
             }}
           />
         );
@@ -774,7 +1003,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
                 goal={goal}
                 dailyInput={dailyInput}
                 isStandard={isStandard}
-                onDone={(when, where, schedule) => handleAnchorDone(goalIdx, dailyInput, when, where, schedule, isStandard, decodePath, resolvedTargetStr, doneLooksText, dailyNumber, winNoun, actionNoun, ratio, periodSuffix)}
+                onDone={(editedDailyInput, when, where, schedule, wasFlaggedNonSpecific) => handleAnchorDone(goalIdx, editedDailyInput, when, where, schedule, isStandard, decodePath, resolvedTargetStr, doneLooksText, dailyNumber, winNoun, actionNoun, ratio, periodSuffix, wasFlaggedNonSpecific)}
               />
             </ScrollView>
           </View>
@@ -784,6 +1013,9 @@ export default function IdentityBuilder({ onComplete }: Props) {
       case 'locked': {
         const lockedGoalData = locked.find(l => l.goalId === goals[phase.goalIdx].id);
         if (!lockedGoalData) return null;
+        const aiRemaining = (aiSelectedInputs[phase.goalIdx] ?? []).filter(
+          inp => inp !== lockedGoalData.dailyInput && !lockedGoalData.additionalInputs.some(a => a.dailyInput === inp)
+        );
         return (
           <GoalLockedScreen
             n={phase.goalIdx + 1}
@@ -792,13 +1024,13 @@ export default function IdentityBuilder({ onComplete }: Props) {
             resolvedLabel={formatGoalLabel(goals[phase.goalIdx], goalLabelOverrides)}
             lockedGoal={lockedGoalData}
             onNext={() => handleLockedNext(phase.goalIdx)}
-            onAddInput={() => navigate({ kind: 'add-input', goalIdx: phase.goalIdx })}
+            onAddInput={() => navigate({ kind: 'add-input', goalIdx: phase.goalIdx, prefillText: aiRemaining[0] })}
           />
         );
       }
 
       case 'add-input': {
-        const { goalIdx } = phase;
+        const { goalIdx, prefillText } = phase;
         const goal = goals[goalIdx];
         return (
           <View style={{ flex: 1 }}>
@@ -809,7 +1041,8 @@ export default function IdentityBuilder({ onComplete }: Props) {
             <ScrollView style={{ flex: 1, paddingHorizontal: 24 }} showsVerticalScrollIndicator={false}>
               <AddInputScreen
                 goal={goal}
-                onDone={(dailyInput, when, where, schedule) => handleAddInputDone(goalIdx, { dailyInput, when, where, schedule })}
+                prefillText={prefillText}
+                onDone={(dailyInput, when, where, schedule, wasFlaggedNonSpecific) => handleAddInputDone(goalIdx, { dailyInput, when, where, schedule }, wasFlaggedNonSpecific)}
                 onCancel={() => navigate({ kind: 'locked', goalIdx, dailyInput: '' })}
               />
             </ScrollView>
@@ -906,6 +1139,58 @@ export default function IdentityBuilder({ onComplete }: Props) {
         {renderPhase()}
       </Animated.View>
     </View>
+  );
+}
+
+// ─── Classifying phase (inline loading state) ──────────────────────────────────
+
+function ClassifyingPhase({
+  goalLabel,
+  onClassified,
+}: {
+  goalLabel: string;
+  onClassified: (path: DecodePath, extractedTarget: string | null, standardAction: string | null, estimatedMasteryHours: number | null) => void;
+}) {
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        logEdgeFunctionCall('classify-goal-path');
+        const { data, error } = await supabase.functions.invoke('classify-goal-path', {
+          body: { goal: goalLabel },
+        });
+        if (cancelled) return;
+        if (error || !data || (data.path !== 'numbers' && data.path !== 'practice' && data.path !== 'starting')) {
+          onClassified('starting', null, null, null);
+          return;
+        }
+        const extracted = typeof data.extractedTarget === 'string' && data.extractedTarget.trim().length > 0
+          ? data.extractedTarget.trim()
+          : null;
+        const standard = typeof data.standardAction === 'string' && data.standardAction.trim().length > 0
+          ? data.standardAction.trim()
+          : null;
+        const masteryHours = typeof data.estimatedMasteryHours === 'number' && !isNaN(data.estimatedMasteryHours) && data.estimatedMasteryHours > 0
+          ? Math.round(data.estimatedMasteryHours)
+          : null;
+        onClassified(data.path as DecodePath, extracted, standard, masteryHours);
+      } catch {
+        if (!cancelled) onClassified('starting', null, null, null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <AiThinkingIndicator
+      phrases={[
+        'Reading your goal...',
+        'Checking the numbers...',
+        'Choosing your path...',
+        'Almost there...',
+      ]}
+      subtitle={goalLabel}
+    />
   );
 }
 

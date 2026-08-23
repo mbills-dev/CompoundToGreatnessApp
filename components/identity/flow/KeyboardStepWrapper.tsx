@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import {
   KeyboardAvoidingView,
   ScrollView,
@@ -13,15 +13,23 @@ import {
 
 export const KEYBOARD_DONE_ACCESSORY_ID = 'onboarding-keyboard-done';
 
-export default function KeyboardStepWrapper({
-  children,
-  contentContainerStyle,
-  scrollEnabled = true,
-}: {
+export type KeyboardStepWrapperRef = {
+  scrollToEnd: (options?: { animated?: boolean }) => void;
+};
+
+const KeyboardStepWrapper = forwardRef<KeyboardStepWrapperRef, {
   children: React.ReactNode;
   contentContainerStyle?: any;
   scrollEnabled?: boolean;
-}) {
+}>(({ children, contentContainerStyle, scrollEnabled = true }, ref) => {
+  const scrollRef = useRef<ScrollView>(null);
+
+  useImperativeHandle(ref, () => ({
+    scrollToEnd: (options?: { animated?: boolean }) => {
+      scrollRef.current?.scrollToEnd(options);
+    },
+  }));
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -30,11 +38,13 @@ export default function KeyboardStepWrapper({
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <ScrollView
+          ref={scrollRef}
           style={{ flex: 1 }}
           contentContainerStyle={contentContainerStyle}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           scrollEnabled={scrollEnabled}
+          automaticallyAdjustKeyboardInsets={true}
         >
           {children}
         </ScrollView>
@@ -50,4 +60,8 @@ export default function KeyboardStepWrapper({
       )}
     </KeyboardAvoidingView>
   );
-}
+});
+
+KeyboardStepWrapper.displayName = 'KeyboardStepWrapper';
+
+export default KeyboardStepWrapper;

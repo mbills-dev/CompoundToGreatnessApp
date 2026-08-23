@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,21 +7,27 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   interpolate,
+  runOnJS,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, ArrowRight, Check, Zap, Pencil } from 'lucide-react-native';
+import Slider from '@react-native-community/slider';
+import { ArrowLeft, ArrowRight, Check, Zap, Pencil, RotateCw, Turtle, Rabbit } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FlowGoal, DecodePath } from './types';
 import { GoalBadge } from './AnchorScreens';
 import styles from './styles';
-import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
+import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID, KeyboardStepWrapperRef } from './KeyboardStepWrapper';
+import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
+import { fetchDailyInputs, GoalInputResult } from './AiDailyInputsScreen';
+import { formatTargetDisplay } from './IdentityScreens';
 
 // ─── Math helpers ─────────────────────────────────────────────────────────────
 
@@ -60,7 +66,6 @@ function hoursToYears(hours: number, minPerDay: number): string {
 function fmtNum(n: number): string {
   return n.toLocaleString('en-US');
 }
-
 function normalizeTarget(raw: string): string {
   const s = raw.trim();
   const withDollar = s.startsWith('$') ? s : `$${s}`;
@@ -93,7 +98,7 @@ export function detectPeriod(...texts: string[]): PeriodInfo {
 
 // ─── Shared ChipGroup internals ───────────────────────────────────────────────
 
-function PresetChip({
+export function PresetChip({
   label,
   isSelected,
   delayMs,
@@ -148,7 +153,7 @@ function PresetChip({
   );
 }
 
-function ChipGroup({
+export function ChipGroup({
   label,
   options,
   selected,
@@ -358,6 +363,18 @@ export function PathNumbers({
 
   const [revealed, setRevealed] = useState(false);
   const revealAnim = useSharedValue(0);
+  const scrollRef = useRef<KeyboardStepWrapperRef>(null);
+
+  const targetCardAnim = useSharedValue(0);
+  useEffect(() => {
+    targetCardAnim.value = withSpring(1, { damping: 14, stiffness: 100 });
+  }, []);
+  const targetCardStyle = useAnimatedStyle(() => ({
+    opacity: targetCardAnim.value,
+    transform: [
+      { scale: interpolate(targetCardAnim.value, [0, 1], [0.85, 1]) },
+    ],
+  }));
 
   const resetReveal = () => {
     setRevealed(false);
@@ -385,7 +402,8 @@ export function PathNumbers({
 
   const doReveal = () => {
     setRevealed(true);
-    revealAnim.value = withSpring(1, { damping: 14, stiffness: 100 });
+    const triggerScroll = () => scrollRef.current?.scrollToEnd({ animated: true });
+    revealAnim.value = withSpring(1, { damping: 14, stiffness: 100 }, (finished) => { if (finished) runOnJS(triggerScroll)(); });
     if (Platform.OS !== 'web') {
       let tick = 0;
       const interval = setInterval(() => {
@@ -410,9 +428,9 @@ export function PathNumbers({
     daily >= 10000 ? 36 : daily >= 1000 ? 44 : 56;
 
   return (
-    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
+    <KeyboardStepWrapper ref={scrollRef} contentContainerStyle={styles.decodeScroll}>
       {targetStr.trim() ? (
-        <View
+        <Animated.View
           style={[
             styles.inheritedTargetCard,
             {
@@ -421,6 +439,7 @@ export function PathNumbers({
                 : 'rgba(204,255,0,0.08)',
               borderColor: colors.primary + '50',
             },
+            targetCardStyle,
           ]}
         >
           <View style={{ flex: 1 }}>
@@ -429,7 +448,7 @@ export function PathNumbers({
             </Text>
             {!editingTarget ? (
               <Text style={[styles.inheritedValue, { color: colors.text }]}>
-                {targetStr}{' '}
+                {formatTargetDisplay(targetStr)}{' '}
                 <Text style={{ color: colors.primary, fontSize: 14 }}>
                   ✓ from your goal
                 </Text>
@@ -499,7 +518,7 @@ export function PathNumbers({
               />
             </TouchableOpacity>
           )}
-        </View>
+        </Animated.View>
       ) : (
         <ChipGroup
           label="Monthly target"
@@ -664,6 +683,17 @@ export function PathNumbers({
 
 // ─── PathPractice ─────────────────────────────────────────────────────────────
 
+function positionToPace(pos: number): number {
+  const THIRD = 100 / 3;
+  if (pos <= THIRD) {
+    return Math.round(15 + (pos / THIRD) * 5);
+  } else if (pos <= 2 * THIRD) {
+    return Math.round(30 + ((pos - THIRD) / THIRD) * 10);
+  } else {
+    return Math.round(90 + ((pos - 2 * THIRD) / THIRD) * 30);
+  }
+}
+
 const DEADLINE_MONTHS: Record<string, number> = {
   ongoing: 12,
   '6 months': 6,
@@ -680,54 +710,53 @@ export function PathPractice({
   const deadlineMonths = DEADLINE_MONTHS[goal.deadline];
   const use77Days = deadlineMonths === undefined || goal.deadline === 'ongoing';
 
-  const hourChips = ['~100 hrs', '~300 hrs', '~600 hrs', '~1,000 hrs', 'No idea'];
-  const paceChips = ['15 min/day', '30 min/day', '60 min/day', '120 min/day'];
+  const hours = goal.estimatedMasteryHours ?? 300;
 
-  const [hoursChip, setHoursChip] = useState<string | null>(null);
-  const [paceChip, setPaceChip] = useState<string | null>(null);
+  const [trackPosition, setTrackPosition] = useState(50);
+  const pace = positionToPace(trackPosition);
   const [revealed, setRevealed] = useState(false);
   const [actionText, setActionText] = useState('');
-
-  const hoursMap: Record<string, number> = {
-    '~100 hrs': 100,
-    '~300 hrs': 300,
-    '~600 hrs': 600,
-    '~1,000 hrs': 1000,
-    'No idea': 300,
-  };
-  const paceMap: Record<string, number> = {
-    '15 min/day': 15,
-    '30 min/day': 30,
-    '60 min/day': 60,
-    '120 min/day': 120,
-  };
+  const [aiResult, setAiResult] = useState<GoalInputResult | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const lastFetchedPace = useRef<number | null>(null);
+  const specificity = useInputSpecificity();
+  const scrollRef = useRef<KeyboardStepWrapperRef>(null);
 
   const revealAnim = useSharedValue(0);
 
-  const knowsHours = hoursChip !== null && hoursChip !== 'No idea';
-  const hours = hoursChip
-    ? hoursMap[hoursChip] ?? parseNum(hoursChip)
-    : null;
-  const pace = paceChip
-    ? paceMap[paceChip] ?? parseNum(paceChip)
-    : null;
+  const loadSuggestions = useCallback(async (paceVal: number) => {
+    setAiLoading(true);
+    const goalStr = `${goal.label} — spend exactly ${paceVal} minutes per day on this`;
+    const res = await fetchDailyInputs(goalStr);
+    setAiResult(res);
+    setAiLoading(false);
+  }, [goal.label]);
 
-  const bankedDays = use77Days ? 77 : (deadlineMonths ?? 12) * 30;
-  const banked =
-    paceChip && !knowsHours && pace
-      ? Math.round((bankedDays * pace) / 60)
-      : null;
-  const timeline =
-    knowsHours && hours && pace ? hoursToYears(hours, pace) : null;
+  useEffect(() => {
+    loadSuggestions(pace);
+    lastFetchedPace.current = pace;
+  }, [loadSuggestions]);
 
-  const canReveal = hoursChip !== null && paceChip !== null && actionText.trim().length > 0;
+  const chipOptions = useMemo(() => aiResult?.suggestions?.map(s => s.input) ?? [], [aiResult]);
+
+  useEffect(() => {
+    if (actionText && !chipOptions.includes(actionText)) {
+      specificity.validate(actionText);
+    } else if (specificity.result) {
+      specificity.dismiss();
+    }
+  }, [actionText, chipOptions]);
+
+  const timeline = hoursToYears(hours, pace);
+
+  const canReveal = actionText.trim().length > 0;
 
   const timeframeLabel = use77Days
     ? 'your first 77 days'
     : `your ${goal.deadline} deadline`;
 
   const actionLabel = actionText.trim();
-  const result = actionLabel ? `${actionLabel} — ${paceChip}` : paceChip ?? '';
+  const result = actionLabel ? `${actionLabel} — ${pace} min/day` : `${pace} min/day`;
 
   const reset = () => {
     setRevealed(false);
@@ -736,7 +765,8 @@ export function PathPractice({
 
   const doReveal = () => {
     setRevealed(true);
-    revealAnim.value = withSpring(1, { damping: 14, stiffness: 100 });
+    const triggerScroll = () => scrollRef.current?.scrollToEnd({ animated: true });
+    revealAnim.value = withSpring(1, { damping: 14, stiffness: 100 }, (finished) => { if (finished) runOnJS(triggerScroll)(); });
     if (Platform.OS !== 'web') {
       let tick = 0;
       const interval = setInterval(() => {
@@ -754,67 +784,179 @@ export function PathPractice({
     ],
   }));
 
+  const zones = [
+    { label: 'Slow', range: '15-20 min' },
+    { label: 'Recommended', range: '30-40 min' },
+    { label: 'Fast', range: '90-120 min' },
+  ];
+
+  const activeZone = trackPosition <= 100 / 3 ? 0 : trackPosition <= 200 / 3 ? 1 : 2;
+
+  const zoneIconPositions = [100 / 6, 50, 100 - 100 / 6];
+
   return (
-    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
-      <ChipGroup
-        label="Total hours to mastery"
-        options={hourChips}
-        selected={hoursChip}
-        onSelect={v => {
-          setHoursChip(v);
-          reset();
-        }}
-        keyboardType="numeric"
-        customPlaceholder="e.g. 500"
-      />
+    <KeyboardStepWrapper ref={scrollRef} contentContainerStyle={styles.decodeScroll}>
+      <View style={{ alignItems: 'center', marginTop: 8, marginBottom: 8 }}>
+        <Text
+          style={[
+            styles.fieldLabel,
+            { color: colors.primary, fontSize: 11, letterSpacing: 1.5, marginBottom: 8 },
+          ]}
+        >
+          YOUR DAILY COMMITMENT
+        </Text>
+        <Text
+          style={{
+            fontSize: 56,
+            fontWeight: '800',
+            color: colors.primary,
+            fontVariant: ['tabular-nums'],
+          }}
+        >
+          {pace}
+        </Text>
+        <Text
+          style={{
+            fontSize: 18,
+            fontWeight: '600',
+            color: colors.textSecondary,
+            marginTop: -2,
+          }}
+        >
+          min/day
+        </Text>
+      </View>
 
-      {hoursChip && (
-        <View style={{ marginTop: 20 }}>
-          <ChipGroup
-            label={
-              knowsHours
-                ? 'Daily pace (see timeline)'
-                : `Time budget (hours banked in ${timeframeLabel})`
+      <View style={{ marginTop: 16, paddingHorizontal: 4 }}>
+        {/* Zone icons + labels positioned above the track at their true proportional locations */}
+        <View style={{ position: 'relative', height: 52, marginBottom: 4 }}>
+          {zones.map((zone, i) => {
+            const left = zoneIconPositions[i];
+            return (
+              <View
+                key={zone.label}
+                style={{
+                  position: 'absolute',
+                  left: `${left}%`,
+                  transform: [{ translateX: '-50%' }],
+                  alignItems: 'center',
+                  opacity: activeZone === i ? 1 : 0.45,
+                }}
+              >
+                <View style={{ marginBottom: 2 }}>
+                  {zone.label === 'Slow' && (
+                    <Turtle size={20} color={activeZone === i ? colors.primary : colors.textTertiary} strokeWidth={2} />
+                  )}
+                  {zone.label === 'Recommended' && (
+                    <Rabbit size={20} color={activeZone === i ? colors.primary : colors.textTertiary} strokeWidth={2} />
+                  )}
+                  {zone.label === 'Fast' && (
+                    <Zap size={20} color={activeZone === i ? colors.primary : colors.textTertiary} strokeWidth={2} />
+                  )}
+                </View>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: activeZone === i ? '800' : '600',
+                    color: activeZone === i ? colors.primary : colors.textSecondary,
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  {zone.label.toUpperCase()}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '500',
+                    color: colors.textTertiary,
+                    marginTop: 1,
+                  }}
+                >
+                  {zone.range}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+
+        <Slider
+          style={{ width: '100%', height: 48 }}
+          minimumValue={0}
+          maximumValue={100}
+          step={1}
+          value={trackPosition}
+          onValueChange={(v: number) => {
+            setTrackPosition(Math.round(v));
+            reset();
+          }}
+          onSlidingComplete={(v: number) => {
+            const newPace = positionToPace(v);
+            if (newPace !== lastFetchedPace.current) {
+              lastFetchedPace.current = newPace;
+              loadSuggestions(newPace);
             }
-            options={paceChips}
-            selected={paceChip}
-            onSelect={v => {
-              setPaceChip(v);
-              reset();
-            }}
-            keyboardType="numeric"
-            customPlaceholder="e.g. 45 min/day"
-          />
-        </View>
-      )}
+          }}
+          minimumTrackTintColor={colors.primary}
+          maximumTrackTintColor={isDark ? '#333' : '#D8D8D8'}
+          thumbTintColor={colors.primary}
+        />
 
-      {paceChip && (
-        <View style={{ marginTop: 20 }}>
-          <Text style={[styles.fieldLabel, { color: colors.primary }]}>
-            What will you actually do?
-          </Text>
-          <TextInput
-            style={[
-              styles.customInlineInput,
-              { flex: 0 },
-              {
-                color: colors.text,
-                borderColor: colors.primary + '80',
-                backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-              },
-            ]}
-            value={actionText}
-            onChangeText={t => {
-              setActionText(t);
-              reset();
-            }}
-            placeholder="e.g. listen to a French podcast"
-            placeholderTextColor={colors.textTertiary}
-            returnKeyType="done"
-            inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
-          />
-        </View>
-      )}
+        <Text
+          style={{
+            fontSize: 15,
+            fontWeight: '500',
+            color: colors.textSecondary,
+            marginTop: 14,
+            textAlign: 'center',
+          }}
+        >
+          At this pace, you'll get there in about {timeline}
+        </Text>
+      </View>
+
+      <View style={{ marginTop: 24, position: 'relative' }}>
+        {aiLoading && !aiResult ? (
+          <View style={[styles.loadingRow, { marginTop: 0 }]}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+              Generating suggestions...
+            </Text>
+          </View>
+        ) : (
+          <View style={{ position: 'relative' }}>
+            <View pointerEvents={aiLoading ? 'none' : 'auto'} style={[aiLoading && { opacity: 0.4 }]}>
+              <ChipGroup
+                label="WHAT WILL YOU ACTUALLY DO?"
+                options={chipOptions}
+                selected={actionText || null}
+                onSelect={(v: string) => {
+                  setActionText(v);
+                  reset();
+                }}
+                customPlaceholder="Write your own..."
+              />
+              {specificity.result && (
+                <SpecificityNudgeBanner
+                  result={specificity.result}
+                  onAcceptExample={(ex: string) => {
+                    setActionText(ex);
+                    specificity.dismiss();
+                  }}
+                  onDismiss={specificity.dismiss}
+                />
+              )}
+            </View>
+            {aiLoading && (
+              <View style={styles.updatingOverlay}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.updatingText, { color: colors.textSecondary }]}>
+                  Updating...
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
 
       {canReveal && !revealed && (
         <TouchableOpacity
@@ -850,21 +992,13 @@ export function PathPractice({
               { color: colors.primary, fontSize: 38 },
             ]}
           >
-            {paceChip}
+            {pace} min/day
           </Text>
-          {knowsHours ? (
-            <Text
-              style={[styles.revealUnit, { color: colors.textSecondary }]}
-            >
-              Goal reached in {timeline}
-            </Text>
-          ) : (
-            <Text
-              style={[styles.revealUnit, { color: colors.textSecondary }]}
-            >
-              {banked} hours banked in {timeframeLabel}
-            </Text>
-          )}
+          <Text
+            style={[styles.revealUnit, { color: colors.textSecondary }]}
+          >
+            At this pace, you'll get there in about {timeline}
+          </Text>
           <TouchableOpacity
             style={[styles.lockBtn, { backgroundColor: colors.primary }]}
             onPress={() => onDone(result)}
@@ -895,20 +1029,72 @@ export function PathStarting({
   const { colors, isDark } = useTheme();
 
   const seedPrefill = goal.practiceSeed ?? '';
+  const isStandardPath = seedPrefill.trim().length > 0;
+
   const [text, setText] = useState(seedPrefill);
+  const specificity = useInputSpecificity();
   const canDone = text.trim().length > 0;
+  const scrollRef = useRef<KeyboardStepWrapperRef>(null);
+
+  const [aiResult, setAiResult] = useState<GoalInputResult | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [clarifyText, setClarifyText] = useState('');
+  const [regenerating, setRegenerating] = useState(false);
+  const [chipSelected, setChipSelected] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isStandardPath) return;
+    let cancelled = false;
+    setAiLoading(true);
+    fetchDailyInputs(goal.label).then(res => {
+      if (cancelled) return;
+      setAiResult(res);
+      setAiLoading(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+    });
+    return () => { cancelled = true; };
+  }, [isStandardPath, goal.label]);
+
+  const chipOptions = useMemo(() => aiResult?.suggestions?.map(s => s.input) ?? [], [aiResult]);
+
+  useEffect(() => {
+    if (isStandardPath) return;
+    if (chipSelected && !chipOptions.includes(chipSelected)) {
+      specificity.validate(chipSelected);
+    } else if (specificity.result) {
+      specificity.dismiss();
+    }
+  }, [chipSelected, chipOptions, isStandardPath]);
+
+  const handleRegenerate = async () => {
+    if (!clarifyText.trim() || regenerating) return;
+    setRegenerating(true);
+    const history = aiResult?.clarifying_question
+      ? [{ question: aiResult.clarifying_question, answer: clarifyText.trim() }]
+      : [{ question: '', answer: clarifyText.trim() }];
+    const res = await fetchDailyInputs(goal.label, history);
+    setAiResult(res);
+    setClarifyText('');
+    setRegenerating(false);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+  };
 
   const handleLock = () => {
-    if (!canDone) return;
-    const trimmed = text.trim();
-    const isStandard = seedPrefill.trim().length > 0 && trimmed === seedPrefill.trim();
-    onDone(trimmed, isStandard);
+    if (isStandardPath) {
+      if (!canDone) return;
+      const trimmed = text.trim();
+      onDone(trimmed, trimmed === seedPrefill.trim());
+      return;
+    }
+    if (!chipSelected) return;
+    onDone(chipSelected, false);
   };
 
   const finishLine = (doneLooksText ?? '').trim() || resolvedLabel;
+  const lockEnabled = isStandardPath ? canDone : !!chipSelected;
 
   return (
-    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
+    <KeyboardStepWrapper ref={scrollRef} contentContainerStyle={styles.decodeScroll}>
       <View
         style={[
           styles.finishLineCard,
@@ -928,76 +1114,180 @@ export function PathStarting({
         </Text>
       </View>
 
-      <Text style={[styles.fieldLabel, { color: colors.primary, marginTop: 20 }]}>
-        Daily action that produces it
-      </Text>
-      <TextInput
-        style={[
-          styles.startingInput,
-          {
-            color: colors.text,
-            borderColor: text.trim()
-              ? colors.primary + '80'
-              : isDark
-              ? '#333'
-              : '#D8D8D8',
-            backgroundColor: isDark
-              ? 'rgba(255,255,255,0.04)'
-              : 'rgba(0,0,0,0.03)',
-          },
-        ]}
-        value={text}
-        onChangeText={setText}
-        placeholder="e.g. write 500 words, 30 min cardio"
-        placeholderTextColor={colors.textTertiary}
-        multiline
-        returnKeyType="done"
-        blurOnSubmit={true}
-        autoCapitalize="sentences"
-        inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
-      />
-
-      {seedPrefill.trim().length > 0 && (
-        <View
-          style={[
-            styles.seedNotice,
-            {
-              backgroundColor: isDark
-                ? 'rgba(204,255,0,0.06)'
-                : 'rgba(204,255,0,0.10)',
-              borderColor: 'rgba(204,255,0,0.25)',
-            },
-          ]}
-        >
-          <Zap size={13} color={colors.primary} strokeWidth={2.5} />
-          <Text style={[styles.seedNoticeText, { color: colors.textSecondary }]}>
-            Pre-filled from your goal — edit freely.
+      {isStandardPath ? (
+        <>
+          <Text style={[styles.fieldLabel, { color: colors.primary, marginTop: 20 }]}>
+            Daily action that produces it
           </Text>
-        </View>
+          <TextInput
+            style={[
+              styles.startingInput,
+              {
+                color: colors.text,
+                borderColor: text.trim()
+                  ? colors.primary + '80'
+                  : isDark
+                  ? '#333'
+                  : '#D8D8D8',
+                backgroundColor: isDark
+                  ? 'rgba(255,255,255,0.04)'
+                  : 'rgba(0,0,0,0.03)',
+              },
+            ]}
+            value={text}
+            onChangeText={setText}
+            placeholder="e.g. write 500 words, 30 min cardio"
+            placeholderTextColor={colors.textTertiary}
+            multiline
+            returnKeyType="done"
+            blurOnSubmit={true}
+            autoCapitalize="sentences"
+            inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
+            onBlur={() => specificity.validate(text)}
+          />
+
+          {specificity.result && (
+            <SpecificityNudgeBanner
+              result={specificity.result}
+              onAcceptExample={(ex) => { setText(ex); specificity.dismiss(); }}
+              onDismiss={specificity.dismiss}
+            />
+          )}
+
+          <View
+            style={[
+              styles.seedNotice,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(204,255,0,0.06)'
+                  : 'rgba(204,255,0,0.10)',
+                borderColor: 'rgba(204,255,0,0.25)',
+              },
+            ]}
+          >
+            <Zap size={13} color={colors.primary} strokeWidth={2.5} />
+            <Text style={[styles.seedNoticeText, { color: colors.textSecondary }]}>
+              Pre-filled from your goal — edit freely.
+            </Text>
+          </View>
+        </>
+      ) : (
+        <>
+          {aiLoading && !aiResult ? (
+            <View style={[styles.loadingRow, { marginTop: 20 }]}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+                Generating suggestions...
+              </Text>
+            </View>
+          ) : (
+            <>
+              {aiResult?.clarifying_question && (
+                <View
+                  style={[
+                    styles.clarifyCard,
+                    {
+                      backgroundColor: isDark ? 'rgba(204,255,0,0.06)' : 'rgba(204,255,0,0.08)',
+                      borderColor: colors.primary + '50',
+                      marginTop: 20,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.clarifyLabel, { color: colors.primary }]}>CLARIFY</Text>
+                  <Text style={[styles.clarifyQuestion, { color: colors.text }]}>
+                    {aiResult.clarifying_question}
+                  </Text>
+                  <View style={styles.clarifyInputRow}>
+                    <TextInput
+                      style={[
+                        styles.clarifyInput,
+                        {
+                          color: colors.text,
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                          borderColor: colors.border,
+                        },
+                      ]}
+                      value={clarifyText}
+                      onChangeText={setClarifyText}
+                      placeholder="Your answer..."
+                      placeholderTextColor={colors.textTertiary}
+                      multiline
+                    />
+                    <TouchableOpacity
+                      style={[
+                        styles.regenerateBtn,
+                        {
+                          backgroundColor: colors.primary,
+                          opacity: regenerating || !clarifyText.trim() ? 0.5 : 1,
+                        },
+                      ]}
+                      onPress={handleRegenerate}
+                      disabled={regenerating || !clarifyText.trim()}
+                      activeOpacity={0.8}
+                    >
+                      {regenerating ? (
+                        <ActivityIndicator size="small" color="#000" />
+                      ) : (
+                        <ArrowRight size={16} color="#000" strokeWidth={2.5} />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              <View style={{ position: 'relative', marginTop: 20 }}>
+                <View pointerEvents={aiLoading ? 'none' : 'auto'} style={[aiLoading && { opacity: 0.4 }]}>
+                  <ChipGroup
+                    label="DAILY ACTION THAT PRODUCES IT"
+                    options={chipOptions}
+                    selected={chipSelected}
+                    onSelect={setChipSelected}
+                    customPlaceholder="Write your own..."
+                  />
+                  {specificity.result && (
+                    <SpecificityNudgeBanner
+                      result={specificity.result}
+                      onAcceptExample={(ex) => { setChipSelected(ex); specificity.dismiss(); }}
+                      onDismiss={specificity.dismiss}
+                    />
+                  )}
+                </View>
+                {aiLoading && (
+                  <View style={styles.updatingOverlay}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={[styles.updatingText, { color: colors.textSecondary }]}>
+                      Updating...
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </>
+          )}
+        </>
       )}
 
       <TouchableOpacity
         style={[
           styles.revealBtn,
           {
-            backgroundColor: canDone ? colors.primary : colors.border,
-            opacity: canDone ? 1 : 0.45,
+            backgroundColor: lockEnabled ? colors.primary : colors.border,
+            opacity: lockEnabled ? 1 : 0.45,
             marginTop: 28,
           },
         ]}
         onPress={handleLock}
         activeOpacity={0.85}
-        disabled={!canDone}
+        disabled={!lockEnabled}
       >
         <Check
           size={18}
-          color={canDone ? '#000' : colors.textTertiary}
+          color={lockEnabled ? '#000' : colors.textTertiary}
           strokeWidth={3}
         />
         <Text
           style={[
             styles.revealBtnText,
-            { color: canDone ? '#000' : colors.textTertiary },
+            { color: lockEnabled ? '#000' : colors.textTertiary },
           ]}
         >
           Lock This In

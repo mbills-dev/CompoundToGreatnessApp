@@ -13,6 +13,7 @@ import { Crown, Check, Zap, Shield, ChartBar as BarChart3, Users } from 'lucide-
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { logEdgeFunctionCall } from '@/lib/edgeFunctionLogger';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Confetti from '@/components/Confetti';
 
@@ -65,6 +66,7 @@ export default function PaywallGate({ onDismiss, onSubscribeSuccess, celebrate =
     // TODO(PRE-LAUNCH BLOCKER): move this call inside the RevenueCat
     // purchase-success callback. As written, Start My Challenge activates
     // WITHOUT payment — acceptable for TestFlight only.
+    logEdgeFunctionCall('activate-beta-subscription');
     await supabase.functions.invoke('activate-beta-subscription');
     await refreshSubscription();
     onSubscribeSuccess?.();

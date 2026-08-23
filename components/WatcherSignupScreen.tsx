@@ -272,9 +272,10 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: bg }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
       <LinearGradient colors={rootGradientSignup} style={styles.container}>
-        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={true}>
           <TouchableOpacity onPress={() => setStep('preview')} style={styles.backButton}>
             <Text style={[styles.backButtonText, { color: textSecondary }]}>← Back</Text>
           </TouchableOpacity>

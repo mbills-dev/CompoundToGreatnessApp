@@ -11,6 +11,7 @@ export interface FlowGoal {
   practiceSeed?: string;
   defaultPath: DecodePath;
   inheritedTarget?: string;
+  estimatedMasteryHours?: number;
 }
 
 export interface AnchoredInput {
@@ -26,6 +27,7 @@ export interface LockedGoal {
   dailyInput: string;
   goalLabel: string;
   doneLooksText?: string;
+  identityLine?: string;
   what: string;
   when: string;
   where: string;

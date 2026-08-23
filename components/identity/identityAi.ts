@@ -1,9 +1,11 @@
 import { supabase } from '@/lib/supabase';
+import { logEdgeFunctionCall } from '@/lib/edgeFunctionLogger';
 
 export async function generateIdentityStatements(
   goals: string[],
 ): Promise<(string | null)[] | null> {
   try {
+    logEdgeFunctionCall('generate-identity');
     const invokePromise = supabase.functions.invoke('generate-identity', {
       body: { goals },
     });

@@ -124,10 +124,10 @@ export default function HomeScreen() {
     }
   };
 
-  const handleIdentityComplete = async (result: IdentityBuilderResult) => {
+  const handleIdentityComplete = async (result: IdentityBuilderResult): Promise<boolean> => {
     await deletePendingGoals();
     const created = await createGoalAndActivities(result, false);
-    if (!created) return;
+    if (!created) return false;
     awardSignedBadge(user!.id).then((keys) => { pendingBadgeCelebrationsRef.current = keys; }).catch(() => {});
     resyncAllReminders(user!.id).catch(err => console.error('resyncAllReminders failed:', err));
 
@@ -139,6 +139,7 @@ export default function HomeScreen() {
       setPaywallCelebrate(true);
       setShowPaywall(true);
     }
+    return true;
   };
 
   const activatePendingGoal = async (dateString: string) => {

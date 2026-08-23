@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -23,7 +23,8 @@ import { useTheme } from '@/contexts/ThemeContext';
 import WhenPickerModal, { WhenPickerValue } from '../WhenPickerModal';
 import { FlowGoal, LockedGoal, AnchoredInput } from './types';
 import styles from './styles';
-import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
+import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID, KeyboardStepWrapperRef } from './KeyboardStepWrapper';
+import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -92,17 +93,36 @@ export function AnchorScreen({
   goal: FlowGoal;
   dailyInput: string;
   isStandard?: boolean;
-  onDone: (when: string, where: string, schedule: WhenPickerValue | null) => void;
+  onDone: (dailyInput: string, when: string, where: string, schedule: WhenPickerValue | null, wasFlaggedNonSpecific: boolean) => void;
 }) {
   const { colors, isDark } = useTheme();
   const [what, setWhat] = useState(dailyInput);
   const [editingWhat, setEditingWhat] = useState(false);
+  const specificity = useInputSpecificity();
 
   const [whenPickerOpen, setWhenPickerOpen] = useState(false);
   const [whenValue, setWhenValue] = useState<WhenPickerValue | null>(null);
   const [where, setWhere] = useState('');
+  const scrollRef = useRef<KeyboardStepWrapperRef>(null);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const debouncedScrollToEnd = useCallback(() => {
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, 160);
+  }, []);
 
   const canCommit = whenValue !== null && where.trim().length > 0;
+
+  const handleEditDone = () => {
+    setEditingWhat(false);
+    if (what.trim() !== dailyInput.trim()) {
+      specificity.validate(what);
+    } else {
+      specificity.dismiss();
+    }
+  };
 
   const formatWhen = (v: WhenPickerValue) => {
     const days =
@@ -120,7 +140,7 @@ export function AnchorScreen({
   };
 
   return (
-    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
+    <KeyboardStepWrapper ref={scrollRef} contentContainerStyle={styles.decodeScroll}>
       {/* WHAT */}
       <Text style={[styles.fieldLabel, { color: colors.primary }]}>
         WHAT
@@ -175,18 +195,25 @@ export function AnchorScreen({
             returnKeyType="done"
             blurOnSubmit={true}
             inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
-            onSubmitEditing={() => setEditingWhat(false)}
+            onSubmitEditing={handleEditDone}
           />
           <TouchableOpacity
             style={[
               styles.customConfirmBtn,
               { backgroundColor: colors.primary },
             ]}
-            onPress={() => setEditingWhat(false)}
+            onPress={handleEditDone}
           >
             <Check size={16} color="#000" strokeWidth={3} />
           </TouchableOpacity>
         </View>
+      )}
+      {specificity.result && !editingWhat && (
+        <SpecificityNudgeBanner
+          result={specificity.result}
+          onAcceptExample={(ex) => { setWhat(ex); specificity.dismiss(); }}
+          onDismiss={specificity.dismiss}
+        />
       )}
 
       {/* WHEN */}
@@ -262,7 +289,7 @@ export function AnchorScreen({
           },
         ]}
         value={where}
-        onChangeText={setWhere}
+        onChangeText={(t) => { setWhere(t); debouncedScrollToEnd(); }}
         placeholder="e.g. my home office desk"
         placeholderTextColor={colors.textTertiary}
         autoCapitalize="sentences"
@@ -303,9 +330,11 @@ export function AnchorScreen({
         onPress={() =>
           canCommit &&
           onDone(
+            what.trim(),
             whenValue ? formatWhen(whenValue) : '',
             where.trim(),
             whenValue,
+            !!specificity.result,
           )
         }
         activeOpacity={0.85}
@@ -345,19 +374,36 @@ export function AddInputScreen({
   goal,
   onDone,
   onCancel,
+  prefillText,
 }: {
   goal: FlowGoal;
-  onDone: (dailyInput: string, when: string, where: string, schedule: WhenPickerValue | null) => void;
+  onDone: (dailyInput: string, when: string, where: string, schedule: WhenPickerValue | null, wasFlaggedNonSpecific: boolean) => void;
   onCancel: () => void;
+  prefillText?: string;
 }) {
   const { colors, isDark } = useTheme();
-  const [text, setText] = useState('');
+  const [text, setText] = useState(prefillText ?? '');
   const [whenPickerOpen, setWhenPickerOpen] = useState(false);
   const [whenValue, setWhenValue] = useState<WhenPickerValue | null>(null);
   const [where, setWhere] = useState('');
+  const specificity = useInputSpecificity();
+  const scrollRef = useRef<KeyboardStepWrapperRef>(null);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const debouncedScrollToEnd = useCallback(() => {
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, 160);
+  }, []);
 
   const canCommit =
     text.trim().length > 0 && whenValue !== null && where.trim().length > 0;
+
+  const handleFinalize = () => {
+    if (!canCommit) return;
+    onDone(text.trim(), whenValue ? formatWhen(whenValue) : '', where.trim(), whenValue, !!specificity.result);
+  };
 
   const formatWhen = (v: WhenPickerValue) => {
     const days =
@@ -373,7 +419,7 @@ export function AddInputScreen({
   };
 
   return (
-    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
+    <KeyboardStepWrapper ref={scrollRef} contentContainerStyle={styles.decodeScroll}>
       <Text style={[styles.fieldLabel, { color: colors.primary }]}>WHAT</Text>
       <TextInput
         style={[
@@ -396,7 +442,16 @@ export function AddInputScreen({
         autoCapitalize="sentences"
         autoFocus
         inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
+        onBlur={() => specificity.validate(text)}
       />
+
+      {specificity.result && (
+        <SpecificityNudgeBanner
+          result={specificity.result}
+          onAcceptExample={(ex) => { setText(ex); specificity.dismiss(); }}
+          onDismiss={specificity.dismiss}
+        />
+      )}
 
       <Text style={[styles.fieldLabel, { color: colors.primary, marginTop: 24 }]}>
         WHEN
@@ -439,7 +494,7 @@ export function AddInputScreen({
           },
         ]}
         value={where}
-        onChangeText={setWhere}
+        onChangeText={(t) => { setWhere(t); debouncedScrollToEnd(); }}
         placeholder="e.g. outside around the block"
         placeholderTextColor={colors.textTertiary}
         autoCapitalize="sentences"
@@ -457,7 +512,7 @@ export function AddInputScreen({
         ]}
         onPress={() =>
           canCommit &&
-          onDone(text.trim(), whenValue ? formatWhen(whenValue) : '', where.trim(), whenValue)
+          handleFinalize()
         }
         disabled={!canCommit}
         activeOpacity={0.85}

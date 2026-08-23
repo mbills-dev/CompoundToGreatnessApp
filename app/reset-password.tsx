@@ -108,6 +108,7 @@ export default function ResetPasswordScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
       style={[styles.container, { backgroundColor: bg }]}
     >
       <LinearGradient
@@ -118,6 +119,7 @@ export default function ResetPasswordScreen() {
           contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
         >
           <View style={styles.header}>
             <View style={styles.logoBadge}>
