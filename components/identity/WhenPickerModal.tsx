@@ -17,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { X, ChevronUp, ChevronDown, Bell } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 
 const DAYS = [
   { key: 'Mon', label: 'M' },
@@ -547,6 +548,7 @@ const modalStyles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
   sheet: {
+    ...responsiveStyle.sheet,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,

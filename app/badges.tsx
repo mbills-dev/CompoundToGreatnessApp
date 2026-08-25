@@ -18,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
 import { supabase } from '@/lib/supabase';
 import { ICON_MAP } from '@/lib/badgeIcons';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 
 interface BadgeRow {
   key: string;
@@ -244,7 +245,7 @@ function BadgeTile({ badge, earned, tileSize, colors, onPress }: BadgeTileProps)
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    ...responsiveStyle.container,
   },
   header: {
     flexDirection: 'row',

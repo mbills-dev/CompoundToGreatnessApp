@@ -15,6 +15,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { getInboxItems, markInboxItemRead, type InboxItem } from '@/lib/inboxHelpers';
 import InboxItemCard from '@/components/InboxItemCard';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 
 const PAGE_SIZE = 20;
 
@@ -130,7 +131,7 @@ export default function InboxScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    ...responsiveStyle.container,
   },
   header: {
     flexDirection: 'row',

@@ -5,6 +5,7 @@ import WatcherSignupScreen from '@/components/WatcherSignupScreen';
 import PublicJourneyPage from '@/components/PublicJourneyPage';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 
 type RouteType = 'loading' | 'public' | 'invite';
 
@@ -69,6 +70,6 @@ export default function WatchPage() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' },
+  container: { ...responsiveStyle.container },
+  center: { ...responsiveStyle.container, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' },
 });

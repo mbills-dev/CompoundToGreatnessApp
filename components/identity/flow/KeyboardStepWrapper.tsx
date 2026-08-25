@@ -10,6 +10,7 @@ import {
   Text,
   TouchableOpacity,
 } from 'react-native';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 
 export const KEYBOARD_DONE_ACCESSORY_ID = 'onboarding-keyboard-done';
 
@@ -32,7 +33,7 @@ const KeyboardStepWrapper = forwardRef<KeyboardStepWrapperRef, {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={[{ flex: 1 }, responsiveStyle.container]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
