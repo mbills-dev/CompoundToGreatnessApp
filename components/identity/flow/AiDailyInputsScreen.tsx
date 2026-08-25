@@ -199,7 +199,7 @@ export async function fetchVagueGoals(goalLabels: string[]): Promise<VagueFlag[]
   }
 }
 
-const KEEP_AS_IS_SENTINEL = '__KEEP_AS_IS__';
+const KEEP_AS_IS_LABEL = 'Keep As Is';
 
 export function VagueGoalBanner({
   reason,
@@ -215,7 +215,7 @@ export function VagueGoalBanner({
   const { colors, isDark } = useTheme();
   const [selection, setSelection] = useState<string | null>(null);
 
-  const allOptions = useMemo(() => [...suggestions, KEEP_AS_IS_SENTINEL], [suggestions]);
+  const allOptions = useMemo(() => [...suggestions, KEEP_AS_IS_LABEL], [suggestions]);
 
   const handleSelect = useCallback((value: string) => {
     setSelection(value);
@@ -223,7 +223,7 @@ export function VagueGoalBanner({
 
   const handleConfirm = () => {
     if (!selection) return;
-    if (selection === KEEP_AS_IS_SENTINEL) {
+    if (selection === KEEP_AS_IS_LABEL) {
       onDismiss();
     } else {
       onConfirm(selection);
@@ -259,7 +259,7 @@ export function VagueGoalBanner({
         customPlaceholder="Write your own..."
       />
 
-      {selection === KEEP_AS_IS_SENTINEL && (
+      {selection === KEEP_AS_IS_LABEL && (
         <Text style={[vagueStyles.keepNote, { color: colors.textTertiary }]}>
           You'll keep this goal as-is.
         </Text>
@@ -276,7 +276,7 @@ export function VagueGoalBanner({
           activeOpacity={0.8}
         >
           <Text style={vagueStyles.confirmBtnText}>
-            {selection === KEEP_AS_IS_SENTINEL ? 'Keep As Is' : 'Confirm'}
+            {selection === KEEP_AS_IS_LABEL ? 'Keep As Is' : 'Confirm'}
           </Text>
         </TouchableOpacity>
       </View>
