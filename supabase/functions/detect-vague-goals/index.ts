@@ -10,9 +10,9 @@ const corsHeaders = {
 const SYSTEM_PROMPT = `You are a goal-clarity checker for a habit-building app. You are given a list of personal goals (each with a 0-based index). Your job is to identify goals that are too vague to confidently act on — broad aspirations without a clear target or scope.
 
 Examples of vague goals that SHOULD be flagged:
-- "learn French" — no target level or context (suggestion: "become conversationally fluent in French")
-- "get in shape" — no concrete outcome (suggestion: "lose 15 lbs and run a 5K")
-- "be a better father" — no specific behavior or metric (suggestion: "spend 30 quality minutes with my kids daily")
+- "learn French" — no target level or context
+- "get in shape" — no concrete outcome
+- "be a better father" — no specific behavior or metric
 
 Examples of goals that should NOT be flagged (already reasonably specific, even without a number):
 - "walk 10,000 steps a day" — has a clear target and frequency
@@ -23,15 +23,20 @@ Examples of goals that should NOT be flagged (already reasonably specific, even 
 Rules:
 1. Only flag goals that are genuinely vague — broad aspirations where the person could succeed in many conflicting ways.
 2. Do NOT flag goals that are already reasonably specific, even if they lack a number. If a goal has a concrete outcome, target, or action, leave it alone.
-3. For each flagged goal, provide a short "reason" (under 100 characters) explaining why it's vague, and a "suggestion" — a tightened, more specific rewrite of that SAME goal (not a different goal). Keep suggestions under 80 characters.
-4. Suggestions should be realistic and moderate, not maximal or extreme. Prefer behavioral or consistency-based rewrites over clinical precision. For example, "get a six-pack" → "define my abs through consistent training" is better than "reach 10% body fat." Do NOT add body-fat percentages, exact numeric health targets, or other clinical metrics unless the original goal already implied that level of precision.
-5. If no goals are vague, return an empty flags array.
-6. Each goal index may appear in at most one flag.
+3. For each flagged goal, provide a short "reason" (under 100 characters) explaining why it's vague, and a "suggestions" array of 2-4 tightened, more specific rewrites of that SAME goal (not different goals). Each suggestion should be under 80 characters.
+4. Suggestions should be contextually relevant to the goal's apparent category. Infer the category (fitness, language-learning, financial, creative, career, relationships, mindfulness, health, etc.) and generate options that make sense for that domain at varying levels of ambition. For example:
+   - Language-learning goal: "Conversationally fluent," "Beginner level (A2)," "Pass a certification exam"
+   - Fitness goal: "Lose 15 lbs and run a 5K," "Build a consistent 4-day workout habit," "Hit a specific lift PR"
+   - Financial goal: "Save $10k in 6 months," "Reach $5k/month side income," "Pay off credit card debt"
+   - Creative goal: "Finish a short film draft," "Publish one article per week," "Complete a portfolio of 10 pieces"
+5. Suggestions should be realistic and moderate, not maximal or extreme. Prefer behavioral or consistency-based rewrites over clinical precision. Do NOT add body-fat percentages, exact numeric health targets, or other clinical metrics unless the original goal already implied that level of precision.
+6. If no goals are vague, return an empty flags array.
+7. Each goal index may appear in at most one flag.
 
 Output ONLY a JSON object matching this shape — no preamble, no markdown fences:
 {
   "flags": [
-    { "index": 0, "reason": "No target level or timeframe specified", "suggestion": "become conversationally fluent in French" }
+    { "index": 0, "reason": "No target level or timeframe specified", "suggestions": ["become conversationally fluent in French", "reach beginner A2 level in French", "pass a French proficiency exam"] }
   ]
 }`;
 
@@ -40,7 +45,7 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
-  const json = (body: unknown, status = 200) =>
+  const jsonRes = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), {
       status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -48,13 +53,13 @@ Deno.serve(async (req: Request) => {
 
   try {
     if (req.method !== "POST") {
-      return json({ error: "Method not allowed" }, 405);
+      return jsonRes({ error: "Method not allowed" }, 405);
     }
 
     const { goals } = await req.json();
 
     if (!Array.isArray(goals) || goals.length === 0) {
-      return json({ flags: [] });
+      return jsonRes({ flags: [] });
     }
 
     const cleanedGoals = goals
@@ -62,14 +67,14 @@ Deno.serve(async (req: Request) => {
       .map((g) => g.trim().slice(0, 300));
 
     if (cleanedGoals.length === 0) {
-      return json({ flags: [] });
+      return jsonRes({ flags: [] });
     }
 
     console.log(`[INVOKED] detect-vague-goals at ${new Date().toISOString()} - goals: ${cleanedGoals.join(", ").slice(0, 80)}`);
 
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {
-      return json({ error: "ANTHROPIC_API_KEY not configured" }, 500);
+      return jsonRes({ error: "ANTHROPIC_API_KEY not configured" }, 500);
     }
 
     const goalList = cleanedGoals
@@ -85,7 +90,7 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5",
-        max_tokens: 600,
+        max_tokens: 900,
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: `Goals:\n${goalList}` }],
       }),
@@ -94,7 +99,7 @@ Deno.serve(async (req: Request) => {
     if (!resp.ok) {
       const errText = await resp.text();
       console.error("anthropic_error", resp.status, errText.slice(0, 400));
-      return json({ flags: [] });
+      return jsonRes({ flags: [] });
     }
 
     const data = await resp.json();
@@ -109,11 +114,11 @@ Deno.serve(async (req: Request) => {
       parsed = JSON.parse(raw);
     } catch {
       console.error("parse_failure", raw.slice(0, 400));
-      return json({ flags: [] });
+      return jsonRes({ flags: [] });
     }
 
     if (typeof parsed !== "object" || parsed === null) {
-      return json({ flags: [] });
+      return jsonRes({ flags: [] });
     }
 
     const obj = parsed as Record<string, unknown>;
@@ -122,7 +127,7 @@ Deno.serve(async (req: Request) => {
     const validIndices = new Set(cleanedGoals.map((_, i) => i));
     const usedIndices = new Set<number>();
 
-    const flags: { index: number; reason: string; suggestion: string }[] = [];
+    const flags: { index: number; reason: string; suggestions: string[] }[] = [];
 
     for (const flag of rawFlags) {
       if (typeof flag !== "object" || flag === null) continue;
@@ -140,20 +145,26 @@ Deno.serve(async (req: Request) => {
           ? f.reason.trim().slice(0, 200)
           : "This goal could be more specific";
 
-      const suggestion =
-        typeof f.suggestion === "string" && f.suggestion.trim().length > 0
-          ? f.suggestion.trim().slice(0, 200)
-          : null;
+      let suggestions: string[] = [];
 
-      if (suggestion === null) continue;
+      // Accept either "suggestions" (array) or fall back to "suggestion" (string) for backwards compat
+      if (Array.isArray(f.suggestions)) {
+        suggestions = f.suggestions
+          .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+          .map((s) => s.trim().slice(0, 200));
+      } else if (typeof f.suggestion === "string" && f.suggestion.trim().length > 0) {
+        suggestions = [f.suggestion.trim().slice(0, 200)];
+      }
+
+      if (suggestions.length === 0) continue;
 
       usedIndices.add(idx);
-      flags.push({ index: idx, reason, suggestion });
+      flags.push({ index: idx, reason, suggestions });
     }
 
-    return json({ flags });
+    return jsonRes({ flags });
   } catch (e) {
     console.error("handler_error", String(e).slice(0, 400));
-    return json({ flags: [] });
+    return jsonRes({ flags: [] });
   }
 });

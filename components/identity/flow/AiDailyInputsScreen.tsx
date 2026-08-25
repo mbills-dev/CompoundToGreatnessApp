@@ -171,7 +171,7 @@ export function MergeEditor({
 export interface VagueFlag {
   index: number;
   reason: string;
-  suggestion: string;
+  suggestions: string[];
 }
 
 export async function fetchVagueGoals(goalLabels: string[]): Promise<VagueFlag[]> {
@@ -199,53 +199,85 @@ export async function fetchVagueGoals(goalLabels: string[]): Promise<VagueFlag[]
   }
 }
 
+const KEEP_AS_IS_SENTINEL = '__KEEP_AS_IS__';
+
 export function VagueGoalBanner({
   reason,
-  suggestion,
-  onUseThis,
-  onKeepAsIs,
+  suggestions,
+  onConfirm,
+  onDismiss,
 }: {
   reason: string;
-  suggestion: string;
-  onUseThis: () => void;
-  onKeepAsIs: () => void;
+  suggestions: string[];
+  onConfirm: (newLabel: string) => void;
+  onDismiss: () => void;
 }) {
   const { colors, isDark } = useTheme();
+  const [selection, setSelection] = useState<string | null>(null);
+
+  const allOptions = useMemo(() => [...suggestions, KEEP_AS_IS_SENTINEL], [suggestions]);
+
+  const handleSelect = useCallback((value: string) => {
+    setSelection(value);
+  }, []);
+
+  const handleConfirm = () => {
+    if (!selection) return;
+    if (selection === KEEP_AS_IS_SENTINEL) {
+      onDismiss();
+    } else {
+      onConfirm(selection);
+    }
+  };
+
+  const canConfirm = selection !== null;
+
   return (
     <View
       style={[
         vagueStyles.banner,
         {
-          backgroundColor: isDark ? 'rgba(232,146,60,0.08)' : 'rgba(232,146,60,0.06)',
-          borderColor: '#E8923C' + '50',
+          backgroundColor: isDark ? 'rgba(204,255,0,0.06)' : 'rgba(204,255,0,0.04)',
+          borderColor: colors.primary + '40',
         },
       ]}
     >
       <View style={vagueStyles.bannerHeader}>
-        <Lightbulb size={16} color="#E8923C" strokeWidth={2.5} />
-        <Text style={[vagueStyles.bannerTitle, { color: '#E8923C' }]}>This goal could be more specific</Text>
-        <TouchableOpacity onPress={onKeepAsIs} style={vagueStyles.dismissBtn} activeOpacity={0.6}>
+        <Lightbulb size={16} color={colors.primary} strokeWidth={2.5} />
+        <Text style={[vagueStyles.bannerTitle, { color: colors.primary }]}>This goal could be more specific</Text>
+        <TouchableOpacity onPress={onDismiss} style={vagueStyles.dismissBtn} activeOpacity={0.6}>
           <X size={16} color={colors.textSecondary} strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
       <Text style={[vagueStyles.bannerReason, { color: colors.text }]}>{reason}</Text>
-      <Text style={[vagueStyles.bannerSuggestion, { color: colors.textSecondary }]}>
-        Suggested: <Text style={{ fontWeight: '700', color: colors.text }}>"{suggestion}"</Text>
-      </Text>
+
+      <ChipGroup
+        label="MAKE IT SPECIFIC"
+        options={allOptions}
+        selected={selection}
+        onSelect={handleSelect}
+        customPlaceholder="Write your own..."
+      />
+
+      {selection === KEEP_AS_IS_SENTINEL && (
+        <Text style={[vagueStyles.keepNote, { color: colors.textTertiary }]}>
+          You'll keep this goal as-is.
+        </Text>
+      )}
+
       <View style={vagueStyles.bannerActions}>
         <TouchableOpacity
-          style={[vagueStyles.keepBtn, { borderColor: colors.border }]}
-          onPress={onKeepAsIs}
-          activeOpacity={0.7}
-        >
-          <Text style={[vagueStyles.keepBtnText, { color: colors.textSecondary }]}>Keep As Is</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[vagueStyles.useBtn, { backgroundColor: '#E8923C' }]}
-          onPress={onUseThis}
+          style={[
+            vagueStyles.confirmBtn,
+            { backgroundColor: canConfirm ? colors.primary : colors.border, opacity: canConfirm ? 1 : 0.5 },
+          ]}
+          onPress={handleConfirm}
+          disabled={!canConfirm}
           activeOpacity={0.8}
         >
-          <Text style={vagueStyles.useBtnText}>Use This</Text>
+          <Text style={vagueStyles.confirmBtnText}>
+            {selection === KEEP_AS_IS_SENTINEL ? 'Keep As Is' : 'Confirm'}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -868,20 +900,6 @@ export function AiDailyInputsScreen({
                     />
                   ),
                 )}
-                {vagueFlags
-                  .filter(f => f.index === i && !dismissedVague.has(f.index))
-                  .map(f => (
-                    <VagueGoalBanner
-                      key={`vague-${f.index}`}
-                      reason={f.reason}
-                      suggestion={f.suggestion}
-                      onUseThis={() => {
-                        setDismissedVague(prev => new Set(prev).add(f.index));
-                        onEditGoal(i, f.suggestion);
-                      }}
-                      onKeepAsIs={() => setDismissedVague(prev => new Set(prev).add(f.index))}
-                    />
-                  ))}
                 <GoalInputCard
                   goalIndex={i}
                   goal={goal.label}
@@ -892,6 +910,20 @@ export function AiDailyInputsScreen({
                   onRegenerate={regenerate}
                   onEditGoal={onEditGoal}
                 />
+                {vagueFlags
+                  .filter(f => f.index === i && !dismissedVague.has(f.index))
+                  .map(f => (
+                    <VagueGoalBanner
+                      key={`vague-${f.index}`}
+                      reason={f.reason}
+                      suggestions={f.suggestions}
+                      onConfirm={(newLabel) => {
+                        setDismissedVague(prev => new Set(prev).add(f.index));
+                        onEditGoal(i, newLabel);
+                      }}
+                      onDismiss={() => setDismissedVague(prev => new Set(prev).add(f.index))}
+                    />
+                  ))}
               </View>
             );
           })}
@@ -1096,7 +1128,7 @@ const vagueStyles = StyleSheet.create({
     borderWidth: 1,
     padding: 14,
     gap: 10,
-    marginBottom: 8,
+    marginTop: 8,
   },
   bannerHeader: {
     flexDirection: 'row',
@@ -1114,39 +1146,27 @@ const vagueStyles = StyleSheet.create({
     fontWeight: '500',
     lineHeight: 19,
   },
-  bannerSuggestion: {
-    fontSize: 14,
+  keepNote: {
+    fontSize: 13,
     fontWeight: '500',
-    lineHeight: 19,
+    fontStyle: 'italic',
   },
   bannerActions: {
     flexDirection: 'row',
     gap: 8,
     marginTop: 2,
   },
-  keepBtn: {
+  confirmBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  keepBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  useBtn: {
-    flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  useBtnText: {
+  confirmBtnText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#000000',
   },
   dismissBtn: {
     width: 28,

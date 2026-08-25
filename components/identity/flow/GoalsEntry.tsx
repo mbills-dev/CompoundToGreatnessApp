@@ -770,12 +770,12 @@ export function IntroScreen({
                     <VagueGoalBanner
                       key={`vague-${f.index}`}
                       reason={f.reason}
-                      suggestion={f.suggestion}
-                      onUseThis={() => {
+                      suggestions={f.suggestions}
+                      onConfirm={(newLabel) => {
                         setDismissedVague(prev => new Set(prev).add(f.index));
-                        onMergeGoals(i, f.suggestion, []);
+                        onMergeGoals(i, newLabel, []);
                       }}
-                      onKeepAsIs={() => setDismissedVague(prev => new Set(prev).add(f.index))}
+                      onDismiss={() => setDismissedVague(prev => new Set(prev).add(f.index))}
                     />
                   ))}
                 <GoalBadge
