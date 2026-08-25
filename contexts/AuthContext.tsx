@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Platform } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
+import Purchases from 'react-native-purchases';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 
@@ -134,6 +136,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkSubscription = async (userId: string) => {
     try {
+      if (Platform.OS === 'ios') {
+        const customerInfo = await Purchases.getCustomerInfo();
+        setIsSubscribed(!!customerInfo.entitlements.active['premium']);
+        return;
+      }
+
       const { data } = await supabase
         .from('subscriptions')
         .select('status')
