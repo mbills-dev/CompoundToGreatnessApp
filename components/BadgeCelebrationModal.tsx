@@ -21,6 +21,7 @@ import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
 import { Award } from 'lucide-react-native';
 import Confetti from '@/components/Confetti';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 import { ICON_MAP } from '@/lib/badgeIcons';
 
 function getReadableTextColor(hex: string): string {
@@ -214,7 +215,7 @@ export default function BadgeCelebrationModal({ badge, onDone }: BadgeCelebratio
 
 const styles = StyleSheet.create({
   content: {
-    flex: 1,
+    ...responsiveStyle.container,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,

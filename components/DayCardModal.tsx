@@ -20,6 +20,7 @@ import { decode } from 'base64-arraybuffer';
 import { Camera, X, Share2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Goal, DailyActivity, DailyCompletion, ProgressPhoto } from '@/types/database';
@@ -586,10 +587,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
   },
   card: {
+    ...responsiveStyle.sheet,
     position: 'absolute',
     bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: '#000000',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -842,6 +842,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
   shareSheet: {
+    ...responsiveStyle.sheet,
     backgroundColor: '#1A1A1A',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,

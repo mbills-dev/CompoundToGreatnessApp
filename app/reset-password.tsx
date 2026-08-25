@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 
 export default function ResetPasswordScreen() {
   const { colors, isDark } = useTheme();
@@ -220,7 +221,7 @@ export default function ResetPasswordScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { ...responsiveStyle.container },
   gradient: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
@@ -228,7 +229,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   center: {
-    flex: 1,
+    ...responsiveStyle.container,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,

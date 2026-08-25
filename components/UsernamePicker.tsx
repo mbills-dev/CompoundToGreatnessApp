@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 
 interface Props {
   onComplete: () => void;
@@ -147,7 +148,7 @@ export default function UsernamePicker({ onComplete }: Props) {
     >
       <LinearGradient
         colors={isDarkGradient(colors) ? ['#000000', '#0A0A0A', '#000000'] : ['#F5F5F0', '#EBEBE6', '#F5F5F0']}
-        style={styles.container}
+        style={[styles.container, responsiveStyle.container]}
       >
         <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={true}>
           <View style={[styles.iconCircle, { borderColor: 'rgba(204,255,0,0.3)' }]}>

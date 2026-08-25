@@ -1,8 +1,9 @@
 import { StyleSheet, Platform } from 'react-native';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1,
+    ...responsiveStyle.container,
     paddingTop: Platform.OS === 'ios' ? 52 : 32,
   },
   screen: {

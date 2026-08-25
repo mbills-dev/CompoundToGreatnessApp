@@ -10,6 +10,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { useTheme } from '@/contexts/ThemeContext';
+import { responsiveStyle, CONTENT_MAX_WIDTH } from '@/components/ResponsiveContainer';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const FONT_SIZE = Math.min(SCREEN_WIDTH * 0.18, 76);
@@ -72,16 +73,18 @@ export default function SignupSplashScreen({ onComplete }: Props) {
 
   return (
     <Animated.View style={[styles.container, { backgroundColor: colors.primary }, screenStyle]}>
-      <View style={styles.topThird}>
-        <Animated.Text style={[styles.headline, line1Style]}>
-          YOUR LIFE{'\n'}MATTERS
-        </Animated.Text>
-      </View>
+      <View style={[styles.contentWrapper, responsiveStyle.container]}>
+        <View style={styles.topThird}>
+          <Animated.Text style={[styles.headline, line1Style]}>
+            YOUR LIFE{'\n'}MATTERS
+          </Animated.Text>
+        </View>
 
-      <View style={styles.bottomThird}>
-        <Animated.Text style={[styles.headline, makeStyle]}>MAKE</Animated.Text>
-        <Animated.Text style={[styles.headline, itStyle]}>IT</Animated.Text>
-        <Animated.Text style={[styles.headline, countStyle]}>COUNT</Animated.Text>
+        <View style={styles.bottomThird}>
+          <Animated.Text style={[styles.headline, makeStyle]}>MAKE</Animated.Text>
+          <Animated.Text style={[styles.headline, itStyle]}>IT</Animated.Text>
+          <Animated.Text style={[styles.headline, countStyle]}>COUNT</Animated.Text>
+        </View>
       </View>
     </Animated.View>
   );
@@ -92,6 +95,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 9999,
     flexDirection: 'column',
+  },
+  contentWrapper: {
+    flex: 1,
   },
   topThird: {
     flex: 1,

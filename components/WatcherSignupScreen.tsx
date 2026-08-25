@@ -18,6 +18,7 @@ import { awardInviteBadge } from '@/lib/badgeHelpers';
 import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 
 interface InviterInfo {
   displayName: string;
@@ -186,7 +187,7 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
 
   if (step === 'preview') {
     return (
-      <LinearGradient colors={rootGradientPreview} style={styles.container}>
+      <LinearGradient colors={rootGradientPreview} style={[styles.container, responsiveStyle.container]}>
         <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}>
           <View style={styles.eyeHeader}>
             <View style={styles.eyeCircle}>
@@ -274,7 +275,7 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
-      <LinearGradient colors={rootGradientSignup} style={styles.container}>
+      <LinearGradient colors={rootGradientSignup} style={[styles.container, responsiveStyle.container]}>
         <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={true}>
           <TouchableOpacity onPress={() => setStep('preview')} style={styles.backButton}>
             <Text style={[styles.backButtonText, { color: textSecondary }]}>← Back</Text>
@@ -344,7 +345,7 @@ export default function WatcherSignupScreen({ inviteCode, onWatcherReady, onStar
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+  center: { ...responsiveStyle.container, alignItems: 'center', justifyContent: 'center', padding: 32 },
   scrollContent: { padding: 28, paddingTop: 72, paddingBottom: 60 },
   eyeHeader: { alignItems: 'center', marginBottom: 28 },
   eyeCircle: {

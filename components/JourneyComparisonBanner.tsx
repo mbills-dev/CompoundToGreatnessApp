@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { ArrowRight, X } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isMilestoneDay } from '@/constants/milestones';
 import { useJourneyComparison, JourneyPhoto } from '@/hooks/useJourneyComparison';
@@ -347,7 +348,7 @@ const styles = StyleSheet.create({
 
 const modalStyles = StyleSheet.create({
   container: {
-    flex: 1,
+    ...responsiveStyle.container,
     backgroundColor: '#000000',
   },
   topBar: {

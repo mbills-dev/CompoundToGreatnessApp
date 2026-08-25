@@ -22,6 +22,7 @@ import { resetChallenge } from '@/lib/resetHelpers';
 import { useQueryClient } from '@tanstack/react-query';
 import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import { useTheme } from '@/contexts/ThemeContext';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Confetti from './Confetti';
@@ -561,7 +562,7 @@ function DayShield({ day, size }: { day: number; size: number }) {
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1,
+    ...responsiveStyle.container,
     backgroundColor: '#000000',
   },
   gradient: {

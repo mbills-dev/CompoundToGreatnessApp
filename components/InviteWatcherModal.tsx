@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, Copy, Share2, X, Check } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 
 interface Props {
   visible: boolean;
@@ -161,6 +162,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
   sheet: {
+    ...responsiveStyle.sheet,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 28,

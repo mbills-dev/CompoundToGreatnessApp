@@ -57,6 +57,7 @@ import { supabase } from '@/lib/supabase';
 import { logEdgeFunctionCall } from '@/lib/edgeFunctionLogger';
 import { CHALLENGE_RULES } from '@/constants/challengeRules';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 
 // ─── Helpers (local — result assembly only) ───────────────────────────────────
 
@@ -1135,7 +1136,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
 
   return (
     <View style={[ibStyles.root, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <Animated.View style={containerStyle}>
+      <Animated.View style={[containerStyle, responsiveStyle.container]}>
         {renderPhase()}
       </Animated.View>
     </View>
@@ -1195,7 +1196,7 @@ function ClassifyingPhase({
 }
 
 const ibStyles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { ...responsiveStyle.container },
   decodeHeader: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -14,6 +14,7 @@ import { Calendar, ArrowRight, Zap } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toLocalDateString, getTodayDateString, parseLocalDate } from '@/lib/dateHelpers';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 
 interface StartDateScreenProps {
   onSelect: (dateString: string) => void;
@@ -82,10 +83,10 @@ export default function StartDateScreen({ onSelect }: StartDateScreenProps) {
   const secondaryText = isDark ? 'rgba(255,255,255,0.7)' : colors.textSecondary;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={[{ flex: 1, backgroundColor: colors.background }, responsiveStyle.container]}>
       <LinearGradient
         colors={isDark ? ['#000000', '#0A0A0A', '#000000'] : ['#F5F5F0', '#EBEBE6', '#F5F5F0']}
-        style={styles.container}
+        style={[styles.container, responsiveStyle.container]}
       >
         <ScrollView
           contentContainerStyle={[

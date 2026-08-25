@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { ChallengeArchive, ArchiveReason } from '@/types/database';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '—';
@@ -172,7 +173,7 @@ export default function ArchivedChallengesScreen() {
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1,
+    ...responsiveStyle.container,
   },
   gradient: {
     flex: 1,
