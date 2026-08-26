@@ -41,10 +41,10 @@ import { ArrowLeft, Check } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { IdentityBuilderResult, RawInputEntry, Dimension } from './types';
 import { WhenPickerValue } from './WhenPickerModal';
-import { DecodePath, FlowGoal, AnchoredInput, LockedGoal } from './flow/types';
+import { DecodePath, FlowGoal, AnchoredInput, LockedGoal, NumbersSubtype, TargetResolution } from './flow/types';
 import { WelcomeSeriesScreen } from './flow/WelcomeScreens';
 import { GoalsEntryScreen, IntroScreen, GoalDoneLooksScreen, GoalFuelRedirectScreen } from './flow/GoalsEntry';
-import { PathSelectorScreen, PathNumbers, PathPractice, PathStarting } from './flow/PathScreens';
+import { PathSelectorScreen, PathNumbers, PathNumbersDirect, PathPractice, PathStarting } from './flow/PathScreens';
 import { AnchorScreen, AddInputScreen, GoalLockedScreen, GoalBadge, formatGoalLabel, displayGoalLabel } from './flow/AnchorScreens';
 import { AiDailyInputsScreen } from './flow/AiDailyInputsScreen';
 import { logInputFeedback, InputSource } from './flow/InputValidation';
@@ -832,10 +832,15 @@ export default function IdentityBuilder({ onComplete }: Props) {
         return (
           <ClassifyingPhase
             goalLabel={goalLabel}
-            onClassified={(path, extractedTarget, standardAction, estimatedMasteryHours) => {
+            onClassified={(path, extractedTarget, standardAction, estimatedMasteryHours, numbersSubtype, directUnit, targetResolution) => {
               if (path === 'numbers' && extractedTarget) {
                 setGoals(prev => prev.map((g, i) =>
                   i === goalIdx ? { ...g, inheritedTarget: extractedTarget } : g
+                ));
+              }
+              if (path === 'numbers' && numbersSubtype) {
+                setGoals(prev => prev.map((g, i) =>
+                  i === goalIdx ? { ...g, numbersSubtype, directUnit: directUnit ?? undefined, targetResolution: targetResolution ?? null } : g
                 ));
               }
               if (path === 'starting' && standardAction) {
@@ -962,7 +967,14 @@ export default function IdentityBuilder({ onComplete }: Props) {
               <GoalBadge goal={goal} n={goalIdx + 1} resolvedLabel={formatGoalLabel(goal, goalLabelOverrides)} />
             </View>
             <ScrollView style={{ flex: 1, paddingHorizontal: 24 }} showsVerticalScrollIndicator={false}>
-              {path === 'numbers' && (
+              {path === 'numbers' && goal.numbersSubtype === 'direct' && (
+                <PathNumbersDirect
+                  goal={goal}
+                  doneLooksText={doneLooksText}
+                  onDone={(r, tStr) => handleDecodeDone(goalIdx, r, tStr, undefined, 'numbers', doneLooksText)}
+                />
+              )}
+              {path === 'numbers' && goal.numbersSubtype !== 'direct' && (
                 <PathNumbers
                   goal={goal}
                   doneLooksText={doneLooksText}
@@ -1150,7 +1162,7 @@ function ClassifyingPhase({
   onClassified,
 }: {
   goalLabel: string;
-  onClassified: (path: DecodePath, extractedTarget: string | null, standardAction: string | null, estimatedMasteryHours: number | null) => void;
+  onClassified: (path: DecodePath, extractedTarget: string | null, standardAction: string | null, estimatedMasteryHours: number | null, numbersSubtype: NumbersSubtype | null, directUnit: string | null, targetResolution: TargetResolution | null) => void;
 }) {
   useEffect(() => {
     let cancelled = false;
@@ -1162,7 +1174,7 @@ function ClassifyingPhase({
         });
         if (cancelled) return;
         if (error || !data || (data.path !== 'numbers' && data.path !== 'practice' && data.path !== 'starting')) {
-          onClassified('starting', null, null, null);
+          onClassified('starting', null, null, null, null, null, null);
           return;
         }
         const extracted = typeof data.extractedTarget === 'string' && data.extractedTarget.trim().length > 0
@@ -1174,9 +1186,26 @@ function ClassifyingPhase({
         const masteryHours = typeof data.estimatedMasteryHours === 'number' && !isNaN(data.estimatedMasteryHours) && data.estimatedMasteryHours > 0
           ? Math.round(data.estimatedMasteryHours)
           : null;
-        onClassified(data.path as DecodePath, extracted, standard, masteryHours);
+        const subType: NumbersSubtype | null =
+          data.numbersSubtype === 'funnel' || data.numbersSubtype === 'direct' ? data.numbersSubtype : null;
+        const dUnit = typeof data.unit === 'string' && data.unit.trim().length > 0
+          ? data.unit.trim()
+          : null;
+        let tRes: TargetResolution | null = null;
+        if (data.targetResolution && typeof data.targetResolution === 'object') {
+          const tr = data.targetResolution as Record<string, unknown>;
+          if (tr.type === 'inferred' && typeof tr.value === 'number' && !isNaN(tr.value) && tr.value > 0) {
+            tRes = { type: 'inferred', value: Math.round(tr.value), unit: typeof tr.unit === 'string' ? tr.unit : dUnit ?? 'units' };
+          } else if (tr.type === 'ask' && typeof tr.question === 'string' && tr.question.trim().length > 0) {
+            const suggestions = Array.isArray(tr.suggestions)
+              ? tr.suggestions.filter((s): s is string => typeof s === 'string' && s.trim().length > 0).map(s => s.trim())
+              : [];
+            tRes = { type: 'ask', question: tr.question.trim(), unit: typeof tr.unit === 'string' ? tr.unit : dUnit ?? 'units', suggestions };
+          }
+        }
+        onClassified(data.path as DecodePath, extracted, standard, masteryHours, subType, dUnit, tRes);
       } catch {
-        if (!cancelled) onClassified('starting', null, null, null);
+        if (!cancelled) onClassified('starting', null, null, null, null, null, null);
       }
     })();
     return () => { cancelled = true; };

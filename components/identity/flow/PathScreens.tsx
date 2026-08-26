@@ -21,7 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Slider from '@react-native-community/slider';
 import { ArrowLeft, ArrowRight, Check, Zap, Pencil, RotateCw, Turtle, Rabbit } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { FlowGoal, DecodePath } from './types';
+import { FlowGoal, DecodePath, TargetResolution } from './types';
 import { GoalBadge } from './AnchorScreens';
 import styles from './styles';
 import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID, KeyboardStepWrapperRef } from './KeyboardStepWrapper';
@@ -1394,5 +1394,254 @@ export function PathSelectorScreen({
         ))}
       </View>
     </ScrollView>
+  );
+}
+
+// ─── PathNumbersDirect ───────────────────────────────────────────────────────
+
+function fmtNumDirect(n: number): string {
+  return n.toLocaleString('en-US');
+}
+
+export function PathNumbersDirect({
+  goal,
+  doneLooksText,
+  onDone,
+}: {
+  goal: FlowGoal;
+  doneLooksText?: string;
+  onDone: (result: string, resolvedTargetStr: string) => void;
+}) {
+  const { colors, isDark } = useTheme();
+  const targetRes = goal.targetResolution;
+  const unit = goal.directUnit ?? targetRes?.unit ?? 'units';
+
+  const deadlineMonths = DEADLINE_MONTHS[goal.deadline];
+  const use77Days = deadlineMonths === undefined || goal.deadline === 'ongoing';
+  const days = use77Days ? 77 : deadlineMonths * 30;
+
+  const inferredValue = targetRes?.type === 'inferred' && typeof targetRes.value === 'number' ? targetRes.value : null;
+  const askData = targetRes?.type === 'ask' ? targetRes : null;
+
+  const [targetNum, setTargetNum] = useState<number | null>(inferredValue);
+  const [editingTarget, setEditingTarget] = useState(false);
+  const [targetDraft, setTargetDraft] = useState('');
+  const [askSelection, setAskSelection] = useState<string | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  const revealAnim = useSharedValue(0);
+  const targetCardAnim = useSharedValue(0);
+
+  useEffect(() => {
+    targetCardAnim.value = withSpring(1, { damping: 14, stiffness: 100 });
+  }, []);
+  const targetCardStyle = useAnimatedStyle(() => ({
+    opacity: targetCardAnim.value,
+    transform: [{ scale: interpolate(targetCardAnim.value, [0, 1], [0.85, 1]) }],
+  }));
+
+  const rawTarget = askData ? parseNum(askSelection ?? '') : (targetNum ?? NaN);
+  const canReveal = !isNaN(rawTarget) && rawTarget > 0;
+  const resolvedTarget = canReveal ? rawTarget : 0;
+
+  const dailyRaw = canReveal ? Math.ceil(resolvedTarget / days) : 0;
+  const daily = canReveal ? Math.ceil(dailyRaw * 1.1) : 0;
+
+  const doReveal = () => {
+    setRevealed(true);
+    revealAnim.value = withSpring(1, { damping: 14, stiffness: 100 });
+    if (Platform.OS !== 'web') {
+      let tick = 0;
+      const interval = setInterval(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        tick++;
+        if (tick >= 6) clearInterval(interval);
+      }, 90);
+    }
+  };
+
+  const revealStyle = useAnimatedStyle(() => ({
+    opacity: revealAnim.value,
+    transform: [{ scale: interpolate(revealAnim.value, [0, 1], [0.85, 1]) }],
+  }));
+
+  const handleLock = () => {
+    if (!canReveal) return;
+    const result = `${fmtNumDirect(daily)} ${unit}/day`;
+    const targetStr = String(resolvedTarget);
+    onDone(result, targetStr);
+  };
+
+  const dailyFontSize = daily >= 10000 ? 36 : daily >= 1000 ? 44 : 56;
+
+  const handleEditTarget = () => {
+    setTargetDraft(String(targetNum ?? ''));
+    setEditingTarget(true);
+  };
+
+  const commitEdit = () => {
+    const parsed = parseNum(targetDraft.trim());
+    if (!isNaN(parsed) && parsed > 0) {
+      setTargetNum(parsed);
+    }
+    setEditingTarget(false);
+  };
+
+  const askOptions = useMemo(() => askData?.suggestions ?? [], [askData]);
+
+  return (
+    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
+      {inferredValue !== null ? (
+        <Animated.View
+          style={[
+            styles.inheritedTargetCard,
+            {
+              backgroundColor: isDark ? 'rgba(204,255,0,0.06)' : 'rgba(204,255,0,0.08)',
+              borderColor: colors.primary + '50',
+            },
+            targetCardStyle,
+          ]}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.inheritedLabel, { color: colors.primary }]}>
+              ESTIMATED TARGET
+            </Text>
+            {!editingTarget ? (
+              <Text style={[styles.inheritedValue, { color: colors.text }]}>
+                {fmtNumDirect(targetNum ?? inferredValue)}{' '}
+                <Text style={{ color: colors.primary, fontSize: 14 }}>
+                  {unit} ✓ editable
+                </Text>
+              </Text>
+            ) : (
+              <View style={styles.customRow}>
+                <TextInput
+                  style={[
+                    styles.customInlineInput,
+                    {
+                      color: colors.text,
+                      borderColor: colors.primary + '80',
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                    },
+                  ]}
+                  value={targetDraft}
+                  onChangeText={setTargetDraft}
+                  placeholder={`e.g. ${inferredValue}`}
+                  placeholderTextColor={colors.textTertiary}
+                  keyboardType="default"
+                  autoFocus
+                  returnKeyType="done"
+                  inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
+                  onSubmitEditing={commitEdit}
+                />
+                <TouchableOpacity
+                  style={[styles.customConfirmBtn, { backgroundColor: colors.primary }]}
+                  onPress={commitEdit}
+                >
+                  <Check size={16} color="#000" strokeWidth={3} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+          {!editingTarget && (
+            <TouchableOpacity
+              onPress={handleEditTarget}
+              style={styles.editAffordance}
+              activeOpacity={0.7}
+            >
+              <Pencil size={14} color={colors.textTertiary} strokeWidth={2} />
+            </TouchableOpacity>
+          )}
+        </Animated.View>
+      ) : askData ? (
+        <View style={{ marginTop: 8 }}>
+          <Text style={[styles.fieldLabel, { color: colors.primary, marginBottom: 4 }]}>
+            {(askData.question ?? 'What\'s your target?').toUpperCase()}
+          </Text>
+          <ChipGroup
+            label={`YOUR TARGET IN ${unit.toUpperCase()}`}
+            options={askOptions}
+            selected={askSelection}
+            onSelect={setAskSelection}
+            customPlaceholder={`Enter your target...`}
+            keyboardType="numeric"
+          />
+        </View>
+      ) : (
+        <ChipGroup
+          label="YOUR TARGET"
+          options={[]}
+          selected={askSelection}
+          onSelect={setAskSelection}
+          customPlaceholder="Enter your target..."
+          keyboardType="numeric"
+        />
+      )}
+
+      {canReveal && !revealed && (
+        <TouchableOpacity
+          style={[styles.revealBtn, { backgroundColor: colors.primary }]}
+          onPress={doReveal}
+          activeOpacity={0.85}
+        >
+          <Zap size={18} color="#000" strokeWidth={2.5} />
+          <Text style={styles.revealBtnText}>Reveal my daily number</Text>
+        </TouchableOpacity>
+      )}
+
+      {revealed && (
+        <Animated.View
+          style={[
+            styles.revealCard,
+            { borderColor: colors.primary },
+            revealStyle,
+          ]}
+        >
+          <LinearGradient
+            colors={['rgba(204,255,0,0.10)', 'transparent']}
+            style={StyleSheet.absoluteFill}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          />
+          <Text style={[styles.revealLabel, { color: colors.primary }]}>
+            YOUR DAILY NUMBER
+          </Text>
+          <Text
+            style={[
+              styles.revealNumber,
+              { color: colors.primary, fontSize: dailyFontSize },
+            ]}
+          >
+            {fmtNumDirect(daily)}
+          </Text>
+          <Text style={[styles.revealUnit, { color: colors.textSecondary }]}>
+            {unit}/day
+          </Text>
+          <View
+            style={[
+              styles.mathBox,
+              {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.mathLine, { color: colors.textSecondary }]}>
+              {fmtNumDirect(resolvedTarget)} {unit} ÷ {days} days = {fmtNumDirect(dailyRaw)}/{unit}
+            </Text>
+            <Text style={[styles.mathLine, { color: colors.textSecondary }]}>
+              with 10% buffer → {fmtNumDirect(daily)} {unit}/day
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.lockBtn, { backgroundColor: colors.primary }]}
+            onPress={handleLock}
+            activeOpacity={0.85}
+          >
+            <Check size={18} color="#000" strokeWidth={3} />
+            <Text style={styles.lockBtnText}>Lock This In</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+    </KeyboardStepWrapper>
   );
 }

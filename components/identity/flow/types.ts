@@ -2,6 +2,16 @@ import { WhenPickerValue } from '../WhenPickerModal';
 
 export type DecodePath = 'numbers' | 'practice' | 'starting';
 
+export type NumbersSubtype = 'funnel' | 'direct';
+
+export interface TargetResolution {
+  type: 'inferred' | 'ask';
+  value?: number;
+  unit?: string;
+  question?: string;
+  suggestions?: string[];
+}
+
 export interface FlowGoal {
   id: number;
   label: string;
@@ -12,6 +22,9 @@ export interface FlowGoal {
   defaultPath: DecodePath;
   inheritedTarget?: string;
   estimatedMasteryHours?: number;
+  numbersSubtype?: NumbersSubtype;
+  directUnit?: string;
+  targetResolution?: TargetResolution | null;
 }
 
 export interface AnchoredInput {
