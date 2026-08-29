@@ -8,6 +8,7 @@ import {
   Platform,
   Alert,
   StyleSheet,
+  InteractionManager,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -664,7 +665,9 @@ export function IntroScreen({
     overlapFetchedRef.current = true;
     if (goals.length < 2) return;
     fetchOverlappingGoals(goals.map(g => g.label)).then(groups => {
-      setOverlapGroups(groups);
+      InteractionManager.runAfterInteractions(() => {
+        setOverlapGroups(groups);
+      });
     });
   }, []);
 
@@ -672,7 +675,9 @@ export function IntroScreen({
     if (vagueFetchedRef.current) return;
     vagueFetchedRef.current = true;
     fetchVagueGoals(goals.map(g => g.label)).then(flags => {
-      setVagueFlags(flags);
+      InteractionManager.runAfterInteractions(() => {
+        setVagueFlags(flags);
+      });
     });
   }, []);
 
