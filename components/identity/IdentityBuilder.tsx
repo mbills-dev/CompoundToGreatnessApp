@@ -12,7 +12,7 @@
  *  - inputs[]+rawInputs[] = flat list of ALL locked inputs across all goals.
  */
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -33,10 +33,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSpring,
-  interpolate,
-  Easing,
-  runOnJS,
 } from 'react-native-reanimated';
 import { ArrowLeft, Check } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -520,24 +516,6 @@ export default function IdentityBuilder({ onComplete }: Props) {
     });
   }, []);
 
-  const screenAnim = useSharedValue(1);
-  const slideAnim = useSharedValue(0);
-
-  const containerStyle = useAnimatedStyle(() => ({
-    opacity: screenAnim.value,
-    transform: [{ translateY: slideAnim.value }],
-    flex: 1,
-  }));
-
-  const transitionToPhase = useCallback((next: Phase, fromBack: boolean = false) => {
-    InteractionManager.runAfterInteractions(() => {
-      setPhase(next);
-      slideAnim.value = fromBack ? -30 : 30;
-      screenAnim.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.ease) });
-      slideAnim.value = withSpring(0, { damping: 20, stiffness: 160 });
-    });
-  }, []);
-
   const saveState = (key: string, value: string) => setSavedStates(prev => ({ ...prev, [key]: value }));
 
   const phaseKey = (p: Phase): string => {
@@ -556,33 +534,18 @@ export default function IdentityBuilder({ onComplete }: Props) {
 
   const navigate = (next: Phase) => {
     setHistory(prev => [...prev, phase]);
-    screenAnim.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.ease) }, (finished) => {
-      if (finished) {
-        runOnJS(transitionToPhase)(next, false);
-      }
-    });
-    slideAnim.value = withTiming(-20, { duration: 220 });
+    setPhase(next);
   };
 
   const navigateReplace = (next: Phase) => {
-    screenAnim.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.ease) }, (finished) => {
-      if (finished) {
-        runOnJS(transitionToPhase)(next, false);
-      }
-    });
-    slideAnim.value = withTiming(-20, { duration: 220 });
+    setPhase(next);
   };
 
   const goBack = () => {
     if (history.length === 0) return;
     const prev = history[history.length - 1];
     setHistory(h => h.slice(0, -1));
-    screenAnim.value = withTiming(0, { duration: 180, easing: Easing.in(Easing.ease) }, (finished) => {
-      if (finished) {
-        runOnJS(transitionToPhase)(prev, true);
-      }
-    });
-    slideAnim.value = withTiming(20, { duration: 180 });
+    setPhase(prev);
   };
 
   const handleDecodeDone = (
@@ -1155,9 +1118,9 @@ export default function IdentityBuilder({ onComplete }: Props) {
 
   return (
     <View style={[ibStyles.root, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <Animated.View style={[containerStyle, responsiveStyle.container]}>
+      <View style={[{ flex: 1 }, responsiveStyle.container]}>
         {renderPhase()}
-      </Animated.View>
+      </View>
     </View>
   );
 }
