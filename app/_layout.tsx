@@ -12,6 +12,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
+import { getBreadcrumbs } from '@/lib/crashBreadcrumbs';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { requestNotificationPermissions, resyncAllReminders } from '@/lib/notifications';
@@ -146,6 +147,17 @@ const asyncStoragePersister = createAsyncStoragePersister({
 
 export default function RootLayout() {
   useFrameworkReady();
+
+  useEffect(() => {
+    getBreadcrumbs().then(crumbs => {
+      if (crumbs.length > 0) {
+        console.log('[CRASH BREADCRUMBS] Last session breadcrumbs:');
+        for (const c of crumbs) {
+          console.log(`  ${new Date(c.timestamp).toISOString()} — ${c.step}`, c.meta ?? '');
+        }
+      }
+    });
+  }, []);
 
   const [fontsLoaded, fontError] = useFonts({
     'Inter-Black': Inter_900Black,

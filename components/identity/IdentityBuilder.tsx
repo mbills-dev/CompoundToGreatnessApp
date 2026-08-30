@@ -52,6 +52,7 @@ import { generateIdentityStatements } from './identityAi';
 import { AiThinkingIndicator } from './flow/AiThinkingIndicator';
 import { supabase } from '@/lib/supabase';
 import { logEdgeFunctionCall } from '@/lib/edgeFunctionLogger';
+import { logBreadcrumb } from '@/lib/crashBreadcrumbs';
 import { CHALLENGE_RULES } from '@/constants/challengeRules';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { responsiveStyle } from '@/components/ResponsiveContainer';
@@ -533,11 +534,13 @@ export default function IdentityBuilder({ onComplete }: Props) {
   };
 
   const navigate = (next: Phase) => {
+    logBreadcrumb('navigate_called', { next: next.kind });
     setHistory(prev => [...prev, phase]);
     setPhase(next);
   };
 
   const navigateReplace = (next: Phase) => {
+    logBreadcrumb('navigate_replace', { next: next.kind });
     setPhase(next);
   };
 
@@ -1138,12 +1141,16 @@ function ClassifyingPhase({
     let cancelled = false;
     (async () => {
       try {
+        await logBreadcrumb('classify_fetch_start', { goalLabel });
+        const startTime = Date.now();
         logEdgeFunctionCall('classify-goal-path');
         const { data, error } = await supabase.functions.invoke('classify-goal-path', {
           body: { goal: goalLabel },
         });
+        await logBreadcrumb('classify_fetch_resolved', { elapsedMs: Date.now() - startTime, hasError: !!error, hasData: !!data });
         if (cancelled) return;
         if (error || !data || (data.path !== 'numbers' && data.path !== 'practice' && data.path !== 'starting')) {
+          await logBreadcrumb('classify_fallback', { reason: error ? 'error' : !data ? 'no_data' : 'bad_path' });
           onClassified('starting', null, null, null, null, null, null);
           return;
         }
@@ -1173,8 +1180,11 @@ function ClassifyingPhase({
             tRes = { type: 'ask', question: tr.question.trim(), unit: typeof tr.unit === 'string' ? tr.unit : dUnit ?? 'units', suggestions };
           }
         }
+        await logBreadcrumb('classify_parsed', { path: data.path, numbersSubtype: subType });
+        await logBreadcrumb('before_onClassified');
         onClassified(data.path as DecodePath, extracted, standard, masteryHours, subType, dUnit, tRes);
-      } catch {
+      } catch (e) {
+        await logBreadcrumb('classify_exception', { error: String(e).slice(0, 200) });
         if (!cancelled) onClassified('starting', null, null, null, null, null, null);
       }
     })();

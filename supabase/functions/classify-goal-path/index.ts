@@ -104,7 +104,7 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5",
-        max_tokens: 400,
+        max_tokens: 250,
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: `Goal: ${cleanedGoal}` }],
       }),

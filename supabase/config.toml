@@ -1,0 +1,35 @@
+[functions.classify-goal-path]
+verify_jwt = true
+
+[functions.delete-account]
+verify_jwt = true
+
+[functions.detect-overlapping-goals]
+verify_jwt = true
+
+[functions.detect-vague-goals]
+verify_jwt = true
+
+[functions.extract-goals-from-photo]
+verify_jwt = true
+
+[functions.generate-compass-options]
+verify_jwt = true
+
+[functions.generate-daily-inputs]
+verify_jwt = true
+
+[functions.generate-identity]
+verify_jwt = true
+
+[functions.identity-ai]
+verify_jwt = true
+
+[functions.register-founding-member]
+verify_jwt = true
+
+[functions.send-push]
+verify_jwt = true
+
+[functions.validate-input-specificity]
+verify_jwt = true
