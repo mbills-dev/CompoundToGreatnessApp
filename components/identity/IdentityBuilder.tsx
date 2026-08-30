@@ -12,7 +12,7 @@
  *  - inputs[]+rawInputs[] = flat list of ALL locked inputs across all goals.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import {
   Animated as RNAnimated,
   ActivityIndicator,
   TextInput,
+  InteractionManager,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Confetti from '@/components/Confetti';
@@ -491,18 +492,18 @@ export default function IdentityBuilder({ onComplete }: Props) {
       const user = data?.user;
       if (!user) return;
 
-      // 1. Check auth user_metadata first (populated at signup).
       const meta = user.user_metadata;
       const metaName = [meta?.first_name, meta?.last_name]
         .filter(Boolean)
         .join(' ')
         .trim();
       if (metaName) {
-        setDisplayName(metaName);
+        InteractionManager.runAfterInteractions(() => {
+          setDisplayName(metaName);
+        });
         return;
       }
 
-      // 2. Fall back to profiles.display_name for existing/social users.
       supabase
         .from('profiles')
         .select('display_name')
@@ -510,7 +511,11 @@ export default function IdentityBuilder({ onComplete }: Props) {
         .maybeSingle()
         .then(({ data: profile }) => {
           const name = profile?.display_name?.trim() ?? '';
-          if (name) setDisplayName(name);
+          if (name) {
+            InteractionManager.runAfterInteractions(() => {
+              setDisplayName(name);
+            });
+          }
         });
     });
   }, []);
@@ -523,6 +528,15 @@ export default function IdentityBuilder({ onComplete }: Props) {
     transform: [{ translateY: slideAnim.value }],
     flex: 1,
   }));
+
+  const transitionToPhase = useCallback((next: Phase, fromBack: boolean = false) => {
+    InteractionManager.runAfterInteractions(() => {
+      setPhase(next);
+      slideAnim.value = fromBack ? -30 : 30;
+      screenAnim.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.ease) });
+      slideAnim.value = withSpring(0, { damping: 20, stiffness: 160 });
+    });
+  }, []);
 
   const saveState = (key: string, value: string) => setSavedStates(prev => ({ ...prev, [key]: value }));
 
@@ -544,10 +558,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
     setHistory(prev => [...prev, phase]);
     screenAnim.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.ease) }, (finished) => {
       if (finished) {
-        runOnJS(setPhase)(next);
-        slideAnim.value = 30;
-        screenAnim.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.ease) });
-        slideAnim.value = withSpring(0, { damping: 20, stiffness: 160 });
+        runOnJS(transitionToPhase)(next, false);
       }
     });
     slideAnim.value = withTiming(-20, { duration: 220 });
@@ -556,10 +567,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
   const navigateReplace = (next: Phase) => {
     screenAnim.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.ease) }, (finished) => {
       if (finished) {
-        runOnJS(setPhase)(next);
-        slideAnim.value = 30;
-        screenAnim.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.ease) });
-        slideAnim.value = withSpring(0, { damping: 20, stiffness: 160 });
+        runOnJS(transitionToPhase)(next, false);
       }
     });
     slideAnim.value = withTiming(-20, { duration: 220 });
@@ -571,10 +579,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
     setHistory(h => h.slice(0, -1));
     screenAnim.value = withTiming(0, { duration: 180, easing: Easing.in(Easing.ease) }, (finished) => {
       if (finished) {
-        runOnJS(setPhase)(prev);
-        slideAnim.value = -30;
-        screenAnim.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.ease) });
-        slideAnim.value = withSpring(0, { damping: 20, stiffness: 160 });
+        runOnJS(transitionToPhase)(prev, true);
       }
     });
     slideAnim.value = withTiming(20, { duration: 180 });
@@ -622,7 +627,9 @@ export default function IdentityBuilder({ onComplete }: Props) {
             if (!result) return;
             const statement = result[0];
             if (statement && typeof statement === 'string') {
-              setAiStatements(prev => ({ ...prev, [goalId]: statement }));
+              InteractionManager.runAfterInteractions(() => {
+                setAiStatements(prev => ({ ...prev, [goalId]: statement }));
+              });
             }
           });
         }
