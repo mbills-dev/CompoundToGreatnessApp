@@ -14,7 +14,6 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   interpolate,
-  runOnJS,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -403,7 +402,8 @@ export function PathNumbers({
   const doReveal = () => {
     setRevealed(true);
     const triggerScroll = () => scrollRef.current?.scrollToEnd({ animated: true });
-    revealAnim.value = withSpring(1, { damping: 14, stiffness: 100 }, (finished) => { if (finished) runOnJS(triggerScroll)(); });
+    revealAnim.value = withSpring(1, { damping: 14, stiffness: 100 });
+    setTimeout(() => triggerScroll(), 400);
     if (Platform.OS !== 'web') {
       let tick = 0;
       const interval = setInterval(() => {
@@ -766,7 +766,8 @@ export function PathPractice({
   const doReveal = () => {
     setRevealed(true);
     const triggerScroll = () => scrollRef.current?.scrollToEnd({ animated: true });
-    revealAnim.value = withSpring(1, { damping: 14, stiffness: 100 }, (finished) => { if (finished) runOnJS(triggerScroll)(); });
+    revealAnim.value = withSpring(1, { damping: 14, stiffness: 100 });
+    setTimeout(() => triggerScroll(), 400);
     if (Platform.OS !== 'web') {
       let tick = 0;
       const interval = setInterval(() => {

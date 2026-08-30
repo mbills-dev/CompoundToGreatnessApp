@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Image } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -7,7 +7,6 @@ import Animated, {
   withSequence,
   withRepeat,
   Easing,
-  runOnJS,
   cancelAnimation,
 } from 'react-native-reanimated';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -56,16 +55,24 @@ export function AiThinkingIndicator({
 
   const [phraseIdx, setPhraseIdx] = useState(0);
   const phraseOpacity = useSharedValue(1);
+  const mountedRef = useRef(true);
   useEffect(() => {
+    mountedRef.current = true;
     let step = 0;
     const interval = setInterval(() => {
-      phraseOpacity.value = withTiming(0, { duration: 200 }, () => {
+      if (!mountedRef.current) return;
+      phraseOpacity.value = withTiming(0, { duration: 200 });
+      setTimeout(() => {
+        if (!mountedRef.current) return;
         step = (step + 1) % phrases.length;
-        runOnJS(setPhraseIdx)(step);
+        setPhraseIdx(step);
         phraseOpacity.value = withTiming(1, { duration: 200 });
-      });
+      }, 200);
     }, 800);
-    return () => clearInterval(interval);
+    return () => {
+      mountedRef.current = false;
+      clearInterval(interval);
+    };
   }, [phrases]);
   const phraseStyle = useAnimatedStyle(() => ({ opacity: phraseOpacity.value }));
 
