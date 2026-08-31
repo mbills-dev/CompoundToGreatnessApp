@@ -29,9 +29,10 @@ Rules:
    Be conservative: if the goal could plausibly involve a sales/conversion process, choose "funnel". Only choose "direct" when it's clearly a cumulative-output goal with no intermediary conversion step.
 10. If numbersSubtype is "direct", also provide:
     - "unit": a short, human-readable string naming the daily-countable unit (e.g. "words", "vocabulary words", "sq ft", "pages", "dollars", "books", "drawings"). Keep it to 1-3 words, lowercase, plural.
-    - "targetResolution": one of two shapes:
-      (a) If the total target is a genuine, estimable domain fact — e.g. a typical novel is ~80,000 words, a mural might be ~300 sq ft, a college-level vocabulary is ~3,000 words — return {"type": "inferred", "value": <number>, "unit": <string>}. Use reasonable domain knowledge for the estimate. This value will be shown as an editable suggestion, not locked in.
-      (b) If the total target is inherently a personal choice with no objectively correct number — e.g. income goals, savings amounts, personal quantities to produce — return {"type": "ask", "question": <string>, "unit": <string>, "suggestions": [<3-4 short strings>]}. The question should be natural and specific to the goal (e.g. "How much do you want to make per month?" for income, "How much do you want to save?" for savings). Generate the question and suggestions dynamically per-goal based on its context — do not use hardcoded category templates.
+    - "targetResolution": always return {"type": "ask", "question": <string>, "unit": <string>, "suggestions": [<3-4 strings>]} when there is no explicit extractedTarget. Use your judgment to pick the right suggestion strategy:
+      (a) When the target is a genuine, estimable domain fact — e.g. a typical novel is ~80,000 words, a mural might be ~300 sq ft, a college-level vocabulary is ~3,000 words — generate 3-4 suggestions as DESCRIPTIVE, CALIBRATED TIERS with approximate values baked into each label. Use real domain knowledge so the tiers are meaningfully different and genuinely useful. Examples: for a book: ["Novella (~35,000 words)", "Standard novel (~80,000 words)", "Epic-length (~120,000 words)"]; for a mural: ["Small wall (~100 sq ft)", "Standard wall (~300 sq ft)", "Large facade (~600 sq ft)"]. The question should fit the domain (e.g. "How long do you want this book to be?").
+      (b) When the target is inherently a personal choice with no objectively correct number — e.g. income goals, savings amounts, personal quantities to produce — keep the current behavior: natural question (e.g. "How much do you want to make per month?" for income, "How much do you want to save?" for savings) and 3-4 short preset amount suggestions.
+      Generate the question and suggestions dynamically per-goal based on its context — do not use hardcoded category templates.
 11. If numbersSubtype is "funnel", return null for "unit" and "targetResolution".
 
 Output shape (exactly):
@@ -43,10 +44,6 @@ Output shape (exactly):
   "numbersSubtype": "funnel" | "direct" | null,
   "unit": "string | null",
   "targetResolution": {
-    "type": "inferred",
-    "value": 80000,
-    "unit": "words"
-  } | {
     "type": "ask",
     "question": "How much do you want to save?",
     "unit": "dollars",
@@ -57,11 +54,10 @@ Output shape (exactly):
 No preamble, no commentary, no markdown fences. Output ONLY the JSON object.`;
 
 interface TargetResolution {
-  type: "inferred" | "ask";
-  value?: number;
-  unit?: string;
-  question?: string;
-  suggestions?: string[];
+  type: "ask";
+  question: string;
+  unit: string;
+  suggestions: string[];
 }
 
 Deno.serve(async (req: Request) => {
@@ -178,13 +174,7 @@ Deno.serve(async (req: Request) => {
       const tr = obj.targetResolution;
       if (typeof tr === "object" && tr !== null) {
         const trObj = tr as Record<string, unknown>;
-        if (trObj.type === "inferred" && typeof trObj.value === "number" && !isNaN(trObj.value) && trObj.value > 0) {
-          targetResolution = {
-            type: "inferred",
-            value: Math.round(trObj.value),
-            unit: typeof trObj.unit === "string" ? trObj.unit.trim() : unit ?? "units",
-          };
-        } else if (trObj.type === "ask" && typeof trObj.question === "string" && trObj.question.trim().length > 0) {
+        if (trObj.type === "ask" && typeof trObj.question === "string" && trObj.question.trim().length > 0) {
           const suggestions = Array.isArray(trObj.suggestions)
             ? trObj.suggestions.filter((s): s is string => typeof s === "string" && s.trim().length > 0).map((s) => s.trim().slice(0, 100))
             : [];
