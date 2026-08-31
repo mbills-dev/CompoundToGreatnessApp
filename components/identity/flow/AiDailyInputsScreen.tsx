@@ -203,6 +203,27 @@ export async function fetchVagueGoals(goalLabels: string[]): Promise<VagueFlag[]
           typeof (f as Record<string, unknown>).reason === 'string' &&
           Array.isArray((f as Record<string, unknown>).suggestions),
       );
+      const rejectedFlags = data.flags.filter(
+        (f: unknown) =>
+          !(typeof f === 'object' && f !== null &&
+            typeof (f as Record<string, unknown>).reason === 'string' &&
+            Array.isArray((f as Record<string, unknown>).suggestions)),
+      );
+      for (const f of rejectedFlags) {
+        try {
+          const rec = typeof f === 'object' && f !== null ? (f as Record<string, unknown>) : {};
+          const str = JSON.stringify(f);
+          await logBreadcrumb('vague_flag_rejected', {
+            flagType: typeof f,
+            isNull: f === null,
+            flagStr: str ? str.slice(0, 300) : str,
+            reasonType: typeof rec.reason,
+            suggestionsType: typeof rec.suggestions,
+          });
+        } catch (err) {
+          await logBreadcrumb('vague_flag_rejected', { error: String(err) });
+        }
+      }
       await logBreadcrumb('vague_fetch_parsed', { rawFlagCount: data.flags.length, validFlagCount: validFlags.length });
       return validFlags;
     }
