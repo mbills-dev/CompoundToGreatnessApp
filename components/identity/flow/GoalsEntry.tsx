@@ -796,17 +796,23 @@ export function IntroScreen({
         </View>
       </View>
 
+      {(() => {
+        const hasUnresolvedVague = vagueFlags.some(f => !dismissedVague.has(f.index));
+        const canAdvance = goalCountResolved && vagueChecksResolved && !hasUnresolvedVague;
+        return (
       <View style={styles.bottomSection}>
         <TouchableOpacity
-          style={[styles.primaryButton, { backgroundColor: goalCountResolved && vagueChecksResolved ? colors.primary : colors.border, opacity: goalCountResolved && vagueChecksResolved ? 1 : 0.45 }]}
+          style={[styles.primaryButton, { backgroundColor: canAdvance ? colors.primary : colors.border, opacity: canAdvance ? 1 : 0.45 }]}
           onPress={onNext}
           activeOpacity={0.85}
-          disabled={!(goalCountResolved && vagueChecksResolved)}
+          disabled={!canAdvance}
         >
           <Text style={styles.primaryButtonText}>Reverse engineer goal 1</Text>
           <ArrowRight size={20} color="#000" strokeWidth={3} />
         </TouchableOpacity>
       </View>
+        );
+      })()}
 
       {!goalCountResolved && (
         <GoalCountNudge
