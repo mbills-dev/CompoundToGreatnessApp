@@ -1033,6 +1033,7 @@ export function PathStarting({
   const isStandardPath = seedPrefill.trim().length > 0;
 
   const [text, setText] = useState(seedPrefill);
+  const [showEdit, setShowEdit] = useState(false);
   const specificity = useInputSpecificity();
   const canDone = text.trim().length > 0;
   const scrollRef = useRef<KeyboardStepWrapperRef>(null);
@@ -1092,6 +1093,7 @@ export function PathStarting({
   };
 
   const finishLine = (doneLooksText ?? '').trim() || resolvedLabel;
+  const isRedundant = isStandardPath && seedPrefill.trim().toLowerCase() === finishLine.trim().toLowerCase();
   const lockEnabled = isStandardPath ? canDone : !!chipSelected;
 
   return (
@@ -1116,6 +1118,20 @@ export function PathStarting({
       </View>
 
       {isStandardPath ? (
+        isRedundant && !showEdit ? (
+          <View style={{ marginTop: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <Text style={[styles.seedNoticeText, { color: colors.textSecondary, flex: 1 }]}>
+              This is already your daily action — lock it in, or edit it below.
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowEdit(true)}
+              style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1.5, borderColor: colors.border }}
+              activeOpacity={0.7}
+            >
+              <Pencil size={15} color={colors.textSecondary} strokeWidth={2.5} />
+            </TouchableOpacity>
+          </View>
+        ) : (
         <>
           <Text style={[styles.fieldLabel, { color: colors.primary, marginTop: 20 }]}>
             Daily action that produces it
@@ -1155,23 +1171,26 @@ export function PathStarting({
             />
           )}
 
-          <View
-            style={[
-              styles.seedNotice,
-              {
-                backgroundColor: isDark
-                  ? 'rgba(204,255,0,0.06)'
-                  : 'rgba(204,255,0,0.10)',
-                borderColor: 'rgba(204,255,0,0.25)',
-              },
-            ]}
-          >
-            <Zap size={13} color={colors.primary} strokeWidth={2.5} />
-            <Text style={[styles.seedNoticeText, { color: colors.textSecondary }]}>
-              Pre-filled from your goal — edit freely.
-            </Text>
-          </View>
+          {!isRedundant && (
+            <View
+              style={[
+                styles.seedNotice,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(204,255,0,0.06)'
+                    : 'rgba(204,255,0,0.10)',
+                  borderColor: 'rgba(204,255,0,0.25)',
+                },
+              ]}
+            >
+              <Zap size={13} color={colors.primary} strokeWidth={2.5} />
+              <Text style={[styles.seedNoticeText, { color: colors.textSecondary }]}>
+                Pre-filled from your goal — edit freely.
+              </Text>
+            </View>
+          )}
         </>
+        )
       ) : (
         <>
           {aiLoading && !aiResult ? (
