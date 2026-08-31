@@ -15,6 +15,7 @@ import { ChipGroup } from './PathScreens';
 import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
 import { AiThinkingIndicator } from './AiThinkingIndicator';
 import { logEdgeFunctionCall } from '@/lib/edgeFunctionLogger';
+import { logBreadcrumb } from '@/lib/crashBreadcrumbs';
 
 export interface Suggestion {
   input: string;
@@ -176,6 +177,7 @@ export interface VagueFlag {
 
 export async function fetchVagueGoals(goalLabels: string[]): Promise<VagueFlag[]> {
   try {
+    await logBreadcrumb('vague_fetch_start', { goalCount: goalLabels.length });
     logEdgeFunctionCall('detect-vague-goals');
     const response = await fetch(
       `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/detect-vague-goals`,
@@ -188,18 +190,25 @@ export async function fetchVagueGoals(goalLabels: string[]): Promise<VagueFlag[]
         body: JSON.stringify({ goals: goalLabels }),
       },
     );
-    if (!response.ok) return [];
+    await logBreadcrumb('vague_fetch_resolved', { status: response.status, ok: response.ok });
+    if (!response.ok) {
+      await logBreadcrumb('vague_fetch_not_ok', { status: response.status });
+      return [];
+    }
     const data = await response.json();
     if (data && Array.isArray(data.flags)) {
-      return data.flags.filter(
+      const validFlags = data.flags.filter(
         (f: unknown): f is VagueFlag =>
           typeof f === 'object' && f !== null &&
           typeof (f as Record<string, unknown>).reason === 'string' &&
           Array.isArray((f as Record<string, unknown>).suggestions),
       );
+      await logBreadcrumb('vague_fetch_parsed', { rawFlagCount: data.flags.length, validFlagCount: validFlags.length });
+      return validFlags;
     }
     return [];
-  } catch {
+  } catch (e) {
+    await logBreadcrumb('vague_fetch_exception', { error: String(e) });
     return [];
   }
 }

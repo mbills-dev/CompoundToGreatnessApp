@@ -655,6 +655,7 @@ export function IntroScreen({
   const [vagueFlags, setVagueFlags] = useState<VagueFlag[]>([]);
   const [dismissedVague, setDismissedVague] = useState<Set<number>>(new Set());
   const [goalCountResolved, setGoalCountResolved] = useState(goals.length <= 10);
+  const [vagueChecksResolved, setVagueChecksResolved] = useState(false);
   const [showTrimModal, setShowTrimModal] = useState(false);
   const [trimChecked, setTrimChecked] = useState<Set<number>>(new Set());
   const overlapFetchedRef = useRef(false);
@@ -677,6 +678,7 @@ export function IntroScreen({
     fetchVagueGoals(goals.map(g => g.label)).then(flags => {
       InteractionManager.runAfterInteractions(() => {
         setVagueFlags(flags);
+        setVagueChecksResolved(true);
       });
     });
   }, []);
@@ -796,10 +798,10 @@ export function IntroScreen({
 
       <View style={styles.bottomSection}>
         <TouchableOpacity
-          style={[styles.primaryButton, { backgroundColor: goalCountResolved ? colors.primary : colors.border, opacity: goalCountResolved ? 1 : 0.45 }]}
+          style={[styles.primaryButton, { backgroundColor: goalCountResolved && vagueChecksResolved ? colors.primary : colors.border, opacity: goalCountResolved && vagueChecksResolved ? 1 : 0.45 }]}
           onPress={onNext}
           activeOpacity={0.85}
-          disabled={!goalCountResolved}
+          disabled={!(goalCountResolved && vagueChecksResolved)}
         >
           <Text style={styles.primaryButtonText}>Reverse engineer goal 1</Text>
           <ArrowRight size={20} color="#000" strokeWidth={3} />
