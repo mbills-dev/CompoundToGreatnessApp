@@ -197,18 +197,30 @@ export async function fetchVagueGoals(goalLabels: string[]): Promise<VagueFlag[]
     }
     const data = await response.json();
     if (data && Array.isArray(data.flags)) {
-      const validFlags = data.flags.filter(
-        (f: unknown): f is VagueFlag =>
-          typeof f === 'object' && f !== null &&
-          typeof (f as Record<string, unknown>).reason === 'string' &&
-          Array.isArray((f as Record<string, unknown>).suggestions),
-      );
-      const rejectedFlags = data.flags.filter(
-        (f: unknown) =>
-          !(typeof f === 'object' && f !== null &&
-            typeof (f as Record<string, unknown>).reason === 'string' &&
-            Array.isArray((f as Record<string, unknown>).suggestions)),
-      );
+      const isValidFlag = (f: unknown): f is VagueFlag => {
+        if (typeof f !== 'object' || f === null) return false;
+        const rec = f as Record<string, unknown>;
+        if (typeof rec.reason !== 'string') return false;
+        if (Array.isArray(rec.suggestions) && rec.suggestions.length > 0 &&
+            rec.suggestions.every((s: unknown) => typeof s === 'string')) return true;
+        if (typeof rec.suggestion === 'string' && rec.suggestion.length > 0) return true;
+        return false;
+      };
+      const validFlags = data.flags
+        .filter(isValidFlag)
+        .map((f: unknown): VagueFlag => {
+          const rec = f as Record<string, unknown>;
+          const suggestions =
+            Array.isArray(rec.suggestions) && rec.suggestions.length > 0
+              ? (rec.suggestions as string[])
+              : [rec.suggestion as string];
+          return {
+            index: rec.index as number,
+            reason: rec.reason as string,
+            suggestions,
+          };
+        });
+      const rejectedFlags = data.flags.filter((f: unknown) => !isValidFlag(f));
       for (const f of rejectedFlags) {
         try {
           const rec = typeof f === 'object' && f !== null ? (f as Record<string, unknown>) : {};
