@@ -191,7 +191,12 @@ export async function fetchVagueGoals(goalLabels: string[]): Promise<VagueFlag[]
     if (!response.ok) return [];
     const data = await response.json();
     if (data && Array.isArray(data.flags)) {
-      return data.flags as VagueFlag[];
+      return data.flags.filter(
+        (f: unknown): f is VagueFlag =>
+          typeof f === 'object' && f !== null &&
+          typeof (f as Record<string, unknown>).reason === 'string' &&
+          Array.isArray((f as Record<string, unknown>).suggestions),
+      );
     }
     return [];
   } catch {
@@ -215,7 +220,8 @@ export function VagueGoalBanner({
   const { colors, isDark } = useTheme();
   const [selection, setSelection] = useState<string | null>(null);
 
-  const allOptions = useMemo(() => [...suggestions, KEEP_AS_IS_LABEL], [suggestions]);
+  const safeSuggestions = Array.isArray(suggestions) ? suggestions : [];
+  const allOptions = useMemo(() => [...safeSuggestions, KEEP_AS_IS_LABEL], [safeSuggestions]);
 
   const handleSelect = useCallback((value: string) => {
     setSelection(value);
