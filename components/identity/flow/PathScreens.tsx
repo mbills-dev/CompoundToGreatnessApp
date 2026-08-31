@@ -1448,6 +1448,9 @@ export function PathNumbersDirect({
   const [targetDraft, setTargetDraft] = useState('');
   const [askSelection, setAskSelection] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const [timeframeDays, setTimeframeDays] = useState(77);
+  const [timeframeSelection, setTimeframeSelection] = useState<string | null>('77 days');
+  const [customTimeframeDraft, setCustomTimeframeDraft] = useState('');
   const revealAnim = useSharedValue(0);
   const targetCardAnim = useSharedValue(0);
 
@@ -1463,7 +1466,7 @@ export function PathNumbersDirect({
   const canReveal = !isNaN(rawTarget) && rawTarget > 0;
   const resolvedTarget = canReveal ? rawTarget : 0;
 
-  const dailyRaw = canReveal ? Math.ceil(resolvedTarget / days) : 0;
+  const dailyRaw = canReveal ? Math.ceil(resolvedTarget / timeframeDays) : 0;
   const daily = canReveal ? Math.ceil(dailyRaw * 1.1) : 0;
 
   const doReveal = () => {
@@ -1597,6 +1600,30 @@ export function PathNumbersDirect({
         />
       )}
 
+      {canReveal && (
+        <View style={{ marginTop: 8 }}>
+          <ChipGroup
+            label="YOUR TIMEFRAME"
+            options={['77 days', '3 months', '6 months', '1 year']}
+            selected={timeframeSelection}
+            onSelect={(v) => {
+              setTimeframeSelection(v);
+              setCustomTimeframeDraft('');
+              if (v === '77 days') setTimeframeDays(77);
+              else if (v === '3 months') setTimeframeDays(90);
+              else if (v === '6 months') setTimeframeDays(180);
+              else if (v === '1 year') setTimeframeDays(365);
+              else {
+                const parsed = parseInt(v.replace(/[^0-9]/g, ''), 10);
+                if (!isNaN(parsed) && parsed > 0) setTimeframeDays(parsed);
+              }
+            }}
+            customPlaceholder="Enter days (e.g. 120)..."
+            keyboardType="numeric"
+          />
+        </View>
+      )}
+
       {canReveal && !revealed && (
         <TouchableOpacity
           style={[styles.revealBtn, { backgroundColor: colors.primary }]}
@@ -1646,7 +1673,7 @@ export function PathNumbersDirect({
             ]}
           >
             <Text style={[styles.mathLine, { color: colors.textSecondary }]}>
-              {fmtNumDirect(resolvedTarget)} {unit} ÷ {days} days = {fmtNumDirect(dailyRaw)}/{unit}
+              {fmtNumDirect(resolvedTarget)} {unit} ÷ {timeframeDays} days = {fmtNumDirect(dailyRaw)}/{unit}
             </Text>
             <Text style={[styles.mathLine, { color: colors.textSecondary }]}>
               with 10% buffer → {fmtNumDirect(daily)} {unit}/day
