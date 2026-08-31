@@ -713,7 +713,7 @@ export function IntroScreen({
   };
 
   return (
-    <View style={styles.screen}>
+    <KeyboardStepWrapper contentContainerStyle={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={{ flex: 1, justifyContent: 'center' }}>
         <TouchableOpacity onPress={onBack} style={[styles.backBtn, { marginBottom: 20 }]}>
           <ArrowLeft size={20} color={colors.text} strokeWidth={2.5} />
@@ -754,6 +754,11 @@ export function IntroScreen({
 
             return (
               <View key={g.id}>
+                <GoalBadge
+                  goal={g}
+                  n={i + 1}
+                  resolvedLabel={formatGoalLabel(g, goalLabelOverrides)}
+                />
                 {activeGroups.map(({ group, groupIdx }) =>
                   mergeGroupIdx === groupIdx ? (
                     <MergeEditor
@@ -785,11 +790,6 @@ export function IntroScreen({
                       onDismiss={() => setDismissedVague(prev => new Set(prev).add(f.index))}
                     />
                   ))}
-                <GoalBadge
-                  goal={g}
-                  n={i + 1}
-                  resolvedLabel={formatGoalLabel(g, goalLabelOverrides)}
-                />
               </View>
             );
           })}
@@ -833,6 +833,6 @@ export function IntroScreen({
           onCancel={() => setShowTrimModal(false)}
         />
       )}
-    </View>
+    </KeyboardStepWrapper>
   );
 }
