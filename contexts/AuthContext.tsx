@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       if (session?.user) {
         (async () => {
@@ -71,6 +71,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsWatcher(false);
         setWatchedUserId(null);
         setNeedsUsername(false);
+        try {
+          await supabase.auth.signInAnonymously();
+        } catch (e) {
+          console.error('anonymous_signin_failed', String(e).slice(0, 200));
+        }
       }
     });
 
