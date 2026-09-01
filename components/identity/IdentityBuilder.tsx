@@ -363,8 +363,15 @@ function SignatureScreen({
             if (Platform.OS !== 'web') {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }
-            const success = await onComplete();
-            if (!success) {
+            try {
+              const success = await onComplete();
+              if (!success) {
+                setSubmitting(false);
+                setSubmitError(true);
+                setCommitted(false);
+              }
+            } catch (e) {
+              console.error('signature_complete_exception', String(e).slice(0, 300));
               setSubmitting(false);
               setSubmitError(true);
               setCommitted(false);

@@ -17,6 +17,7 @@ import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
 import { resyncAllReminders } from '@/lib/notifications';
 import { awardSignedBadge } from '@/lib/badgeHelpers';
 import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
+import { logBreadcrumb } from '@/lib/crashBreadcrumbs';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -48,19 +49,24 @@ export default function HomeScreen() {
   }, [chooseStart, goal, router]);
 
   const deletePendingGoals = async () => {
-    // Remove any previously-saved pending goals (is_active=false, start=null)
-    // before inserting a fresh one. Never touches archived/active rows.
-    const { data: stale } = await supabase
-      .from('goals')
-      .select('id')
-      .eq('user_id', user!.id)
-      .eq('is_active', false)
-      .is('challenge_start_date', null);
+    try {
+      await logBreadcrumb('delete_pending_goals_start');
+      const { data: stale } = await supabase
+        .from('goals')
+        .select('id')
+        .eq('user_id', user!.id)
+        .eq('is_active', false)
+        .is('challenge_start_date', null);
 
-    if (stale && stale.length > 0) {
-      const ids = stale.map(g => g.id);
-      await supabase.from('daily_activities').delete().in('goal_id', ids);
-      await supabase.from('goals').delete().in('id', ids);
+      if (stale && stale.length > 0) {
+        const ids = stale.map(g => g.id);
+        await supabase.from('daily_activities').delete().in('goal_id', ids);
+        await supabase.from('goals').delete().in('id', ids);
+      }
+      await logBreadcrumb('delete_pending_goals_done', { staleCount: stale?.length ?? 0 });
+    } catch (e) {
+      console.error('delete_pending_goals_failed', String(e).slice(0, 200));
+      await logBreadcrumb('delete_pending_goals_error', { error: String(e).slice(0, 200) });
     }
   };
 
@@ -69,6 +75,7 @@ export default function HomeScreen() {
     activate: boolean,
   ): Promise<Goal | null> => {
     try {
+      await logBreadcrumb('create_goal_start', { inputCount: result.inputs.length });
       const startDate = new Date();
       startDate.setHours(0, 0, 0, 0);
 
@@ -93,7 +100,10 @@ export default function HomeScreen() {
         .select()
         .single();
 
-      if (goalError) throw goalError;
+      if (goalError) {
+        await logBreadcrumb('create_goal_error', { error: String(goalError).slice(0, 200) });
+        throw goalError;
+      }
 
       const activitiesToInsert = result.inputs.map((task, index) => {
         const raw = result.rawInputs?.[index];
@@ -115,8 +125,12 @@ export default function HomeScreen() {
         .insert(activitiesToInsert)
         .select();
 
-      if (activitiesError) throw activitiesError;
+      if (activitiesError) {
+        await logBreadcrumb('create_activities_error', { error: String(activitiesError).slice(0, 200) });
+        throw activitiesError;
+      }
 
+      await logBreadcrumb('create_goal_done', { goalId: newGoal.id });
       return newGoal;
     } catch (error) {
       console.error('Error creating goal:', error);
@@ -125,9 +139,14 @@ export default function HomeScreen() {
   };
 
   const handleIdentityComplete = async (result: IdentityBuilderResult): Promise<boolean> => {
+    await logBreadcrumb('handle_identity_complete_start');
     await deletePendingGoals();
     const created = await createGoalAndActivities(result, false);
-    if (!created) return false;
+    if (!created) {
+      await logBreadcrumb('handle_identity_complete_failed');
+      return false;
+    }
+    await logBreadcrumb('handle_identity_complete_success');
     awardSignedBadge(user!.id).then((keys) => { pendingBadgeCelebrationsRef.current = keys; }).catch(() => {});
     resyncAllReminders(user!.id).catch(err => console.error('resyncAllReminders failed:', err));
 
