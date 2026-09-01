@@ -1614,12 +1614,20 @@ export function PathNumbersDirect({
               else if (v === '6 months') setTimeframeDays(180);
               else if (v === '1 year') setTimeframeDays(365);
               else {
-                const parsed = parseInt(v.replace(/[^0-9]/g, ''), 10);
-                if (!isNaN(parsed) && parsed > 0) setTimeframeDays(parsed);
+                const numMatch = v.match(/(\d[\d,]*)/);
+                if (!numMatch) return;
+                const num = parseInt(numMatch[1].replace(/,/g, ''), 10);
+                if (isNaN(num) || num <= 0) return;
+                const lower = v.toLowerCase();
+                let multiplier = 1;
+                if (lower.includes('year')) multiplier = 365;
+                else if (lower.includes('month')) multiplier = 30;
+                else if (lower.includes('week')) multiplier = 7;
+                else if (lower.includes('day')) multiplier = 1;
+                setTimeframeDays(num * multiplier);
               }
             }}
-            customPlaceholder="Enter days (e.g. 120)..."
-            keyboardType="numeric"
+            customPlaceholder="e.g. 45 days, 6 months, 2 years"
           />
         </View>
       )}
