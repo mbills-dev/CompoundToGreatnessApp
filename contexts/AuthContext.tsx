@@ -141,6 +141,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const checkUsernameStatus = async (userId: string) => {
+    if (session?.user?.is_anonymous) {
+      setNeedsUsername(false);
+      return;
+    }
     try {
       const { data: profile } = await supabase
         .from('profiles')
