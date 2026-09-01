@@ -4,6 +4,7 @@ import { Session, User } from '@supabase/supabase-js';
 import Purchases from 'react-native-purchases';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
+import { logBreadcrumb } from '@/lib/crashBreadcrumbs';
 
 const ONBOARDING_KEY = '@onboarding_completed';
 
@@ -48,12 +49,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         checkUsernameStatus(session.user.id);
       } else {
         try {
+          logBreadcrumb('anon_signin_start');
           const { data, error } = await supabase.auth.signInAnonymously();
           if (error) throw error;
+          logBreadcrumb('anon_signin_success', {
+            hasSession: !!data.session,
+            hasUser: !!data.session?.user,
+            userId: data.session?.user?.id ?? null,
+          });
           if (data.session) {
             setSession(data.session);
           }
         } catch (e) {
+          logBreadcrumb('anon_signin_failed', { error: String(e).slice(0, 200) });
           console.error('anonymous_signin_failed', String(e).slice(0, 200));
         }
       }
