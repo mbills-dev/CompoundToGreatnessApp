@@ -40,9 +40,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [needsUsername, setNeedsUsername] = useState(false);
 
   useEffect(() => {
+    logBreadcrumb('auth_bootstrap_start');
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
+        logBreadcrumb('existing_session_found', {
+          userId: session.user.id,
+          isAnonymous: session.user.is_anonymous ?? false,
+        });
         checkSubscription(session.user.id);
         loadOnboardingState(session.user.id);
         checkWatcherStatus(session.user.id);
