@@ -39,13 +39,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [needsUsername, setNeedsUsername] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
         checkSubscription(session.user.id);
         loadOnboardingState(session.user.id);
         checkWatcherStatus(session.user.id);
         checkUsernameStatus(session.user.id);
+      } else {
+        try {
+          await supabase.auth.signInAnonymously();
+        } catch (e) {
+          console.error('anonymous_signin_failed', String(e).slice(0, 200));
+        }
       }
       setLoading(false);
     });

@@ -17,7 +17,6 @@ import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { requestNotificationPermissions, resyncAllReminders } from '@/lib/notifications';
 import { registerPushToken } from '@/lib/pushTokens';
-import AuthScreen from '@/components/AuthScreen';
 import { useGoalBundle } from '@/hooks/useGoalBundle';
 import SignupSplashScreen from '@/components/SignupSplashScreen';
 import UsernamePicker from '@/components/UsernamePicker';
@@ -73,15 +72,6 @@ function AppContent() {
   }
 
   const onWatchRoute = isWatchInviteUrl();
-
-  if (!session && !onWatchRoute) {
-    return (
-      <>
-        <AuthScreen />
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-      </>
-    );
-  }
 
   if (session && isWatcher && watchedUserId && user && !onWatchRoute) {
     return (

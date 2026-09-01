@@ -56,6 +56,7 @@ import { logBreadcrumb } from '@/lib/crashBreadcrumbs';
 import { CHALLENGE_RULES } from '@/constants/challengeRules';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { responsiveStyle } from '@/components/ResponsiveContainer';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── Helpers (local — result assembly only) ───────────────────────────────────
 
@@ -462,10 +463,13 @@ interface Props {
   onComplete: (result: IdentityBuilderResult) => Promise<boolean>;
 }
 
+const CHECKPOINT_KEY = 'c2g_identity_builder_checkpoint';
+
 export default function IdentityBuilder({ onComplete }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
+  const [checkpointLoading, setCheckpointLoading] = useState(true);
   const [phase, setPhase] = useState<Phase>({ kind: 'welcome', screen: 0 });
   const [history, setHistory] = useState<Phase[]>([]);
   const [goals, setGoals] = useState<FlowGoal[]>(HARDCODED_GOALS);
@@ -516,6 +520,57 @@ export default function IdentityBuilder({ onComplete }: Props) {
         });
     });
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(CHECKPOINT_KEY);
+        if (raw) {
+          const cp = JSON.parse(raw);
+          if (cp && cp.phase && cp.phase.kind) {
+            if (cp.phase.kind === 'welcome') {
+              setCheckpointLoading(false);
+              return;
+            }
+            setPhase(cp.phase);
+            if (Array.isArray(cp.history)) setHistory(cp.history);
+            if (Array.isArray(cp.goals)) setGoals(cp.goals);
+            if (Array.isArray(cp.locked)) setLocked(cp.locked);
+            if (cp.decodeResults && typeof cp.decodeResults === 'object') setDecodeResults(cp.decodeResults);
+            if (cp.goalLabelOverrides && typeof cp.goalLabelOverrides === 'object') setGoalLabelOverrides(cp.goalLabelOverrides);
+            if (cp.identityOverrides && typeof cp.identityOverrides === 'object') setIdentityOverrides(cp.identityOverrides);
+            if (cp.aiStatements && typeof cp.aiStatements === 'object') setAiStatements(cp.aiStatements);
+            if (typeof cp.compassFilter === 'string') setCompassFilter(cp.compassFilter);
+            if (cp.acceptedIdentity && typeof cp.acceptedIdentity === 'object') setAcceptedIdentity(cp.acceptedIdentity);
+          }
+        }
+      } catch {
+      }
+      setCheckpointLoading(false);
+    })();
+  }, []);
+
+  const checkpointTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (checkpointLoading) return;
+    if (checkpointTimer.current) clearTimeout(checkpointTimer.current);
+    checkpointTimer.current = setTimeout(() => {
+      const snapshot = {
+        phase,
+        history,
+        goals,
+        locked,
+        decodeResults,
+        goalLabelOverrides,
+        identityOverrides,
+        aiStatements,
+        acceptedIdentity,
+        compassFilter,
+      };
+      AsyncStorage.setItem(CHECKPOINT_KEY, JSON.stringify(snapshot)).catch(() => {});
+    }, 400);
+    return () => { if (checkpointTimer.current) clearTimeout(checkpointTimer.current); };
+  }, [phase, history, goals, locked, decodeResults, goalLabelOverrides, identityOverrides, aiStatements, acceptedIdentity, compassFilter, checkpointLoading]);
 
   const saveState = (key: string, value: string) => setSavedStates(prev => ({ ...prev, [key]: value }));
 
@@ -690,7 +745,11 @@ export default function IdentityBuilder({ onComplete }: Props) {
       ? `Will it help me ${compassFilter.trim().replace(/\.$/, '')}?`
       : '';
 
-    return onComplete({ identityStatement, dimensions, inputs, rawInputs, compass: { vision: compassVision, declaration: '', filterQuestion } });
+    const success = await onComplete({ identityStatement, dimensions, inputs, rawInputs, compass: { vision: compassVision, declaration: '', filterQuestion } });
+    if (success) {
+      AsyncStorage.removeItem(CHECKPOINT_KEY).catch(() => {});
+    }
+    return success;
   };
 
   const renderPhase = () => {
@@ -1118,6 +1177,16 @@ export default function IdentityBuilder({ onComplete }: Props) {
         );
     }
   };
+
+  if (checkpointLoading) {
+    return (
+      <View style={[ibStyles.root, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+        <View style={[{ flex: 1 }, responsiveStyle.container]}>
+          <AiThinkingIndicator phrases={['Loading your progress...']} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[ibStyles.root, { backgroundColor: colors.background, paddingTop: insets.top }]}>
