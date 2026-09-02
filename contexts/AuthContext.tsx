@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         checkSubscription(session.user.id);
         loadOnboardingState(session.user.id);
         checkWatcherStatus(session.user.id);
-        checkUsernameStatus(session.user.id);
+        checkUsernameStatus(session.user.id, session.user.is_anonymous ?? false);
       } else {
         try {
           logBreadcrumb('anon_signin_start');
@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await checkSubscription(session.user.id);
           await loadOnboardingState(session.user.id);
           await checkWatcherStatus(session.user.id);
-          await checkUsernameStatus(session.user.id);
+          await checkUsernameStatus(session.user.id, session.user.is_anonymous ?? false);
         })();
       } else {
         setIsSubscribed(false);
@@ -140,8 +140,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const checkUsernameStatus = async (userId: string) => {
-    if (session?.user?.is_anonymous) {
+  const checkUsernameStatus = async (userId: string, isAnonymous: boolean) => {
+    if (isAnonymous) {
       setNeedsUsername(false);
       return;
     }
