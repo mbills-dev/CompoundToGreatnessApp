@@ -159,6 +159,7 @@ export function ChipGroup({
   onSelect,
   keyboardType = 'default',
   customPlaceholder = 'Type your own...',
+  onCustomInputOpenChange,
 }: {
   label: string;
   options: string[];
@@ -166,6 +167,7 @@ export function ChipGroup({
   onSelect: (v: string) => void;
   keyboardType?: 'default' | 'numeric' | 'decimal-pad';
   customPlaceholder?: string;
+  onCustomInputOpenChange?: (open: boolean) => void;
 }) {
   const { colors, isDark } = useTheme();
 
@@ -174,6 +176,10 @@ export function ChipGroup({
 
   const [showInput, setShowInput] = useState(false);
   const [draft, setDraft] = useState('');
+
+  useEffect(() => {
+    onCustomInputOpenChange?.(showInput);
+  }, [showInput, onCustomInputOpenChange]);
 
   const commit = () => {
     const trimmed = draft.trim();
@@ -1451,6 +1457,7 @@ export function PathNumbersDirect({
   const [timeframeDays, setTimeframeDays] = useState(77);
   const [timeframeSelection, setTimeframeSelection] = useState<string | null>('77 days');
   const [customTimeframeDraft, setCustomTimeframeDraft] = useState('');
+  const [timeframeInputOpen, setTimeframeInputOpen] = useState(false);
   const revealAnim = useSharedValue(0);
   const targetCardAnim = useSharedValue(0);
 
@@ -1609,6 +1616,7 @@ export function PathNumbersDirect({
             onSelect={(v) => {
               setTimeframeSelection(v);
               setCustomTimeframeDraft('');
+              setTimeframeInputOpen(false);
               if (v === '77 days') setTimeframeDays(77);
               else if (v === '3 months') setTimeframeDays(90);
               else if (v === '6 months') setTimeframeDays(180);
@@ -1618,16 +1626,18 @@ export function PathNumbersDirect({
                 if (!numMatch) return;
                 const num = parseInt(numMatch[1].replace(/,/g, ''), 10);
                 if (isNaN(num) || num <= 0) return;
-                const lower = v.toLowerCase();
+                const unitMatch = v.match(/\d[\d,]*\s*([a-zA-Z]+)/);
+                const unitLetter = unitMatch ? unitMatch[1][0].toLowerCase() : '';
                 let multiplier = 1;
-                if (lower.includes('year')) multiplier = 365;
-                else if (lower.includes('month')) multiplier = 30;
-                else if (lower.includes('week')) multiplier = 7;
-                else if (lower.includes('day')) multiplier = 1;
+                if (unitLetter === 'y') multiplier = 365;
+                else if (unitLetter === 'm') multiplier = 30;
+                else if (unitLetter === 'w') multiplier = 7;
+                else multiplier = 1;
                 setTimeframeDays(num * multiplier);
               }
             }}
             customPlaceholder="e.g. 45 days, 6 months, 2 years"
+            onCustomInputOpenChange={setTimeframeInputOpen}
           />
         </View>
       )}
@@ -1688,12 +1698,13 @@ export function PathNumbersDirect({
             </Text>
           </View>
           <TouchableOpacity
-            style={[styles.lockBtn, { backgroundColor: colors.primary }]}
+            style={[styles.lockBtn, { backgroundColor: timeframeInputOpen ? colors.border : colors.primary, opacity: timeframeInputOpen ? 0.45 : 1 }]}
             onPress={handleLock}
             activeOpacity={0.85}
+            disabled={timeframeInputOpen}
           >
-            <Check size={18} color="#000" strokeWidth={3} />
-            <Text style={styles.lockBtnText}>Lock This In</Text>
+            <Check size={18} color={timeframeInputOpen ? colors.textTertiary : '#000'} strokeWidth={3} />
+            <Text style={[styles.lockBtnText, { color: timeframeInputOpen ? colors.textTertiary : '#000' }]}>Lock This In</Text>
           </TouchableOpacity>
         </Animated.View>
       )}
