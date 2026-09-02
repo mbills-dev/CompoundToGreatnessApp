@@ -102,6 +102,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignSelf: 'flex-start',
     maxWidth: '100%',
+    flexShrink: 1,
   },
   goalBadgeText: {
     fontSize: 13,

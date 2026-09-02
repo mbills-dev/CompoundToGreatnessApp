@@ -1446,7 +1446,8 @@ export function PathNumbersDirect({
   const use77Days = deadlineMonths === undefined || goal.deadline === 'ongoing';
   const days = use77Days ? 77 : deadlineMonths * 30;
 
-  const inferredValue = targetRes?.type === 'inferred' && typeof targetRes.value === 'number' ? targetRes.value : null;
+  const parsedInherited = goal.inheritedTarget ? parseFloat(goal.inheritedTarget) : NaN;
+  const inferredValue = !isNaN(parsedInherited) ? parsedInherited : null;
   const askData = targetRes?.type === 'ask' ? targetRes : null;
 
   const [targetNum, setTargetNum] = useState<number | null>(inferredValue);
