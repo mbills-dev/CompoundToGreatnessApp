@@ -22,6 +22,9 @@ interface AuthContextType {
   clearNeedsUsername: () => void;
   signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  convertAnonymousAccount: (email: string, password: string, firstName: string, lastName: string) => Promise<{ error: string | null }>;
+  convertWithGoogle: () => Promise<{ error: string | null }>;
+  convertWithApple: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
@@ -232,6 +235,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   };
 
+  const convertAnonymousAccount = async (email: string, password: string, firstName: string, lastName: string) => {
+    const { error } = await supabase.auth.updateUser({
+      email,
+      password,
+      data: { first_name: firstName, last_name: lastName },
+    });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    return { error: null };
+  };
+
+  const convertWithGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.linkIdentity({
+        provider: 'google',
+        options: {
+          redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        },
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return { error: null };
+    } catch (e) {
+      return { error: String(e).slice(0, 200) };
+    }
+  };
+
+  const convertWithApple = async () => {
+    return { error: 'Apple Sign-In is coming soon.' };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setSession(null);
@@ -258,6 +298,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearNeedsUsername,
         signUp,
         signIn,
+        convertAnonymousAccount,
+        convertWithGoogle,
+        convertWithApple,
         signOut,
         refreshSubscription,
         completeOnboarding,
@@ -282,6 +325,9 @@ const AUTH_DEFAULTS: AuthContextType = {
   clearNeedsUsername: () => {},
   signUp: async () => ({ error: null }),
   signIn: async () => ({ error: null }),
+  convertAnonymousAccount: async () => ({ error: null }),
+  convertWithGoogle: async () => ({ error: null }),
+  convertWithApple: async () => ({ error: null }),
   signOut: async () => {},
   refreshSubscription: async () => {},
   completeOnboarding: async () => {},

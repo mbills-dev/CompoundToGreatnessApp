@@ -14,6 +14,7 @@ import { useGoalBundle } from '@/hooks/useGoalBundle';
 import { parseLocalDate, getTodayDateString } from '@/lib/dateHelpers';
 import PreStartScreen from '@/components/PreStartScreen';
 import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
+import SaveProgressScreen from '@/components/SaveProgressScreen';
 import { resyncAllReminders } from '@/lib/notifications';
 import { awardSignedBadge } from '@/lib/badgeHelpers';
 import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
@@ -26,6 +27,7 @@ export default function HomeScreen() {
   const { setVisible } = useTabBarVisibility();
   const pendingBadgeCelebrationsRef = useRef<string[]>([]);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showSaveProgress, setShowSaveProgress] = useState(false);
   const [paywallCelebrate, setPaywallCelebrate] = useState(false);
   const [showStartDate, setShowStartDate] = useState(false);
   const [rescheduling, setRescheduling] = useState(false);
@@ -153,6 +155,9 @@ export default function HomeScreen() {
     if (isSubscribed) {
       loadGoal();
       setShowStartDate(true);
+    } else if (user?.is_anonymous) {
+      loadGoal();
+      setShowSaveProgress(true);
     } else {
       loadGoal();
       setPaywallCelebrate(true);
@@ -219,6 +224,17 @@ export default function HomeScreen() {
 
   if (loading) {
     return <BrandedLoadingScreen />;
+  }
+
+  if (showSaveProgress) {
+    return (
+      <SaveProgressScreen
+        onComplete={() => {
+          setShowSaveProgress(false);
+          setShowPaywall(true);
+        }}
+      />
+    );
   }
 
   if (showPaywall) {
