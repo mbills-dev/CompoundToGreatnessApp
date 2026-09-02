@@ -8,12 +8,6 @@
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "updates": {
-      "url": "https://u.expo.dev/92b8566a-bd54-48ee-8297-fd3e5f23ab24"
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.lumiereholdings.compoundtogreatness",
