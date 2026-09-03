@@ -15,7 +15,6 @@ export interface TargetResolution {
 export interface FlowGoal {
   id: number;
   label: string;
-  deriveLabel?: (currentTarget: string) => string;
   category: string;
   deadline: string;
   practiceSeed?: string;

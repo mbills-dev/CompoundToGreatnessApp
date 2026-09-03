@@ -1471,7 +1471,7 @@ export function PathNumbersDirect({
   }));
 
   const rawTarget = askData ? parseNum(askSelection ?? '') : (targetNum ?? NaN);
-  const canReveal = !isNaN(rawTarget) && rawTarget > 0;
+  const canReveal = !isNaN(rawTarget) && rawTarget > 0 && !timeframeInputOpen;
   const resolvedTarget = canReveal ? rawTarget : 0;
 
   const dailyRaw = canReveal ? Math.ceil(resolvedTarget / timeframeDays) : 0;

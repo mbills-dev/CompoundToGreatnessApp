@@ -419,7 +419,6 @@ const HARDCODED_GOALS: FlowGoal[] = [
   {
     id: 1,
     label: 'earning $25,000/month consistently',
-    deriveLabel: (t: string) => `earning ${t}/month consistently`,
     category: 'Revenue / Income',
     deadline: 'ongoing',
     inheritedTarget: '$25,000',
@@ -624,11 +623,24 @@ export default function IdentityBuilder({ onComplete }: Props) {
   ) => {
     const goal = goals[goalIdx];
     if (resolvedTargetStr) {
-      if (goal.deriveLabel) {
-        setGoalLabelOverrides(prev => ({ ...prev, [goal.id]: goal.deriveLabel!(resolvedTargetStr) }));
+      const existingLabel = goalLabelOverrides[goal.id] ?? goal.label;
+      const displayTarget = formatTargetDisplay(resolvedTargetStr);
+      const rawNum = resolvedTargetStr.replace(/[$,\s]/g, '');
+      const labelHasResolvedNum = existingLabel.includes(rawNum) ||
+        existingLabel.includes(displayTarget) ||
+        existingLabel.includes(rawNum.replace(/\B(?=(\d{3})+(?!\d))/g, ','));
+      if (labelHasResolvedNum) {
+        setGoalLabelOverrides(prev => ({ ...prev, [goal.id]: existingLabel }));
       } else {
         const suffix = numbersPayload?.periodSuffix ?? 'month';
-        setGoalLabelOverrides(prev => ({ ...prev, [goal.id]: `earning ${formatTargetDisplay(resolvedTargetStr)}/${suffix} consistently` }));
+        const stripped = existingLabel
+          .replace(/\s+(?:per|\/|a)\s+\w+$/i, '')
+          .replace(/\s+consistently$/i, '')
+          .trim();
+        setGoalLabelOverrides(prev => ({
+          ...prev,
+          [goal.id]: `${stripped} ${displayTarget}/${suffix} consistently`,
+        }));
       }
     }
     setDecodeResults(prev => ({ ...prev, [goalIdx]: result }));
