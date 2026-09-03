@@ -625,11 +625,34 @@ export default function IdentityBuilder({ onComplete }: Props) {
     if (resolvedTargetStr) {
       const existingLabel = goalLabelOverrides[goal.id] ?? goal.label;
       const displayTarget = formatTargetDisplay(resolvedTargetStr);
-      const rawNum = resolvedTargetStr.replace(/[$,\s]/g, '');
-      const labelHasResolvedNum = existingLabel.includes(rawNum) ||
-        existingLabel.includes(displayTarget) ||
-        existingLabel.includes(rawNum.replace(/\B(?=(\d{3})+(?!\d))/g, ','));
+
+      const resolvedNum = (() => {
+        const m = resolvedTargetStr.match(/\$?([\d,]+(?:\.\d+)?)\s*([KkMm])?/);
+        if (!m) return NaN;
+        const digits = parseFloat(m[1].replace(/,/g, ''));
+        if (isNaN(digits)) return NaN;
+        const suf = m[2]?.toUpperCase();
+        if (suf === 'K') return Math.round(digits * 1_000);
+        if (suf === 'M') return Math.round(digits * 1_000_000);
+        return Math.round(digits);
+      })();
+
+      const labelNums = [...existingLabel.matchAll(/\$?([\d,]+(?:\.\d+)?)\s*([KkMm])?/g)]
+        .map(m => {
+          const digits = parseFloat(m[1].replace(/,/g, ''));
+          if (isNaN(digits)) return NaN;
+          const suf = m[2]?.toUpperCase();
+          if (suf === 'K') return Math.round(digits * 1_000);
+          if (suf === 'M') return Math.round(digits * 1_000_000);
+          return Math.round(digits);
+        })
+        .filter(n => !isNaN(n));
+
+      const labelHasResolvedNum = !isNaN(resolvedNum) && labelNums.includes(resolvedNum);
+
       if (labelHasResolvedNum) {
+        setGoalLabelOverrides(prev => ({ ...prev, [goal.id]: existingLabel }));
+      } else if (labelNums.length > 0) {
         setGoalLabelOverrides(prev => ({ ...prev, [goal.id]: existingLabel }));
       } else {
         const suffix = numbersPayload?.periodSuffix ?? 'month';
