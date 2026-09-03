@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
 import Purchases from 'react-native-purchases';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
@@ -251,15 +253,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const convertWithGoogle = async () => {
     try {
-      const { error } = await supabase.auth.linkIdentity({
+      const redirectTo = makeRedirectUri({ scheme: 'myapp' });
+      const { data, error } = await supabase.auth.linkIdentity({
         provider: 'google',
         options: {
-          redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+          redirectTo,
+          skipBrowserRedirect: true,
         },
       });
 
       if (error) {
         return { error: error.message };
+      }
+
+      if (!data?.url) {
+        return { error: 'No OAuth URL returned from Supabase.' };
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+
+      if (result.type === 'cancel' || result.type === 'dismiss') {
+        return { error: null };
+      }
+
+      if (result.type !== 'success') {
+        return { error: 'Google sign-in did not complete. Please try again.' };
       }
 
       return { error: null };
