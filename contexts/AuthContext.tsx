@@ -3,10 +3,36 @@ import { Platform } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import Purchases from 'react-native-purchases';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { logBreadcrumb } from '@/lib/crashBreadcrumbs';
+
+function generateNonce(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  let nonce = '';
+  const bytes = new Uint8Array(32);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 32; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  for (let i = 0; i < 32; i++) {
+    nonce += chars[bytes[i] % chars.length];
+  }
+  return nonce;
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(input);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 const ONBOARDING_KEY = '@onboarding_completed';
 
@@ -288,7 +314,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const convertWithApple = async () => {
-    return { error: 'Apple Sign-In is coming soon.' };
+    if (Platform.OS !== 'ios') {
+      return { error: 'Apple Sign-In is only available on iOS devices.' };
+    }
+
+    try {
+      const rawNonce = generateNonce();
+      const hashedNonce = await sha256Hex(rawNonce);
+
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+        nonce: hashedNonce,
+      });
+
+      if (!credential.identityToken) {
+        return { error: 'Apple Sign-In did not return an identity token.' };
+      }
+
+      const { error } = await supabase.auth.linkIdentity({
+        provider: 'apple',
+        token: credential.identityToken,
+        nonce: rawNonce,
+      } as Parameters<typeof supabase.auth.linkIdentity>[0]);
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return { error: null };
+    } catch (e) {
+      const errStr = String(e);
+      if (
+        errStr.includes('ERR_CANCELED') ||
+        errStr.includes('AppleAuthentication.CanceledError') ||
+        errStr.includes('canceled')
+      ) {
+        return { error: null };
+      }
+      return { error: errStr.slice(0, 200) };
+    }
   };
 
   const signOut = async () => {
