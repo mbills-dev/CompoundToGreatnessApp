@@ -1471,7 +1471,8 @@ export function PathNumbersDirect({
   }));
 
   const rawTarget = askData ? parseNum(askSelection ?? '') : (targetNum ?? NaN);
-  const canReveal = !isNaN(rawTarget) && rawTarget > 0 && !timeframeInputOpen;
+  const hasValidTarget = !isNaN(rawTarget) && rawTarget > 0;
+  const canReveal = hasValidTarget && !timeframeInputOpen;
   const resolvedTarget = canReveal ? rawTarget : 0;
 
   const dailyRaw = canReveal ? Math.ceil(resolvedTarget / timeframeDays) : 0;
@@ -1608,7 +1609,7 @@ export function PathNumbersDirect({
         />
       )}
 
-      {canReveal && (
+      {hasValidTarget && (
         <View style={{ marginTop: 8 }}>
           <ChipGroup
             label="YOUR TIMEFRAME"
