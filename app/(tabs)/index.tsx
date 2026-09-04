@@ -50,13 +50,13 @@ export default function HomeScreen() {
     }
   }, [chooseStart, goal, router]);
 
-  const deletePendingGoals = async () => {
+  const deletePendingGoals = async (userId: string) => {
     try {
       await logBreadcrumb('delete_pending_goals_start');
       const { data: stale } = await supabase
         .from('goals')
         .select('id')
-        .eq('user_id', user!.id)
+        .eq('user_id', userId)
         .eq('is_active', false)
         .is('challenge_start_date', null);
 
@@ -75,6 +75,7 @@ export default function HomeScreen() {
   const createGoalAndActivities = async (
     result: IdentityBuilderResult,
     activate: boolean,
+    userId: string,
   ): Promise<Goal | null> => {
     try {
       await logBreadcrumb('create_goal_start', { inputCount: result.inputs.length });
@@ -90,7 +91,7 @@ export default function HomeScreen() {
           target_date: new Date(Date.now() + 77 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           calculation_params: {},
           is_active: activate,
-          user_id: user!.id,
+          user_id: userId,
           challenge_start_date: activate ? startDate.toISOString() : null,
           current_challenge_day: 0,
           identity_statement: result.identityStatement,
@@ -143,28 +144,36 @@ export default function HomeScreen() {
   const handleIdentityComplete = async (result: IdentityBuilderResult): Promise<boolean> => {
     await logBreadcrumb('handle_identity_complete_start');
     await logBreadcrumb('pre_delete_pending_session_check', { hasUser: !!user, userId: user?.id ?? null, isAnonymous: user?.is_anonymous ?? null });
+    let recoveredSession = null;
     if (!user) {
-      const { data: { session: recoveredSession } } = await supabase.auth.getSession();
+      const { data: { session: rs } } = await supabase.auth.getSession();
+      recoveredSession = rs;
       if (recoveredSession?.user) {
         await logBreadcrumb('session_recovered_inline', { userId: recoveredSession.user.id, isAnonymous: recoveredSession.user.is_anonymous ?? null });
       } else {
         await logBreadcrumb('session_recovery_failed_inline', { hasSession: !!recoveredSession });
       }
     }
-    await deletePendingGoals();
-    const created = await createGoalAndActivities(result, false);
+    const effectiveUserId = user?.id ?? recoveredSession?.user?.id ?? null;
+    if (!effectiveUserId) {
+      await logBreadcrumb('handle_identity_complete_failed', { reason: 'no_effective_user_id' });
+      return false;
+    }
+    await deletePendingGoals(effectiveUserId);
+    const created = await createGoalAndActivities(result, false, effectiveUserId);
     if (!created) {
       await logBreadcrumb('handle_identity_complete_failed');
       return false;
     }
     await logBreadcrumb('handle_identity_complete_success');
-    awardSignedBadge(user!.id).then((keys) => { pendingBadgeCelebrationsRef.current = keys; }).catch(() => {});
-    resyncAllReminders(user!.id).catch(err => console.error('resyncAllReminders failed:', err));
+    awardSignedBadge(effectiveUserId).then((keys) => { pendingBadgeCelebrationsRef.current = keys; }).catch(() => {});
+    resyncAllReminders(effectiveUserId).catch(err => console.error('resyncAllReminders failed:', err));
 
+    const effectiveIsAnonymous = user?.is_anonymous ?? recoveredSession?.user?.is_anonymous ?? false;
     if (isSubscribed) {
       loadGoal();
       setShowStartDate(true);
-    } else if (user?.is_anonymous) {
+    } else if (effectiveIsAnonymous) {
       loadGoal();
       setShowSaveProgress(true);
     } else {
