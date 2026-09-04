@@ -142,6 +142,7 @@ export default function HomeScreen() {
 
   const handleIdentityComplete = async (result: IdentityBuilderResult): Promise<boolean> => {
     await logBreadcrumb('handle_identity_complete_start');
+    await logBreadcrumb('pre_delete_pending_session_check', { hasUser: !!user, userId: user?.id ?? null, isAnonymous: user?.is_anonymous ?? null });
     await deletePendingGoals();
     const created = await createGoalAndActivities(result, false);
     if (!created) {
