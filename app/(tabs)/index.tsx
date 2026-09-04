@@ -143,6 +143,14 @@ export default function HomeScreen() {
   const handleIdentityComplete = async (result: IdentityBuilderResult): Promise<boolean> => {
     await logBreadcrumb('handle_identity_complete_start');
     await logBreadcrumb('pre_delete_pending_session_check', { hasUser: !!user, userId: user?.id ?? null, isAnonymous: user?.is_anonymous ?? null });
+    if (!user) {
+      const { data: { session: recoveredSession } } = await supabase.auth.getSession();
+      if (recoveredSession?.user) {
+        await logBreadcrumb('session_recovered_inline', { userId: recoveredSession.user.id, isAnonymous: recoveredSession.user.is_anonymous ?? null });
+      } else {
+        await logBreadcrumb('session_recovery_failed_inline', { hasSession: !!recoveredSession });
+      }
+    }
     await deletePendingGoals();
     const created = await createGoalAndActivities(result, false);
     if (!created) {
