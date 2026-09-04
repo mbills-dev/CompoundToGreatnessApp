@@ -4,34 +4,24 @@ import { Session, User } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import Purchases from 'react-native-purchases';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { logBreadcrumb } from '@/lib/crashBreadcrumbs';
 
-function generateNonce(): string {
+async function generateNonce(): Promise<string> {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  const bytes = await Crypto.getRandomBytesAsync(32);
   let nonce = '';
-  const bytes = new Uint8Array(32);
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    crypto.getRandomValues(bytes);
-  } else {
-    for (let i = 0; i < 32; i++) {
-      bytes[i] = Math.floor(Math.random() * 256);
-    }
-  }
-  for (let i = 0; i < 32; i++) {
+  for (let i = 0; i < bytes.length; i++) {
     nonce += chars[bytes[i] % chars.length];
   }
   return nonce;
 }
 
 async function sha256Hex(input: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(input);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, input);
 }
 
 const ONBOARDING_KEY = '@onboarding_completed';
@@ -319,7 +309,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const rawNonce = generateNonce();
+      const rawNonce = await generateNonce();
       const hashedNonce = await sha256Hex(rawNonce);
 
       const credential = await AppleAuthentication.signInAsync({
