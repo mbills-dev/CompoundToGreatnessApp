@@ -338,7 +338,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         provider: 'apple',
         token: credential.identityToken,
         nonce: rawNonce,
-      } as Parameters<typeof supabase.auth.linkIdentity>[0]);
+      });
 
       if (error) {
         return { error: error.message };
