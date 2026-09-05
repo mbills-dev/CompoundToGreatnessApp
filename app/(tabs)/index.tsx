@@ -15,6 +15,8 @@ import { parseLocalDate, getTodayDateString } from '@/lib/dateHelpers';
 import PreStartScreen from '@/components/PreStartScreen';
 import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
 import SaveProgressScreen, { PENDING_PAYWALL_KEY } from '@/components/SaveProgressScreen';
+import WelcomePathChooser from '@/components/WelcomePathChooser';
+import SignInScreen from '@/components/SignInScreen';
 import { resyncAllReminders } from '@/lib/notifications';
 import { awardSignedBadge } from '@/lib/badgeHelpers';
 import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
@@ -33,6 +35,9 @@ export default function HomeScreen() {
   const [showStartDate, setShowStartDate] = useState(false);
   const [rescheduling, setRescheduling] = useState(false);
   const [showRestartChooser, setShowRestartChooser] = useState(false);
+  const [capturedFirstName, setCapturedFirstName] = useState<string | undefined>();
+  const [capturedLastName, setCapturedLastName] = useState<string | undefined>();
+  const [onboardingPath, setOnboardingPath] = useState<'new' | 'signin' | null>(null);
   const router = useRouter();
   const { chooseStart } = useLocalSearchParams();
 
@@ -155,6 +160,8 @@ export default function HomeScreen() {
   };
 
   const handleIdentityComplete = async (result: IdentityBuilderResult): Promise<boolean> => {
+    setCapturedFirstName(result.firstName);
+    setCapturedLastName(result.lastName);
     await logBreadcrumb('handle_identity_complete_start');
     await logBreadcrumb('pre_delete_pending_session_check', { hasUser: !!user, userId: user?.id ?? null, isAnonymous: user?.is_anonymous ?? null });
     let recoveredSession = null;
@@ -260,6 +267,8 @@ export default function HomeScreen() {
   if (showSaveProgress) {
     return (
       <SaveProgressScreen
+        firstName={capturedFirstName}
+        lastName={capturedLastName}
         onComplete={() => {
           setShowSaveProgress(false);
           setShowPaywall(true);
@@ -343,7 +352,29 @@ export default function HomeScreen() {
     );
   }
 
-  return <IdentityBuilder onComplete={handleIdentityComplete} />;
+  return (
+    <>
+      {(() => {
+        if (!onboardingPath) {
+          return (
+            <WelcomePathChooser
+              onStartNew={() => setOnboardingPath('new')}
+              onSignIn={() => setOnboardingPath('signin')}
+            />
+          );
+        }
+        if (onboardingPath === 'signin') {
+          return (
+            <SignInScreen
+              onBack={() => setOnboardingPath(null)}
+              onSuccess={() => setOnboardingPath(null)}
+            />
+          );
+        }
+        return <IdentityBuilder onComplete={handleIdentityComplete} />;
+      })()}
+    </>
+  );
 }
 
 

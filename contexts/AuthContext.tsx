@@ -43,6 +43,8 @@ interface AuthContextType {
   convertAnonymousAccount: (email: string, password: string, firstName: string, lastName: string) => Promise<{ error: string | null }>;
   convertWithGoogle: () => Promise<{ error: string | null; canceled: boolean }>;
   convertWithApple: () => Promise<{ error: string | null; canceled: boolean }>;
+  signInWithApple: () => Promise<{ error: string | null; canceled: boolean }>;
+  signInWithGoogleAccount: () => Promise<{ error: string | null; canceled: boolean }>;
   signOut: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
@@ -348,9 +350,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signInWithApple = async (): Promise<{ error: string | null; canceled: boolean }> => {
+    if (Platform.OS !== 'ios') {
+      return { error: 'Apple Sign-In is only available on iOS devices.', canceled: false };
+    }
+
+    try {
+      const rawNonce = await generateNonce();
+      const hashedNonce = await sha256Hex(rawNonce);
+
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+        nonce: hashedNonce,
+      });
+
+      if (!credential.identityToken) {
+        return { error: 'Apple Sign-In did not return an identity token.', canceled: false };
+      }
+
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+        nonce: rawNonce,
+      });
+
+      if (error) {
+        return { error: error.message, canceled: false };
+      }
+
+      return { error: null, canceled: false };
+    } catch (e) {
+      const errStr = String(e);
+      if (
+        errStr.includes('ERR_CANCELED') ||
+        errStr.includes('AppleAuthentication.CanceledError') ||
+        errStr.includes('canceled')
+      ) {
+        return { error: null, canceled: true };
+      }
+      return { error: errStr.slice(0, 200), canceled: false };
+    }
+  };
+
+  const signInWithGoogleAccount = async (): Promise<{ error: string | null; canceled: boolean }> => {
+    try {
+      const redirectTo = makeRedirectUri({ scheme: 'myapp' });
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) {
+        return { error: error.message, canceled: false };
+      }
+
+      if (!data?.url) {
+        return { error: 'No OAuth URL returned from Supabase.', canceled: false };
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+
+      if (result.type === 'cancel' || result.type === 'dismiss') {
+        return { error: null, canceled: true };
+      }
+
+      if (result.type !== 'success') {
+        return { error: 'Google sign-in did not complete. Please try again.', canceled: false };
+      }
+
+      return { error: null, canceled: false };
+    } catch (e) {
+      return { error: String(e).slice(0, 200), canceled: false };
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
-    setSession(null);
     setIsSubscribed(false);
     setOnboardingCompleted(true);
     setIsWatcher(false);
@@ -377,6 +458,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         convertAnonymousAccount,
         convertWithGoogle,
         convertWithApple,
+        signInWithApple,
+        signInWithGoogleAccount,
         signOut,
         refreshSubscription,
         completeOnboarding,
@@ -404,6 +487,8 @@ const AUTH_DEFAULTS: AuthContextType = {
   convertAnonymousAccount: async () => ({ error: null }),
   convertWithGoogle: async () => ({ error: null, canceled: false }),
   convertWithApple: async () => ({ error: null, canceled: false }),
+  signInWithApple: async () => ({ error: null, canceled: false }),
+  signInWithGoogleAccount: async () => ({ error: null, canceled: false }),
   signOut: async () => {},
   refreshSubscription: async () => {},
   completeOnboarding: async () => {},

@@ -53,6 +53,8 @@ export interface IdentityBuilderResult {
   inputs: string[];
   rawInputs: RawInputEntry[];
   compass: CompassData;
+  firstName?: string;
+  lastName?: string;
 }
 
 export type IdentityStep =

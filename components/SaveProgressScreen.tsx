@@ -17,11 +17,12 @@ import Svg, { Path as SvgPath } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const PENDING_PAYWALL_KEY = '@pending_paywall';
 
-export default function SaveProgressScreen({ onComplete }: { onComplete: () => void }) {
+export default function SaveProgressScreen({ onComplete, firstName: capturedFirstName, lastName: capturedLastName }: { onComplete: () => void; firstName?: string; lastName?: string }) {
   const { colors, isDark } = useTheme();
   const { convertAnonymousAccount, convertWithGoogle, convertWithApple, user } = useAuth();
   const insets = useSafeAreaInsets();
@@ -49,6 +50,11 @@ export default function SaveProgressScreen({ onComplete }: { onComplete: () => v
       if (appleError) {
         setError(appleError);
       } else if (!canceled) {
+        if (capturedFirstName && user?.id) {
+          await supabase.from('profiles').update({
+            display_name: capturedLastName ? `${capturedFirstName} ${capturedLastName}` : capturedFirstName,
+          }).eq('id', user.id);
+        }
         if (user?.id) {
           await AsyncStorage.setItem(`${PENDING_PAYWALL_KEY}_${user.id}`, 'true');
         }
@@ -69,6 +75,11 @@ export default function SaveProgressScreen({ onComplete }: { onComplete: () => v
       if (googleError) {
         setError(googleError);
       } else if (!canceled) {
+        if (capturedFirstName && user?.id) {
+          await supabase.from('profiles').update({
+            display_name: capturedLastName ? `${capturedFirstName} ${capturedLastName}` : capturedFirstName,
+          }).eq('id', user.id);
+        }
         if (user?.id) {
           await AsyncStorage.setItem(`${PENDING_PAYWALL_KEY}_${user.id}`, 'true');
         }
@@ -106,6 +117,11 @@ export default function SaveProgressScreen({ onComplete }: { onComplete: () => v
       if (convertError) {
         setError(convertError);
       } else {
+        if (capturedFirstName && user?.id) {
+          await supabase.from('profiles').update({
+            display_name: capturedLastName ? `${capturedFirstName} ${capturedLastName}` : capturedFirstName,
+          }).eq('id', user.id);
+        }
         if (user?.id) {
           await AsyncStorage.setItem(`${PENDING_PAYWALL_KEY}_${user.id}`, 'true');
         }

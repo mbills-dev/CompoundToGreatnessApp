@@ -167,6 +167,146 @@ function buildInputsAndRaw(locked: ExtendedLockedGoal[]): {
 
 // ─── Signature screen (inline — owns result assembly + onComplete call) ───────
 
+// ─── Name capture screen (inline) ─────────────────────────────────────────────
+
+function NameCaptureScreen({
+  firstName,
+  lastName,
+  onFirstNameChange,
+  onLastNameChange,
+  onNext,
+  onBack,
+}: {
+  firstName: string;
+  lastName: string;
+  onFirstNameChange: (v: string) => void;
+  onLastNameChange: (v: string) => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const screenFade = useSharedValue(0);
+  useEffect(() => { screenFade.value = withTiming(1, { duration: 500 }); }, []);
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: screenFade.value }));
+  const firstNameRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => firstNameRef.current?.focus(), 400);
+    return () => clearTimeout(t);
+  }, []);
+
+  const canContinue = firstName.trim().length > 0;
+
+  return (
+    <View style={[ncStyles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <View style={ncStyles.header}>
+        <TouchableOpacity onPress={onBack} style={ncStyles.backBtn}>
+          <ArrowLeft size={20} color={colors.text} strokeWidth={2.5} />
+        </TouchableOpacity>
+      </View>
+      <Animated.View style={[fadeStyle, { flex: 1, paddingHorizontal: 24 }]}>
+        <Text style={[ncStyles.headline, { color: colors.text }]}>
+          What should we call you?
+        </Text>
+        <Text style={[ncStyles.subtitle, { color: colors.textSecondary }]}>
+          We'll use this to personalize your commitment.
+        </Text>
+
+        <View style={ncStyles.inputContainer}>
+          <TextInput
+            ref={firstNameRef}
+            style={[ncStyles.input, {
+              color: colors.text,
+              borderColor: isDark ? colors.border : '#E0E0E0',
+              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+            }]}
+            value={firstName}
+            onChangeText={onFirstNameChange}
+            placeholder="First name"
+            placeholderTextColor={colors.textTertiary}
+            autoCapitalize="words"
+            returnKeyType="next"
+          />
+        </View>
+
+        <View style={ncStyles.inputContainer}>
+          <TextInput
+            style={[ncStyles.input, {
+              color: colors.text,
+              borderColor: isDark ? colors.border : '#E0E0E0',
+              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+            }]}
+            value={lastName}
+            onChangeText={onLastNameChange}
+            placeholder="Last name (optional)"
+            placeholderTextColor={colors.textTertiary}
+            autoCapitalize="words"
+            returnKeyType="done"
+            onSubmitEditing={canContinue ? onNext : undefined}
+          />
+        </View>
+      </Animated.View>
+
+      <View style={[ncStyles.footer, { paddingBottom: insets.bottom + 24 }]}>
+        <TouchableOpacity
+          style={[ncStyles.continueBtn, !canContinue && ncStyles.continueBtnDisabled]}
+          onPress={onNext}
+          disabled={!canContinue}
+          activeOpacity={0.85}
+        >
+          <Text style={[ncStyles.continueText, { color: canContinue ? '#000000' : colors.textTertiary }]}>
+            Continue
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const ncStyles = StyleSheet.create({
+  container: { flex: 1 },
+  header: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 },
+  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  headline: {
+    fontSize: 32,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    lineHeight: 38,
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 32,
+  },
+  inputContainer: { marginBottom: 16 },
+  input: {
+    borderWidth: 1.5,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    fontSize: 17,
+    fontWeight: '500',
+  },
+  footer: { paddingHorizontal: 24 },
+  continueBtn: {
+    backgroundColor: '#CCFF00',
+    borderRadius: 16,
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  continueBtnDisabled: {
+    backgroundColor: 'rgba(204,255,0,0.2)',
+  },
+  continueText: {
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+});
+
 function SignatureScreen({
   locked,
   displayName,
@@ -445,6 +585,7 @@ const HARDCODED_GOALS: FlowGoal[] = [
 
 type Phase =
   | { kind: 'welcome'; screen: 0 | 1 | 2 }
+  | { kind: 'name-capture' }
   | { kind: 'goals-entry' }
   | { kind: 'intro' }
   | { kind: 'classifying'; goalIdx: number }
@@ -490,42 +631,13 @@ export default function IdentityBuilder({ onComplete }: Props) {
   const [dominoGoalId, setDominoGoalId] = useState<number | null>(null);
   const [savedStates, setSavedStates] = useState<Record<string, string>>({});
   const [displayName, setDisplayName] = useState<string>('');
+  const [firstName, setFirstName] = useState<string>('');
+  const [lastName, setLastName] = useState<string>('');
   const [isAiSourced, setIsAiSourced] = useState(false);
   const [aiSelectedInputs, setAiSelectedInputs] = useState<Record<number, string[]>>({});
   const [aiIdentityLines, setAiIdentityLines] = useState<Record<number, string>>({});
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      const user = data?.user;
-      if (!user) return;
 
-      const meta = user.user_metadata;
-      const metaName = [meta?.first_name, meta?.last_name]
-        .filter(Boolean)
-        .join(' ')
-        .trim();
-      if (metaName) {
-        InteractionManager.runAfterInteractions(() => {
-          setDisplayName(metaName);
-        });
-        return;
-      }
-
-      supabase
-        .from('profiles')
-        .select('display_name')
-        .eq('id', user.id)
-        .maybeSingle()
-        .then(({ data: profile }) => {
-          const name = profile?.display_name?.trim() ?? '';
-          if (name) {
-            InteractionManager.runAfterInteractions(() => {
-              setDisplayName(name);
-            });
-          }
-        });
-    });
-  }, []);
 
   useEffect(() => {
     (async () => {
@@ -548,6 +660,8 @@ export default function IdentityBuilder({ onComplete }: Props) {
             if (cp.aiStatements && typeof cp.aiStatements === 'object') setAiStatements(cp.aiStatements);
             if (typeof cp.compassFilter === 'string') setCompassFilter(cp.compassFilter);
             if (cp.acceptedIdentity && typeof cp.acceptedIdentity === 'object') setAcceptedIdentity(cp.acceptedIdentity);
+            if (typeof cp.firstName === 'string') setFirstName(cp.firstName);
+            if (typeof cp.lastName === 'string') setLastName(cp.lastName);
           }
         }
       } catch {
@@ -572,11 +686,13 @@ export default function IdentityBuilder({ onComplete }: Props) {
         aiStatements,
         acceptedIdentity,
         compassFilter,
+        firstName,
+        lastName,
       };
       AsyncStorage.setItem(CHECKPOINT_KEY, JSON.stringify(snapshot)).catch(() => {});
     }, 400);
     return () => { if (checkpointTimer.current) clearTimeout(checkpointTimer.current); };
-  }, [phase, history, goals, locked, decodeResults, goalLabelOverrides, identityOverrides, aiStatements, acceptedIdentity, compassFilter, checkpointLoading]);
+  }, [phase, history, goals, locked, decodeResults, goalLabelOverrides, identityOverrides, aiStatements, acceptedIdentity, compassFilter, firstName, lastName, checkpointLoading]);
 
   const saveState = (key: string, value: string) => setSavedStates(prev => ({ ...prev, [key]: value }));
 
@@ -787,7 +903,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
       ? `Will it help me ${compassFilter.trim().replace(/\.$/, '')}?`
       : '';
 
-    const success = await onComplete({ identityStatement, dimensions, inputs, rawInputs, compass: { vision: compassVision, declaration: '', filterQuestion } });
+    const success = await onComplete({ identityStatement, dimensions, inputs, rawInputs, compass: { vision: compassVision, declaration: '', filterQuestion }, firstName: firstName.trim(), lastName: lastName.trim() });
     if (success) {
       AsyncStorage.removeItem(CHECKPOINT_KEY).catch(() => {});
     }
@@ -804,10 +920,22 @@ export default function IdentityBuilder({ onComplete }: Props) {
               if (phase.screen < 2) {
                 navigate({ kind: 'welcome', screen: (phase.screen + 1) as 0 | 1 | 2 });
               } else {
-                navigate({ kind: 'goals-entry' });
+                navigate({ kind: 'name-capture' });
               }
             }}
             onBack={phase.screen === 0 ? undefined : goBack}
+          />
+        );
+
+      case 'name-capture':
+        return (
+          <NameCaptureScreen
+            firstName={firstName}
+            lastName={lastName}
+            onFirstNameChange={setFirstName}
+            onLastNameChange={setLastName}
+            onNext={() => navigate({ kind: 'goals-entry' })}
+            onBack={goBack}
           />
         );
 
@@ -1213,7 +1341,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
         return (
           <SignatureScreen
             locked={locked}
-            displayName={displayName}
+            displayName={firstName.trim() + (lastName.trim() ? ' ' + lastName.trim() : '')}
             onComplete={handleSignatureComplete}
           />
         );
