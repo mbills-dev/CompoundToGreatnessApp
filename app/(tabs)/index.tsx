@@ -14,11 +14,12 @@ import { useGoalBundle } from '@/hooks/useGoalBundle';
 import { parseLocalDate, getTodayDateString } from '@/lib/dateHelpers';
 import PreStartScreen from '@/components/PreStartScreen';
 import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
-import SaveProgressScreen from '@/components/SaveProgressScreen';
+import SaveProgressScreen, { PENDING_PAYWALL_KEY } from '@/components/SaveProgressScreen';
 import { resyncAllReminders } from '@/lib/notifications';
 import { awardSignedBadge } from '@/lib/badgeHelpers';
 import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
 import { logBreadcrumb } from '@/lib/crashBreadcrumbs';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -38,6 +39,18 @@ export default function HomeScreen() {
   const { goal, pendingGoal, activities, isLoading: loading, invalidate: loadGoal } = useGoalBundle(user?.id);
 
   const isPreStart = !!goal?.scheduled_start_date && goal.scheduled_start_date > getTodayDateString();
+
+  useEffect(() => {
+    if (user?.id) {
+      AsyncStorage.getItem(`${PENDING_PAYWALL_KEY}_${user.id}`).then((value) => {
+        if (value === 'true') {
+          setShowPaywall(true);
+          setPaywallCelebrate(true);
+          AsyncStorage.removeItem(`${PENDING_PAYWALL_KEY}_${user.id}`);
+        }
+      });
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     setVisible(!!goal);

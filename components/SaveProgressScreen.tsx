@@ -14,13 +14,16 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Check } from 'lucide-react-native';
 import Svg, { Path as SvgPath } from 'react-native-svg';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+export const PENDING_PAYWALL_KEY = '@pending_paywall';
+
 export default function SaveProgressScreen({ onComplete }: { onComplete: () => void }) {
   const { colors, isDark } = useTheme();
-  const { convertAnonymousAccount, convertWithGoogle, convertWithApple } = useAuth();
+  const { convertAnonymousAccount, convertWithGoogle, convertWithApple, user } = useAuth();
   const insets = useSafeAreaInsets();
 
   const [showEmailForm, setShowEmailForm] = useState(false);
@@ -42,10 +45,13 @@ export default function SaveProgressScreen({ onComplete }: { onComplete: () => v
     setError(null);
     setLoadingApple(true);
     try {
-      const { error: appleError } = await convertWithApple();
+      const { error: appleError, canceled } = await convertWithApple();
       if (appleError) {
         setError(appleError);
-      } else {
+      } else if (!canceled) {
+        if (user?.id) {
+          await AsyncStorage.setItem(`${PENDING_PAYWALL_KEY}_${user.id}`, 'true');
+        }
         onComplete();
       }
     } catch {
@@ -59,10 +65,13 @@ export default function SaveProgressScreen({ onComplete }: { onComplete: () => v
     setError(null);
     setLoadingGoogle(true);
     try {
-      const { error: googleError } = await convertWithGoogle();
+      const { error: googleError, canceled } = await convertWithGoogle();
       if (googleError) {
         setError(googleError);
-      } else {
+      } else if (!canceled) {
+        if (user?.id) {
+          await AsyncStorage.setItem(`${PENDING_PAYWALL_KEY}_${user.id}`, 'true');
+        }
         onComplete();
       }
     } catch {
@@ -97,6 +106,9 @@ export default function SaveProgressScreen({ onComplete }: { onComplete: () => v
       if (convertError) {
         setError(convertError);
       } else {
+        if (user?.id) {
+          await AsyncStorage.setItem(`${PENDING_PAYWALL_KEY}_${user.id}`, 'true');
+        }
         onComplete();
       }
     } catch {
