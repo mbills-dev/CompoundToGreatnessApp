@@ -28,6 +28,17 @@ import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
 import { fetchDailyInputs, GoalInputResult } from './AiDailyInputsScreen';
 import { formatTargetDisplay } from './IdentityScreens';
 
+// ─── Text normalization for redundancy comparison ──────────────────────────────
+
+function normalizeForComparison(text: string): string {
+  let s = text.trim().toLowerCase();
+  s = s.replace(/,/g, '');
+  s = s.replace(/\s+/g, ' ');
+  s = s.replace(/\b(\d+(?:\.\d+)?)\s*k\b/g, (_m, num) => String(Math.round(parseFloat(num) * 1000)));
+  s = s.replace(/\b(\d+(?:\.\d+)?)\s*m\b/g, (_m, num) => String(Math.round(parseFloat(num) * 1000000)));
+  return s.trim();
+}
+
 // ─── Math helpers ─────────────────────────────────────────────────────────────
 
 function parseNum(raw: string): number {
@@ -1099,7 +1110,7 @@ export function PathStarting({
   };
 
   const finishLine = (doneLooksText ?? '').trim() || resolvedLabel;
-  const isRedundant = isStandardPath && seedPrefill.trim().toLowerCase() === finishLine.trim().toLowerCase();
+  const isRedundant = isStandardPath && normalizeForComparison(seedPrefill) === normalizeForComparison(finishLine);
   const lockEnabled = isStandardPath ? canDone : !!chipSelected;
 
   return (

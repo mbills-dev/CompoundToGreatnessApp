@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Check } from 'lucide-react-native';
+import Svg, { Path as SvgPath } from 'react-native-svg';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,6 +45,8 @@ export default function SaveProgressScreen({ onComplete }: { onComplete: () => v
       const { error: appleError } = await convertWithApple();
       if (appleError) {
         setError(appleError);
+      } else {
+        onComplete();
       }
     } catch {
       setError('Something went wrong. Please try again.');
@@ -59,6 +62,8 @@ export default function SaveProgressScreen({ onComplete }: { onComplete: () => v
       const { error: googleError } = await convertWithGoogle();
       if (googleError) {
         setError(googleError);
+      } else {
+        onComplete();
       }
     } catch {
       setError('Something went wrong. Please try again.');
@@ -431,7 +436,12 @@ export default function SaveProgressScreen({ onComplete }: { onComplete: () => v
 
 function AppleLogo() {
   return (
-    <Text style={{ fontSize: 20, color: '#FFFFFF', fontWeight: '600' }}></Text>
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <SvgPath
+        d="M17.05 12.04c-.03-2.78 2.27-3.68 2.37-3.73-1.29-1.88-3.29-2.14-4-2.16-1.69-.17-3.33.99-4.19.99-.88 0-2.21-.97-3.64-.94-1.86.03-3.6 1.1-4.56 2.78-1.96 3.39-.5 8.4 1.39 11.16.94 1.35 2.04 2.86 3.49 2.81 1.41-.06 1.94-.9 3.64-.9 1.69 0 2.18.9 3.65.87 1.51-.03 2.46-1.36 3.37-2.72 1.07-1.56 1.51-3.07 1.53-3.15-.03-.01-2.93-1.12-2.96-4.45M14.25 4.6c.77-.93 1.29-2.22 1.15-3.51-1.11.04-2.45.74-3.25 1.66-.71.82-1.33 2.14-1.16 3.4 1.24.1 2.49-.63 3.26-1.55"
+        fill="#FFFFFF"
+      />
+    </Svg>
   );
 }
 
