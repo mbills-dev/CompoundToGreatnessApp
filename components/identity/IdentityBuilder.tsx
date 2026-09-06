@@ -25,6 +25,7 @@ import {
   ActivityIndicator,
   TextInput,
   InteractionManager,
+  KeyboardAvoidingView,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Confetti from '@/components/Confetti';
@@ -190,6 +191,7 @@ function NameCaptureScreen({
   useEffect(() => { screenFade.value = withTiming(1, { duration: 500 }); }, []);
   const fadeStyle = useAnimatedStyle(() => ({ opacity: screenFade.value }));
   const firstNameRef = useRef<TextInput>(null);
+  const lastNameRef = useRef<TextInput>(null);
 
   useEffect(() => {
     const t = setTimeout(() => firstNameRef.current?.focus(), 400);
@@ -199,6 +201,10 @@ function NameCaptureScreen({
   const canContinue = firstName.trim().length > 0;
 
   return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
     <View style={[ncStyles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={ncStyles.header}>
         <TouchableOpacity onPress={onBack} style={ncStyles.backBtn}>
@@ -227,11 +233,13 @@ function NameCaptureScreen({
             placeholderTextColor={colors.textTertiary}
             autoCapitalize="words"
             returnKeyType="next"
+            onSubmitEditing={() => lastNameRef.current?.focus()}
           />
         </View>
 
         <View style={ncStyles.inputContainer}>
           <TextInput
+            ref={lastNameRef}
             style={[ncStyles.input, {
               color: colors.text,
               borderColor: isDark ? colors.border : '#E0E0E0',
@@ -261,6 +269,7 @@ function NameCaptureScreen({
         </TouchableOpacity>
       </View>
     </View>
+    </KeyboardAvoidingView>
   );
 }
 
