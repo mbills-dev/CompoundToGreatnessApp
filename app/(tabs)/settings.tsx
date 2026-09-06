@@ -11,6 +11,7 @@ import {
   Modal,
   ActivityIndicator,
   TextInput,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -52,7 +53,6 @@ import {
   ToggleRow,
   DayEndTimePicker,
   ActionRow,
-  LegalModal,
 } from '@/components/SettingsComponents';
 import {
   requestNotificationPermissions,
@@ -61,7 +61,6 @@ import {
 } from '@/lib/notifications';
 import * as Notifications from 'expo-notifications';
 import { CHALLENGE_RULES } from '@/constants/challengeRules';
-import { PRIVACY_POLICY, PRIVACY_POLICY_UPDATED, TERMS_OF_SERVICE, TERMS_UPDATED } from '@/constants/legalDocs';
 import { BookOpen } from 'lucide-react-native';
 
 const ONBOARDING_KEY = '@onboarding_completed';
@@ -456,8 +455,6 @@ export default function SettingsScreen() {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showRulesModal, setShowRulesModal] = useState(false);
-  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  const [showTermsModal, setShowTermsModal] = useState(false);
 
   // DEBUG: NOTIFICATIONS — dev-only diagnostic state
   const [debugTestResult, setDebugTestResult] = useState<string | null>(null);
@@ -546,24 +543,6 @@ export default function SettingsScreen() {
         </View>
       </View>
     </Modal>
-    <LegalModal
-      visible={showPrivacyModal}
-      onClose={() => setShowPrivacyModal(false)}
-      title="Privacy Policy"
-      updatedLabel={PRIVACY_POLICY_UPDATED}
-      sections={PRIVACY_POLICY}
-      colors={colors}
-      isDark={isDark}
-    />
-    <LegalModal
-      visible={showTermsModal}
-      onClose={() => setShowTermsModal(false)}
-      title="Terms of Service"
-      updatedLabel={TERMS_UPDATED}
-      sections={TERMS_OF_SERVICE}
-      colors={colors}
-      isDark={isDark}
-    />
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={true}>
       <LinearGradient
         colors={isDark ? ['#000000', '#111111', '#000000'] : ['#F5F5F0', '#F0F0EB', '#F5F5F0']}
@@ -993,11 +972,11 @@ export default function SettingsScreen() {
             COMPOUND TO GREATNESS v1.0
           </Text>
           <View style={styles.legalLinksRow}>
-            <TouchableOpacity onPress={() => setShowPrivacyModal(true)} activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => Linking.openURL('https://www.compoundtogreatness.com/privacy')} activeOpacity={0.7}>
               <Text style={[styles.legalLinkText, { color: colors.textTertiary }]}>Privacy Policy</Text>
             </TouchableOpacity>
             <Text style={[styles.legalLinkDivider, { color: colors.textTertiary }]}>·</Text>
-            <TouchableOpacity onPress={() => setShowTermsModal(true)} activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => Linking.openURL('https://www.compoundtogreatness.com/terms')} activeOpacity={0.7}>
               <Text style={[styles.legalLinkText, { color: colors.textTertiary }]}>Terms of Service</Text>
             </TouchableOpacity>
           </View>
