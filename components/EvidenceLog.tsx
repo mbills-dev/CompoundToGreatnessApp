@@ -7,11 +7,15 @@ import {
   StyleSheet,
   ActivityIndicator,
   Keyboard,
+  Platform,
+  InputAccessoryView,
 } from 'react-native';
 import { Sparkles, Send, Pencil } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { EvidenceLog as EvidenceLogType } from '@/types/database';
 import { useTheme } from '@/contexts/ThemeContext';
+
+const EVIDENCE_LOG_ACCESSORY_ID = 'evidence-log-keyboard-done';
 
 interface EvidenceLogProps {
   goalId: string;
@@ -19,9 +23,10 @@ interface EvidenceLogProps {
   readOnly?: boolean;
   challengeDay?: number;
   onLockedInteraction?: () => void;
+  onInputFocus?: () => void;
 }
 
-export default function EvidenceLogSection({ goalId, date, readOnly = false, challengeDay, onLockedInteraction }: EvidenceLogProps) {
+export default function EvidenceLogSection({ goalId, date, readOnly = false, challengeDay, onLockedInteraction, onInputFocus }: EvidenceLogProps) {
   const { colors, isDark } = useTheme();
   const [log, setLog] = useState<EvidenceLogType | null>(null);
   const [content, setContent] = useState('');
@@ -152,6 +157,12 @@ export default function EvidenceLogSection({ goalId, date, readOnly = false, cha
                 autoFocus={isEditing}
                 editable={!onLockedInteraction}
                 pointerEvents={onLockedInteraction ? 'none' : 'auto'}
+                inputAccessoryViewID={EVIDENCE_LOG_ACCESSORY_ID}
+                onFocus={() => {
+                  if (onInputFocus) {
+                    setTimeout(onInputFocus, 300);
+                  }
+                }}
               />
             </View>
           </TouchableOpacity>
@@ -222,6 +233,16 @@ export default function EvidenceLogSection({ goalId, date, readOnly = false, cha
           <Text style={[styles.emptyText, { color: colors.textTertiary }]}>No entry for this day</Text>
         </View>
       ) : null}
+
+      {Platform.OS === 'ios' && (
+        <InputAccessoryView nativeID={EVIDENCE_LOG_ACCESSORY_ID}>
+          <View style={{ backgroundColor: '#1A1A1A', flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' }}>
+            <TouchableOpacity onPress={Keyboard.dismiss}>
+              <Text style={{ color: '#CCFF00', fontFamily: 'Inter-Bold', fontSize: 16 }}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </InputAccessoryView>
+      )}
     </View>
   );
 }

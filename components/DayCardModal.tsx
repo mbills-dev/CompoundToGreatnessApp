@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
   headerRight: {
     alignItems: 'flex-end',
     gap: 6,
-    paddingTop: 8,
+    paddingTop: 52,
   },
   dateText: {
     fontSize: 13,

@@ -15,6 +15,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 import Svg, { Path, Circle, Text as SvgText, Line } from 'react-native-svg';
+import { ChevronDown } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyActivity, DailyCompletion, EvidenceLog } from '@/types/database';
 import { toLocalDateString } from '@/lib/dateHelpers';
@@ -227,6 +228,7 @@ export default function CompoundScoreSection({ goal, completions, activities, on
   const [showAllEvidence, setShowAllEvidence] = useState(false);
   const [compoundScore, setCompoundScore] = useState<number>(goal.compound_score ?? 0);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [evidenceLogExpanded, setEvidenceLogExpanded] = useState(false);
   const drawerOpacity = useRef(new Animated.Value(0)).current;
 
   const streak = computeStreak(completions);
@@ -430,36 +432,59 @@ export default function CompoundScoreSection({ goal, completions, activities, on
 
       {/* EVIDENCE LOG FEED */}
       <View style={styles.section}>
-        <View style={styles.sectionPill}>
-          <Text style={styles.sectionPillText}>EVIDENCE LOG</Text>
-        </View>
-        <Text style={[styles.sectionTitle, { color: sectionTitleColor }]}>Your journey in your own words</Text>
-
-        {visibleLogs.length === 0 ? (
-          <View style={styles.evidenceCard}>
-            {/* Empty state inside dark card — hardcoded */}
-            <Text style={[styles.evidenceEmpty, { color: MUTED_25 }]}>
-              Your evidence log entries will appear here as you write them.
-            </Text>
-          </View>
-        ) : (
-          visibleLogs.map((log) => (
-            <View key={log.id} style={styles.evidenceCard}>
-              <View style={styles.evidenceCardHeader}>
-                <Text style={styles.evidenceDay}>DAY {getChallengeDay(log.completion_date)}</Text>
-                {/* Date inside dark card — hardcoded */}
-                <Text style={[styles.evidenceDate, { color: 'rgba(255,255,255,0.3)' }]}>{formatLogDate(log.completion_date)}</Text>
-              </View>
-              {/* Body inside dark card — hardcoded */}
-              <Text style={[styles.evidenceContent, { color: MUTED_65 }]}>{log.content}</Text>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setEvidenceLogExpanded(!evidenceLogExpanded);
+          }}
+          style={styles.evidenceLogHeader}
+        >
+          <View style={{ flex: 1 }}>
+            <View style={styles.sectionPill}>
+              <Text style={styles.sectionPillText}>EVIDENCE LOG</Text>
             </View>
-          ))
-        )}
+            <Text style={[styles.sectionTitle, { color: sectionTitleColor }]}>Your journey in your own words</Text>
+            {evidenceLogs.length > 0 && (
+              <Text style={[styles.evidenceLogCount, { color: MUTED_35 }]}>
+                {evidenceLogs.length} {evidenceLogs.length === 1 ? 'entry' : 'entries'}
+              </Text>
+            )}
+          </View>
+          <Animated.View style={{ transform: [{ rotate: evidenceLogExpanded ? '180deg' : '0deg' }] }}>
+            <ChevronDown size={22} color={MUTED_35} strokeWidth={2.5} />
+          </Animated.View>
+        </TouchableOpacity>
 
-        {evidenceLogs.length > 5 && !showAllEvidence && (
-          <TouchableOpacity onPress={() => setShowAllEvidence(true)} activeOpacity={0.7}>
-            <Text style={styles.viewAll}>View all entries →</Text>
-          </TouchableOpacity>
+        {evidenceLogExpanded && (
+          <>
+            {visibleLogs.length === 0 ? (
+              <View style={styles.evidenceCard}>
+                {/* Empty state inside dark card — hardcoded */}
+                <Text style={[styles.evidenceEmpty, { color: MUTED_25 }]}>
+                  Your evidence log entries will appear here as you write them.
+                </Text>
+              </View>
+            ) : (
+              visibleLogs.map((log) => (
+                <View key={log.id} style={styles.evidenceCard}>
+                  <View style={styles.evidenceCardHeader}>
+                    <Text style={styles.evidenceDay}>DAY {getChallengeDay(log.completion_date)}</Text>
+                    {/* Date inside dark card — hardcoded */}
+                    <Text style={[styles.evidenceDate, { color: 'rgba(255,255,255,0.3)' }]}>{formatLogDate(log.completion_date)}</Text>
+                  </View>
+                  {/* Body inside dark card — hardcoded */}
+                  <Text style={[styles.evidenceContent, { color: MUTED_65 }]}>{log.content}</Text>
+                </View>
+              ))
+            )}
+
+            {evidenceLogs.length > 5 && !showAllEvidence && (
+              <TouchableOpacity onPress={() => setShowAllEvidence(true)} activeOpacity={0.7}>
+                <Text style={styles.viewAll}>View all entries →</Text>
+              </TouchableOpacity>
+            )}
+          </>
         )}
       </View>
 
@@ -731,6 +756,17 @@ const styles = StyleSheet.create({
   },
 
   /* Evidence log */
+  evidenceLogHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  evidenceLogCount: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+    marginBottom: 4,
+  },
   evidenceCard: {
     backgroundColor: CARD_BG,
     borderRadius: 12,

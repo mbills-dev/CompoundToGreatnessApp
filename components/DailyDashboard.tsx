@@ -1168,6 +1168,7 @@ export default function DailyDashboard({
                 readOnly={isDayLocked}
                 challengeDay={displayDay}
                 onLockedInteraction={onLockedInteraction}
+                onInputFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
               />
             )}
 
