@@ -454,6 +454,7 @@ export default function SettingsScreen() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const [showRulesModal, setShowRulesModal] = useState(false);
 
   // DEBUG: NOTIFICATIONS — dev-only diagnostic state
@@ -463,6 +464,7 @@ export default function SettingsScreen() {
   const [debugResyncError, setDebugResyncError] = useState<string | null>(null);
 
   const handleSignOut = () => {
+    setSignOutError(null);
     if (Platform.OS !== 'web') {
       Alert.alert(
         'Sign Out',
@@ -475,8 +477,8 @@ export default function SettingsScreen() {
             onPress: async () => {
               try {
                 await authSignOut();
-              } catch (error) {
-                console.error('Error signing out:', error);
+              } catch (error: any) {
+                setSignOutError(error?.message ?? 'Could not sign out. Please try again.');
               }
             },
           },
@@ -488,12 +490,13 @@ export default function SettingsScreen() {
   };
 
   const handleConfirmSignOut = async () => {
-    setConfirmingSignOut(false);
+    setSignOutError(null);
     try {
       await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
       await authSignOut();
-    } catch (error) {
-      console.error('Error signing out:', error);
+      setConfirmingSignOut(false);
+    } catch (error: any) {
+      setSignOutError(error?.message ?? 'Could not sign out. Please try again.');
     }
   };
 
@@ -773,6 +776,7 @@ export default function SettingsScreen() {
               { backgroundColor: isDark ? 'rgba(239,68,68,0.12)' : 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.25)' },
             ]}>
               <Text style={[styles.confirmText, { color: colors.text }]}>Sign out of your account?</Text>
+              {signOutError && <Text style={styles.deleteErrorText}>{signOutError}</Text>}
               <View style={styles.confirmButtons}>
                 <TouchableOpacity
                   style={[styles.confirmBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}

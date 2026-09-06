@@ -431,12 +431,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setIsSubscribed(false);
-    setOnboardingCompleted(true);
-    setIsWatcher(false);
-    setWatchedUserId(null);
-    setNeedsUsername(false);
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('signOut error:', error);
+    } finally {
+      setSession(null);
+      setIsSubscribed(false);
+      setOnboardingCompleted(true);
+      setIsWatcher(false);
+      setWatchedUserId(null);
+      setNeedsUsername(false);
+    }
   };
 
   return (
