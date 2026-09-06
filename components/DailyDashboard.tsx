@@ -937,17 +937,18 @@ export default function DailyDashboard({
 
   return (
     <View style={{ flex: 1 }}>
+      <LinearGradient
+        colors={isDark ? ['#000000', '#111111', '#000000'] : ['#F5F5F0', '#F0F0EB', '#F5F5F0']}
+        style={StyleSheet.absoluteFillObject}
+      />
       <ScrollView
         ref={scrollViewRef}
-        style={[styles.container, { backgroundColor: colors.background }]}
+        style={[styles.container, { backgroundColor: 'transparent' }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets={true}
       >
-        <LinearGradient
-          colors={isDark ? ['#000000', '#111111', '#000000'] : ['#F5F5F0', '#F0F0EB', '#F5F5F0']}
-          style={styles.gradient}
-        >
+        <View style={styles.gradient}>
           <View style={[styles.heroSection, { paddingTop: insets.top + 12 }]}>
             {isDayLocked && (
               <View style={[styles.lockedBanner, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
@@ -1159,7 +1160,7 @@ export default function DailyDashboard({
               />
             )}
           </View>
-        </LinearGradient>
+        </View>
       </ScrollView>
 
       {reactionBursts.length > 0 && (
