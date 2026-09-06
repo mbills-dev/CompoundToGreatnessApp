@@ -582,15 +582,25 @@ export default function DailyDashboard({
       });
     }
 
+    const newDay = (goal.current_challenge_day || 0) + 1;
     await supabase
       .from('goals')
       .update({
         last_completion_date: yesterdayStr,
-        current_challenge_day: (goal.current_challenge_day || 0) + 1,
+        current_challenge_day: newDay,
       })
       .eq('id', goal.id);
 
     refreshCompletions();
+    if (user) {
+      try {
+        const updatedGoal = { ...goal, current_challenge_day: newDay, last_completion_date: yesterdayStr };
+        const newBadges = await checkAndAwardBadges(user.id, updatedGoal);
+        newBadges.forEach((key) => celebrateBadge(key));
+      } catch (err) {
+        console.error('Badge check failed (grace path):', err);
+      }
+    }
     onRefresh();
   };
 
@@ -757,7 +767,8 @@ export default function DailyDashboard({
         refreshStreakSummary();
         if (user) {
           try {
-            const newBadges = await checkAndAwardBadges(user.id, goal);
+            const updatedGoal = { ...goal, ...updates };
+            const newBadges = await checkAndAwardBadges(user.id, updatedGoal);
             newBadges.forEach((key) => celebrateBadge(key));
           } catch (err) {
             console.error('Badge check failed:', err);
