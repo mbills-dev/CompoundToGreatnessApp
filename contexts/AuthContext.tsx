@@ -272,7 +272,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const convertWithGoogle = async () => {
     try {
-      const redirectTo = makeRedirectUri({ scheme: 'myapp' });
+      const redirectTo = makeRedirectUri({ scheme: 'compoundtogreatness' });
       const { data, error } = await supabase.auth.linkIdentity({
         provider: 'google',
         options: {
@@ -397,7 +397,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogleAccount = async (): Promise<{ error: string | null; canceled: boolean }> => {
     try {
-      const redirectTo = makeRedirectUri({ scheme: 'myapp' });
+      const redirectTo = makeRedirectUri({ scheme: 'compoundtogreatness' });
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
