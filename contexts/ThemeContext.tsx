@@ -73,14 +73,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadTheme = async () => {
-    try {
-      const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
-      if (savedTheme === 'light' || savedTheme === 'dark') {
-        setTheme(savedTheme);
-      }
-    } catch (error) {
-      console.error('Error loading theme:', error);
-    }
+    // TEMP: light mode disabled ahead of submission — restore this block
+    // to re-enable user theme switching.
+    // try {
+    //   const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+    //   if (savedTheme === 'light' || savedTheme === 'dark') {
+    //     setTheme(savedTheme);
+    //   }
+    // } catch (error) {
+    //   console.error('Error loading theme:', error);
+    // }
+    return;
   };
 
   const toggleTheme = async () => {

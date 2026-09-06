@@ -652,7 +652,9 @@ export default function SettingsScreen() {
 
           <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>PREFERENCES</Text>
           <GlassPanel isDark={isDark} colors={colors}>
-            <ToggleRow
+            {/* TEMP: light mode toggle hidden ahead of submission — restore this row
+                to re-enable. See contexts/ThemeContext.tsx loadTheme() too. */}
+            {/* <ToggleRow
               icon={isDark
                 ? <Moon size={18} color={colors.primary} strokeWidth={2} />
                 : <Sun size={18} color={colors.primary} strokeWidth={2} />
@@ -663,7 +665,7 @@ export default function SettingsScreen() {
               colors={colors}
               isDark={isDark}
               isFirst
-            />
+            /> */}
             <ToggleRow
               icon={<ImagePlus size={18} color={colors.primary} strokeWidth={2} />}
               title="Save Progress Photos"
