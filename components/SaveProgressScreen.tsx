@@ -10,6 +10,7 @@ import {
   Platform,
   ActivityIndicator,
   Image,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Check } from 'lucide-react-native';
@@ -424,11 +425,17 @@ export default function SaveProgressScreen({ onComplete, firstName: capturedFirs
                 </View>
                 <Text style={[styles.checkboxText, { color: colors.textSecondary }]}>
                   I agree to the{' '}
-                  <Text style={[styles.checkboxLink, { color: colors.primary }]}>
+                  <Text
+                    style={[styles.checkboxLink, { color: colors.primary }]}
+                    onPress={() => Linking.openURL('https://www.compoundtogreatness.com/terms')}
+                  >
                     Terms and Conditions
                   </Text>{' '}
                   and{' '}
-                  <Text style={[styles.checkboxLink, { color: colors.primary }]}>
+                  <Text
+                    style={[styles.checkboxLink, { color: colors.primary }]}
+                    onPress={() => Linking.openURL('https://www.compoundtogreatness.com/privacy')}
+                  >
                     Privacy Policy
                   </Text>
                 </Text>
