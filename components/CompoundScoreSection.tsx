@@ -305,9 +305,10 @@ export default function CompoundScoreSection({ goal, completions, activities, on
 
   const getChallengeDay = (completion_date: string): number => {
     if (!goal.challenge_start_date) return 1;
-    const start = new Date(goal.challenge_start_date + 'T00:00:00');
+    const start = new Date(goal.challenge_start_date);
+    const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
     const target = new Date(completion_date + 'T00:00:00');
-    const diff = Math.floor((target.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const diff = Math.floor((target.getTime() - startMidnight.getTime()) / (1000 * 60 * 60 * 24));
     return diff + 1;
   };
 
