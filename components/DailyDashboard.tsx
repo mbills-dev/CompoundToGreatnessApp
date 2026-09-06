@@ -688,16 +688,36 @@ export default function DailyDashboard({
     } catch {}
   };
 
+  const triggerCheckHaptic = () => {
+    if (!Haptics) return;
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+  };
+
+  const triggerUncheckHaptic = () => {
+    if (!Haptics) return;
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+  };
+
   const toggleActivity = async (activityId: string) => {
     if (onLockedInteraction) { onLockedInteraction(); return; }
     if (editMode || isDayLocked) return;
 
     const wasComplete = completedActivities.length === activities.length;
-    const newCompleted = completedActivities.includes(activityId)
-      ? completedActivities.filter((id) => id !== activityId)
-      : [...completedActivities, activityId];
+    const isAdding = !completedActivities.includes(activityId);
+    const newCompleted = isAdding
+      ? [...completedActivities, activityId]
+      : completedActivities.filter((id) => id !== activityId);
 
     setCompletedActivities(newCompleted);
+    if (isAdding) {
+      triggerCheckHaptic();
+    } else {
+      triggerUncheckHaptic();
+    }
 
     const allComplete = newCompleted.length === activities.length;
     const becameIncomplete = wasComplete && !allComplete;
