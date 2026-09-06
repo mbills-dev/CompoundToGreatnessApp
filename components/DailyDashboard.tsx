@@ -74,12 +74,12 @@ interface ActivityItemProps {
   isCompleted: boolean;
   editMode: boolean;
   isDayLocked: boolean;
-  onPress: () => void;
-  onDelete: () => void;
-  onEditSchedule: () => void;
+  onPress: (id: string) => void;
+  onDelete: (id: string) => void;
+  onEditSchedule: (activity: DailyActivity) => void;
 }
 
-function ActivityItem({
+const ActivityItem = React.memo(function ActivityItem({
   activity,
   isCompleted,
   editMode,
@@ -146,7 +146,7 @@ function ActivityItem({
             },
             isDayLocked && styles.activityCardLocked,
           ]}
-          onPress={!editMode && !isDayLocked ? onPress : undefined}
+          onPress={!editMode && !isDayLocked ? () => onPress(activity.id) : undefined}
           disabled={editMode || isDayLocked}
           activeOpacity={isDayLocked ? 1 : 0.7}
         >
@@ -182,10 +182,10 @@ function ActivityItem({
 
           {editMode && (
             <View style={styles.editControlsRow}>
-              <TouchableOpacity style={styles.scheduleButton} onPress={onEditSchedule}>
+              <TouchableOpacity style={styles.scheduleButton} onPress={() => onEditSchedule(activity)}>
                 <Bell size={16} color={colors.textTertiary} strokeWidth={2.5} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
+              <TouchableOpacity style={styles.deleteButton} onPress={() => onDelete(activity.id)}>
                 <View style={styles.deleteButtonInner}>
                   <X size={12} color="#FFFFFF" strokeWidth={2.5} />
                 </View>
@@ -196,7 +196,7 @@ function ActivityItem({
       </Animated.View>
     </Animated.View>
   );
-}
+});
 
 
 export default function DailyDashboard({
@@ -241,9 +241,13 @@ export default function DailyDashboard({
   const [gracePeriodDaysMissed, setGracePeriodDaysMissed] = useState(0);
   const [gracePeriodMode, setGracePeriodMode] = useState<'grace' | 'reset'>('grace');
   const [realtimeGen, setRealtimeGen] = useState(0);
+  const [showIdentityModal, setShowIdentityModal] = useState(false);
+  const [identityTruncated, setIdentityTruncated] = useState(false);
   const prevAppStateRef = useRef<string>('active');
   const completionRef = useRef<DailyCompletion | null>(null);
   const refetchIfDayChangedRef = useRef<(() => void) | null>(null);
+  const toggleActivityRef = useRef<(id: string) => void>(() => {});
+  const deleteActivityRef = useRef<(id: string) => void>(() => {});
 
   const { streak, perfectDays, phase2ThisMonth, invalidate: refreshStreakSummary } = useStreakSummary(goal.id);
   const queryClient = useQueryClient();
@@ -857,6 +861,21 @@ export default function DailyDashboard({
     }
   };
 
+  toggleActivityRef.current = toggleActivity;
+  deleteActivityRef.current = deleteActivity;
+
+  const handleToggleActivity = useCallback((id: string) => {
+    toggleActivityRef.current(id);
+  }, []);
+
+  const handleDeleteActivity = useCallback((id: string) => {
+    deleteActivityRef.current(id);
+  }, []);
+
+  const handleEditSchedule = useCallback((activity: DailyActivity) => {
+    setEditingScheduleFor(activity);
+  }, []);
+
   const handleDragStart = (index: number) => {
     setDragState({
       isDragging: true,
@@ -922,6 +941,8 @@ export default function DailyDashboard({
         ref={scrollViewRef}
         style={[styles.container, { backgroundColor: colors.background }]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
       >
         <LinearGradient
           colors={isDark ? ['#000000', '#111111', '#000000'] : ['#F5F5F0', '#F0F0EB', '#F5F5F0']}
@@ -984,15 +1005,28 @@ export default function DailyDashboard({
             )}
 
             {goal.identity_statement && (
-              <View style={[styles.identityChip, {
-                backgroundColor: isDark ? colors.backgroundSecondary : '#1A1A1A',
-                borderColor: isDark ? colors.border : '#1A1A1A',
-              }]}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setShowIdentityModal(true)}
+                style={[styles.identityChip, {
+                  backgroundColor: isDark ? colors.backgroundSecondary : '#1A1A1A',
+                  borderColor: isDark ? colors.border : '#1A1A1A',
+                }]}
+              >
                 <Text style={styles.identityChipLabel}>MY IDENTITY</Text>
-                <Text style={styles.identityChipText} numberOfLines={6}>
+                <Text
+                  style={styles.identityChipText}
+                  numberOfLines={6}
+                  onTextLayout={(e) => {
+                    setIdentityTruncated(e.nativeEvent.lines.length > 6);
+                  }}
+                >
                   {goal.identity_statement}
                 </Text>
-              </View>
+                {identityTruncated && (
+                  <Text style={styles.identityChipHint}>+ tap to see all</Text>
+                )}
+              </TouchableOpacity>
             )}
 
             <View style={[styles.watcherBadge, {
@@ -1098,9 +1132,9 @@ export default function DailyDashboard({
                     isCompleted={isCompleted}
                     editMode={editMode}
                     isDayLocked={isDayLocked}
-                    onPress={() => toggleActivity(activity.id)}
-                    onDelete={() => deleteActivity(activity.id)}
-                    onEditSchedule={() => setEditingScheduleFor(activity)}
+                    onPress={handleToggleActivity}
+                    onDelete={handleDeleteActivity}
+                    onEditSchedule={handleEditSchedule}
                   />
                 );
               })}
@@ -1236,6 +1270,30 @@ export default function DailyDashboard({
             }
         }
       />
+
+      <Modal
+        visible={showIdentityModal}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => setShowIdentityModal(false)}
+      >
+        <View style={styles.identityModalOverlay}>
+          <View style={[styles.identityModalCard, { backgroundColor: isDark ? '#111111' : '#FFFFFF' }]}>
+            <View style={styles.identityModalHeader}>
+              <Text style={[styles.identityModalLabel, { color: colors.primary }]}>MY IDENTITY</Text>
+              <TouchableOpacity onPress={() => setShowIdentityModal(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <X size={22} color={colors.text} strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.identityModalScroll}>
+              <Text style={[styles.identityModalText, { color: colors.text }]}>
+                {goal.identity_statement}
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1619,6 +1677,43 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     lineHeight: 22,
+  },
+  identityChipHint: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#ccff00',
+    marginTop: 4,
+  },
+  identityModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.82)',
+    justifyContent: 'flex-end',
+  },
+  identityModalCard: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 28,
+    paddingBottom: 48,
+    maxHeight: '80%',
+  },
+  identityModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  identityModalLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 2,
+  },
+  identityModalScroll: {
+    maxHeight: 400,
+  },
+  identityModalText: {
+    fontSize: 17,
+    fontWeight: '600',
+    lineHeight: 26,
   },
   activityCardLocked: {
     opacity: 0.6,
