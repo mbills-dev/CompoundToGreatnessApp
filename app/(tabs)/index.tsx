@@ -62,6 +62,12 @@ export default function HomeScreen() {
   }, [goal]);
 
   useEffect(() => {
+    if (user?.is_anonymous) {
+      setOnboardingPath(null);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
     if (chooseStart === '1' && goal && goal.challenge_start_date === null) {
       setShowRestartChooser(true);
       router.setParams({ chooseStart: undefined });
