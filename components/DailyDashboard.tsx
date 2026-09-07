@@ -953,12 +953,14 @@ export default function DailyDashboard({
         order_position: index + 1,
       }));
 
-      for (const update of updates) {
-        await supabase
-          .from('daily_activities')
-          .update({ order_position: update.order_position })
-          .eq('id', update.id);
-      }
+      await Promise.all(
+        updates.map((update) =>
+          supabase
+            .from('daily_activities')
+            .update({ order_position: update.order_position })
+            .eq('id', update.id)
+        )
+      );
 
       onRefresh();
     } catch (error) {
@@ -1117,12 +1119,13 @@ export default function DailyDashboard({
               {!isDayLocked && (
                 <TouchableOpacity
                   style={[styles.editButton, { backgroundColor: isDark ? '#1A1A1A' : colors.backgroundSecondary }, editMode && styles.editButtonActive]}
-                  onPress={async () => {
+                  onPress={() => {
                     if (onLockedInteraction) { onLockedInteraction(); return; }
-                    if (editMode) {
-                      await saveActivityOrder();
-                    }
+                    const wasEditing = editMode;
                     setEditMode(!editMode);
+                    if (wasEditing) {
+                      saveActivityOrder().catch((err) => console.error('saveActivityOrder failed:', err));
+                    }
                   }}
                 >
                   <Text style={[styles.editButtonText, editMode && styles.editButtonTextActive]}>
