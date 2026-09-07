@@ -11,7 +11,7 @@ import {
   AppState,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Share2, Lock, ArrowUpFromLine, CircleCheck } from 'lucide-react-native';
+import { Share2, Lock, ArrowUpFromLine } from 'lucide-react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -443,38 +443,6 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
     && currentDay >= TOTAL_CHALLENGE_DAYS
     && !goal.celebration_seen;
 
-  const getIndividualStats = () => {
-    if (activities.length === 0) return [];
-
-    const startDateStr = goal.challenge_start_date?.split('T')[0];
-    if (!startDateStr) return [];
-
-    const validCompletions = completions.filter(c =>
-      c.completed_at !== null && c.completion_date >= startDateStr
-    );
-    const totalTrackedDays = validCompletions.length;
-
-    return activities.map(activity => {
-      const daysCompleted = validCompletions.filter(c =>
-        c.activities_completed && c.activities_completed.includes(activity.id)
-      ).length;
-
-      const percentage = totalTrackedDays > 0
-        ? Math.round((daysCompleted / totalTrackedDays) * 100)
-        : 0;
-
-      return {
-        id: activity.id,
-        name: activity.activity_name,
-        daysCompleted,
-        totalDays: totalTrackedDays,
-        percentage,
-      };
-    });
-  };
-
-  const individualStats = getIndividualStats();
-
   const bg = isDark ? colors.background : '#F5F5F0';
   const textPrimary = isDark ? colors.text : '#1A1A1A';
   const textMuted = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
@@ -634,29 +602,6 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
             }}
           />
         </View>
-        {individualStats.length > 0 && (
-          <View style={styles.successStackSection}>
-            <Text style={[styles.successStackHeader, { color: textMuted }]}>
-              MY SUCCESS STACK
-            </Text>
-            <View style={styles.successStackList}>
-              {individualStats.map((stat) => (
-                <View key={stat.id} style={[styles.successStackRow, { backgroundColor: colors.card }]}>
-                  <View style={styles.successStackRowLeft}>
-                    <CircleCheck size={20} color="#FF4400" strokeWidth={2.5} />
-                    <Text
-                      style={[styles.successStackName, { color: textPrimary }]}
-                      numberOfLines={1}
-                    >
-                      {stat.name}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
         <TouchableOpacity
           style={styles.shareJourneyButton}
           onPress={handleShare}
@@ -1100,40 +1045,5 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
-  },
-  successStackSection: {
-    marginTop: 28,
-    alignItems: 'stretch',
-  },
-  successStackHeader: {
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    fontFamily: 'Inter-Bold',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  successStackList: {
-    gap: 8,
-  },
-  successStackRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: 16,
-    paddingVertical: 11,
-    paddingHorizontal: 14,
-  },
-  successStackRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-    marginRight: 12,
-  },
-  successStackName: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Inter-Bold',
   },
 });
