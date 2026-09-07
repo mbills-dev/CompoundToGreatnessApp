@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Swipeable } from 'react-native-gesture-handler';
-import { Heart, UserPlus, Eye, Share2, Zap, Check, X, Ban, Clock } from 'lucide-react-native';
+import { Heart, UserPlus, Eye, Share2, Zap, Check, X, Ban, Clock, Trash2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -181,6 +181,24 @@ export default function FriendsScreen() {
       await loadFriends();
     } catch (e: any) {
       setError(e.message || 'Failed to block user');
+    }
+  };
+
+  const cancelFriendRequest = async (friendId: string) => {
+    if (!user) return;
+    try {
+      const { error: delErr } = await supabase
+        .from('friendships')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('friend_id', friendId)
+        .eq('status', 'pending');
+      if (delErr) throw delErr;
+      queryClient.setQueryData<FriendWithStreak[]>(friendsKey(user.id), (prev = []) =>
+        prev.filter((f) => f.id !== friendId)
+      );
+    } catch (e: any) {
+      setError(e.message || 'Failed to cancel friend request');
     }
   };
 
@@ -391,6 +409,25 @@ export default function FriendsScreen() {
     }
   };
 
+  const renderSwipeAction = (
+    progress: Animated.AnimatedInterpolation<number>,
+    label: string,
+    icon: React.ReactNode,
+    color: string,
+    onPress: () => void
+  ) => {
+    const scale = progress.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1], extrapolate: 'clamp' });
+    const opacity = progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0.6, 1], extrapolate: 'clamp' });
+    return (
+      <Animated.View style={{ transform: [{ scale }], opacity }}>
+        <TouchableOpacity style={[styles.swipeAction, { backgroundColor: color }]} onPress={onPress}>
+          {icon}
+          <Text style={styles.swipeActionText}>{label}</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
   const displayError = error ?? (friendsLoadError ? (friendsLoadError as Error).message || 'Failed to load friends' : null);
 
   if (loading) {
@@ -585,18 +622,19 @@ export default function FriendsScreen() {
                   >
                     <Swipeable
                       ref={(ref) => { swipeableRefs.current[friend.id] = ref; }}
-                      renderRightActions={friend.status === 'accepted' ? () => (
-                        <TouchableOpacity
-                          style={styles.swipeBlockAction}
-                          onPress={() => {
-                            setBlockConfirmId(friend.id);
-                            swipeableRefs.current[friend.id]?.close();
-                          }}
-                        >
-                          <Ban size={20} color="#FFFFFF" strokeWidth={2.5} />
-                          <Text style={styles.swipeBlockText}>Block</Text>
-                        </TouchableOpacity>
-                      ) : undefined}
+                      renderRightActions={
+                        friend.status === 'accepted'
+                          ? (progress) => renderSwipeAction(progress, 'Block', <Ban size={20} color="#FFFFFF" strokeWidth={2.5} />, '#fc433d', () => {
+                              setBlockConfirmId(friend.id);
+                              swipeableRefs.current[friend.id]?.close();
+                            })
+                          : friend.status === 'pending'
+                          ? (progress) => renderSwipeAction(progress, 'Delete', <Trash2 size={20} color="#FFFFFF" strokeWidth={2.5} />, '#3A3A3A', () => {
+                              swipeableRefs.current[friend.id]?.close();
+                              cancelFriendRequest(friend.id);
+                            })
+                          : undefined
+                      }
                       overshootRight={false}
                     >
                     <View style={styles.friendHeader}>
@@ -676,7 +714,7 @@ export default function FriendsScreen() {
                             blurOnSubmit={true}
                           />
                           <View style={styles.emojiButtons}>
-                            {['🔥', '💪', '👏', '⭐', '🎯', '🚀'].map((emoji) => (
+                            {['🔥', '💪', '👏', '⭐', '🎯', '🚀', '💰', '🙌', '⚡', '✨'].map((emoji) => (
                               <TouchableOpacity
                                 key={emoji}
                                 style={[
@@ -1314,15 +1352,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  swipeBlockAction: {
+  swipeAction: {
     width: 80,
-    backgroundColor: '#fc433d',
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
   },
-  swipeBlockText: {
+  swipeActionText: {
     fontSize: 13,
     fontWeight: '800',
     fontFamily: 'Inter-Bold',
