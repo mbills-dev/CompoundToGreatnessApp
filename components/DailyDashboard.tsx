@@ -50,6 +50,7 @@ import { focusState } from '@/lib/focusState';
 import { useCelebration } from '@/contexts/CelebrationContext';
 import { checkForNewReactions, markReactionsRead, ReactionGroup } from '@/lib/reactionHelpers';
 import ReactionBurst from './ReactionBurst';
+import EncouragementToast from './EncouragementToast';
 import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
 
 let Haptics: any = null;
@@ -340,21 +341,36 @@ export default function DailyDashboard({
           table: 'encouragements',
           filter: `to_user_id=eq.${user.id}`,
         },
-        (payload) => {
+        async (payload) => {
           const row = payload.new as any;
           if (row.message !== null) return;
           const emoji = row.emoji;
           if (!emoji) return;
-          // Only queue the burst if the Today tab is focused.
-          // Otherwise the animation plays invisibly and gets marked read
-          // before the user ever sees it.
           if (!isFocusedRef.current) return;
+
+          let senderName: string | undefined;
+          let senderPhotoUrl: string | undefined;
+          if (row.from_user_id) {
+            const { data: senderProfile } = await supabase
+              .from('profiles')
+              .select('display_name, photo_url')
+              .eq('id', row.from_user_id)
+              .maybeSingle();
+            senderName = senderProfile?.display_name ?? undefined;
+            senderPhotoUrl = senderProfile?.photo_url ?? undefined;
+          }
+
           setReactionBursts((prev) => {
             const last = prev[prev.length - 1];
-            if (last && last.emoji === emoji && prev.length > 1) {
+            if (
+              last &&
+              last.emoji === emoji &&
+              last.senderName === senderName &&
+              prev.length > 1
+            ) {
               return [...prev.slice(0, -1), { ...last, count: last.count + 1 }];
             }
-            return [...prev, { emoji, count: 1 }];
+            return [...prev, { emoji, count: 1, senderName, senderPhotoUrl }];
           });
         }
       )
@@ -1185,23 +1201,34 @@ export default function DailyDashboard({
       </ScrollView>
 
       {reactionBursts.length > 0 && (
-        <ReactionBurst
-          key={playedCountRef.current}
-          emoji={reactionBursts[0].emoji}
-          count={reactionBursts[0].count}
-          onComplete={() => {
-            playedCountRef.current += 1;
-            setReactionBursts((prev) => {
-              const next = prev.slice(1);
-              if (next.length === 0 && user?.id) {
-                markReactionsRead(user.id).catch((err) =>
-                  console.error('markReactionsRead failed:', err)
-                );
-              }
-              return next;
-            });
-          }}
-        />
+        <>
+          <ReactionBurst
+            key={`burst-${playedCountRef.current}`}
+            emoji={reactionBursts[0].emoji}
+            count={reactionBursts[0].count}
+            onComplete={() => {
+              playedCountRef.current += 1;
+              setReactionBursts((prev) => {
+                const next = prev.slice(1);
+                if (next.length === 0 && user?.id) {
+                  markReactionsRead(user.id).catch((err) =>
+                    console.error('markReactionsRead failed:', err)
+                  );
+                }
+                return next;
+              });
+            }}
+          />
+          {reactionBursts[0].senderName !== undefined && (
+            <EncouragementToast
+              key={`toast-${playedCountRef.current}`}
+              senderName={reactionBursts[0].senderName}
+              senderPhotoUrl={reactionBursts[0].senderPhotoUrl}
+              emoji={reactionBursts[0].emoji}
+              onComplete={() => {} }
+            />
+          )}
+        </>
       )}
 
 
