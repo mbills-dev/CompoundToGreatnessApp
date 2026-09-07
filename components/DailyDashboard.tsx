@@ -1219,15 +1219,13 @@ export default function DailyDashboard({
               });
             }}
           />
-          {reactionBursts[0].senderName !== undefined && (
-            <EncouragementToast
-              key={`toast-${playedCountRef.current}`}
-              senderName={reactionBursts[0].senderName}
-              senderPhotoUrl={reactionBursts[0].senderPhotoUrl}
-              emoji={reactionBursts[0].emoji}
-              onComplete={() => {} }
-            />
-          )}
+          <EncouragementToast
+            key={`toast-${playedCountRef.current}`}
+            senderName={reactionBursts[0].senderName}
+            senderPhotoUrl={reactionBursts[0].senderPhotoUrl}
+            emoji={reactionBursts[0].emoji}
+            onComplete={() => {} }
+          />
         </>
       )}
 
