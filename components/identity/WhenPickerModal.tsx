@@ -12,22 +12,11 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSpring,
   Easing,
 } from 'react-native-reanimated';
 import { X, ChevronUp, ChevronDown, Bell } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { responsiveStyle } from '@/components/ResponsiveContainer';
-
-const DAYS = [
-  { key: 'Mon', label: 'M' },
-  { key: 'Tue', label: 'T' },
-  { key: 'Wed', label: 'W' },
-  { key: 'Thu', label: 'T' },
-  { key: 'Fri', label: 'F' },
-  { key: 'Sat', label: 'S' },
-  { key: 'Sun', label: 'S' },
-];
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
 const MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
@@ -216,9 +205,6 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
   const [hour, setHour] = useState(initialValue?.hour ?? 7);
   const [minute, setMinute] = useState(initialValue?.minute ?? 0);
   const [period, setPeriod] = useState<'AM' | 'PM'>(initialValue?.period ?? 'AM');
-  const [selectedDays, setSelectedDays] = useState<string[]>(
-    initialValue?.days ?? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-  );
   const [reminder, setReminder] = useState(initialValue?.reminder ?? false);
   const [reminderOffset, setReminderOffset] = useState(initialValue?.reminderOffset ?? 0);
   const [allDay, setAllDay] = useState(initialValue?.allDay ?? false);
@@ -232,7 +218,7 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
   useEffect(() => {
     if (visible) {
       backdropOpacity.value = withTiming(1, { duration: 250 });
-      sheetTranslate.value = withSpring(0, { damping: 20, stiffness: 200 });
+      sheetTranslate.value = withTiming(0, { duration: 250 });
     } else {
       backdropOpacity.value = withTiming(0, { duration: 200 });
       sheetTranslate.value = withTiming(400, { duration: 250 });
@@ -244,8 +230,7 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
       setHour(initialValue?.hour ?? 7);
       setMinute(initialValue?.minute ?? 0);
       setPeriod(initialValue?.period ?? 'AM');
-      setSelectedDays(initialValue?.days ?? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
-      setReminder(initialValue?.reminder ?? false);
+setReminder(initialValue?.reminder ?? false);
       setReminderOffset(initialValue?.reminderOffset ?? 0);
       setAllDay(initialValue?.allDay ?? false);
     }
@@ -259,24 +244,6 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
     transform: [{ translateY: sheetTranslate.value }],
   }));
 
-  const toggleDay = (day: string) => {
-    setSelectedDays(prev => {
-      if (prev.includes(day)) {
-        if (prev.length === 1) return prev;
-        return prev.filter(d => d !== day);
-      }
-      return [...prev, day];
-    });
-  };
-
-  const selectAllDays = () => {
-    setSelectedDays(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
-  };
-
-  const selectWeekdays = () => {
-    setSelectedDays(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
-  };
-
   const toggleReminder = () => {
     setReminder(prev => {
       const next = !prev;
@@ -288,17 +255,12 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
   const hourIndex = HOURS.indexOf(hour);
   const minuteIndex = MINUTES.indexOf(minute);
 
-  const allSelected = selectedDays.length === 7;
-  const weekdaysSelected =
-    selectedDays.length === 5 &&
-    ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].every(d => selectedDays.includes(d));
-
   const handleConfirm = () => {
     const hIdx = hourScrollerRef.current?.getCurrentIndex();
     const mIdx = minuteScrollerRef.current?.getCurrentIndex();
     const confirmedHour = hIdx !== undefined ? HOURS[hIdx] : hour;
     const confirmedMinute = mIdx !== undefined ? MINUTES[mIdx] : minute;
-    onConfirm({ hour: confirmedHour, minute: confirmedMinute, period, days: selectedDays, reminder, reminderOffset, allDay });
+    onConfirm({ hour: confirmedHour, minute: confirmedMinute, period, days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], reminder, reminderOffset, allDay });
   };
 
   if (!visible) return null;
@@ -404,65 +366,6 @@ export default function WhenPickerModal({ visible, onClose, onConfirm, initialVa
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
-
-          <Text style={[modalStyles.sectionLabel, { color: colors.textTertiary }]}>DAYS</Text>
-
-          <View style={modalStyles.quickSelectRow}>
-            <TouchableOpacity
-              style={[modalStyles.quickSelectBtn, {
-                backgroundColor: allSelected
-                  ? colors.primary + '20'
-                  : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                borderColor: allSelected ? colors.primary : 'transparent',
-              }]}
-              onPress={selectAllDays}
-              activeOpacity={0.8}
-            >
-              <Text style={[modalStyles.quickSelectText, {
-                color: allSelected ? colors.primary : colors.textSecondary,
-              }]}>Every day</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[modalStyles.quickSelectBtn, {
-                backgroundColor: weekdaysSelected
-                  ? colors.primary + '20'
-                  : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                borderColor: weekdaysSelected ? colors.primary : 'transparent',
-              }]}
-              onPress={selectWeekdays}
-              activeOpacity={0.8}
-            >
-              <Text style={[modalStyles.quickSelectText, {
-                color: weekdaysSelected ? colors.primary : colors.textSecondary,
-              }]}>Weekdays</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={modalStyles.daysRow}>
-            {DAYS.map((day, i) => {
-              const isActive = selectedDays.includes(day.key);
-              return (
-                <TouchableOpacity
-                  key={day.key}
-                  style={[modalStyles.dayBtn, {
-                    backgroundColor: isActive
-                      ? colors.primary
-                      : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-                  }]}
-                  onPress={() => toggleDay(day.key)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[modalStyles.dayBtnText, {
-                    color: isActive ? '#000000' : colors.textTertiary,
-                    fontWeight: isActive ? '800' : '600',
-                  }]}>{day.label}</Text>
-                  <Text style={[modalStyles.dayBtnSubtext, {
-                    color: isActive ? 'rgba(0,0,0,0.5)' : colors.textTertiary,
-                  }]}>{day.key}</Text>
-                </TouchableOpacity>
-              );
-            })}
           </View>
 
           <Text style={[modalStyles.sectionLabel, { color: colors.textTertiary }]}>REMINDER</Text>
@@ -630,43 +533,6 @@ const modalStyles = StyleSheet.create({
   periodText: {
     fontSize: 14,
     letterSpacing: 0.5,
-  },
-  quickSelectRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10,
-  },
-  quickSelectBtn: {
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  quickSelectText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  daysRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 6,
-    marginBottom: 20,
-  },
-  dayBtn: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 2,
-  },
-  dayBtnText: {
-    fontSize: 16,
-    letterSpacing: 0.2,
-  },
-  dayBtnSubtext: {
-    fontSize: 9,
-    fontWeight: '600',
-    letterSpacing: 0.3,
   },
   reminderRow: {
     flexDirection: 'row',
