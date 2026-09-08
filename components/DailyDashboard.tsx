@@ -1053,11 +1053,14 @@ export default function DailyDashboard({
                 }]}
               >
                 <Text style={styles.identityChipLabel}>MY IDENTITY</Text>
+                <Text style={styles.identityChipHeadline}>
+                  THIS IS WHO I AM <Text style={styles.identityChipHeadlineAccent}>BECOMING.</Text>
+                </Text>
                 <Text
                   style={styles.identityChipText}
-                  numberOfLines={6}
+                  numberOfLines={4}
                   onTextLayout={(e) => {
-                    setIdentityTruncated(e.nativeEvent.lines.length > 6);
+                    setIdentityTruncated(e.nativeEvent.lines.length > 4);
                   }}
                 >
                   {goal.identity_statement}
@@ -1329,19 +1332,52 @@ export default function DailyDashboard({
         onRequestClose={() => setShowIdentityModal(false)}
       >
         <View style={styles.identityModalOverlay}>
-          <View style={[styles.identityModalCard, { backgroundColor: isDark ? '#111111' : '#FFFFFF' }]}>
+          <LinearGradient
+            colors={['#0A0A0A', '#111400', '#000000']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.identityModalCard}
+          >
             <View style={styles.identityModalHeader}>
-              <Text style={[styles.identityModalLabel, { color: colors.primary }]}>MY IDENTITY</Text>
-              <TouchableOpacity onPress={() => setShowIdentityModal(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-                <X size={22} color={colors.text} strokeWidth={2.5} />
+              <Text style={styles.identityModalEyebrow}>MY IDENTITY</Text>
+              <TouchableOpacity
+                onPress={() => setShowIdentityModal(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <X size={20} color="#FFFFFF" strokeWidth={2.5} />
               </TouchableOpacity>
             </View>
+            <Text style={styles.identityModalTagline}>A BETTER ME EVERYDAY</Text>
+
             <ScrollView showsVerticalScrollIndicator={false} style={styles.identityModalScroll}>
-              <Text style={[styles.identityModalText, { color: colors.text }]}>
-                {goal.identity_statement}
+              <Text style={styles.identityModalHeadline}>
+                THIS IS WHO{'\n'}I AM <Text style={styles.identityModalHeadlineAccent}>BECOMING.</Text>
               </Text>
+
+              <View style={styles.identityModalList}>
+                {(goal.identity_statement || '')
+                  .split('\n')
+                  .map((line) => line.trim())
+                  .filter(Boolean)
+                  .map((line, index) => (
+                    <View key={index}>
+                      <View style={styles.identityModalRow}>
+                        <Text style={styles.identityModalIndex}>
+                          {String(index + 1).padStart(2, '0')}
+                        </Text>
+                        <Text style={styles.identityModalRowText}>{line}</Text>
+                      </View>
+                      <View style={styles.identityModalDivider} />
+                    </View>
+                  ))}
+              </View>
+
+              <View style={styles.identityModalFooter}>
+                <Text style={styles.identityModalFooterLeft}>IDENTITY  →  ACTION  →  EVIDENCE</Text>
+                <Text style={styles.identityModalFooterRight}>COMPOUND{'\n'}TO GREATNESS</Text>
+              </View>
             </ScrollView>
-          </View>
+          </LinearGradient>
         </View>
       </Modal>
     </View>
@@ -1722,6 +1758,17 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     color: '#ccff00',
   },
+  identityChipHeadline: {
+    fontSize: 20,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    color: '#FFFFFF',
+    lineHeight: 24,
+    marginBottom: 8,
+  },
+  identityChipHeadlineAccent: {
+    color: '#ccff00',
+  },
   identityChipText: {
     fontSize: 15,
     fontWeight: '700',
@@ -1744,26 +1791,93 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     padding: 28,
     paddingBottom: 48,
-    maxHeight: '80%',
+    maxHeight: '85%',
   },
   identityModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  identityModalEyebrow: {
+    fontSize: 11,
+    fontWeight: '800',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 2,
+    color: '#ccff00',
+  },
+  identityModalTagline: {
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 1.5,
+    color: 'rgba(255,255,255,0.4)',
+    textAlign: 'right',
+    marginTop: 4,
     marginBottom: 20,
   },
-  identityModalLabel: {
+  identityModalScroll: {
+    maxHeight: 500,
+  },
+  identityModalHeadline: {
+    fontSize: 28,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    color: '#FFFFFF',
+    lineHeight: 32,
+    marginBottom: 24,
+  },
+  identityModalHeadlineAccent: {
+    color: '#ccff00',
+  },
+  identityModalList: {
+    marginBottom: 24,
+  },
+  identityModalRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 16,
+    paddingVertical: 14,
+  },
+  identityModalIndex: {
+    fontSize: 15,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    color: '#ccff00',
+    width: 24,
+  },
+  identityModalRowText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
+    color: '#FFFFFF',
+    lineHeight: 21,
+  },
+  identityModalDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  identityModalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingTop: 12,
+  },
+  identityModalFooterLeft: {
+    fontSize: 9,
+    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 1.5,
+    color: 'rgba(255,255,255,0.4)',
+  },
+  identityModalFooterRight: {
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 2,
-  },
-  identityModalScroll: {
-    maxHeight: 400,
-  },
-  identityModalText: {
-    fontSize: 17,
-    fontWeight: '600',
-    lineHeight: 26,
+    fontFamily: 'Inter-Black',
+    letterSpacing: 1,
+    color: '#ccff00',
+    textAlign: 'right',
+    lineHeight: 13,
   },
   activityCardLocked: {
     opacity: 0.6,
