@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts, Inter_900Black, Inter_700Bold } from '@expo-google-fonts/inter';
+import { Yellowtail_400Regular } from '@expo-google-fonts/yellowtail';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
@@ -144,6 +145,7 @@ export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     'Inter-Black': Inter_900Black,
     'Inter-Bold': Inter_700Bold,
+    'Yellowtail': Yellowtail_400Regular,
   });
 
   useEffect(() => {

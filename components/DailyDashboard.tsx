@@ -14,6 +14,7 @@ import {
   Modal,
   Platform,
   AppState,
+  ImageBackground,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -1332,12 +1333,17 @@ export default function DailyDashboard({
         onRequestClose={() => setShowIdentityModal(false)}
       >
         <View style={styles.identityModalOverlay}>
-          <LinearGradient
-            colors={['#0A0A0A', '#111400', '#000000']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.identityModalCard}
-          >
+          <View style={styles.identityModalCard}>
+            <ImageBackground
+              source={require('@/assets/images/identity-modal-bg.png')}
+              style={StyleSheet.absoluteFillObject}
+              resizeMode="cover"
+            >
+              <LinearGradient
+                colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.75)', 'rgba(0,0,0,0.95)']}
+                style={StyleSheet.absoluteFillObject}
+              />
+            </ImageBackground>
             <View style={styles.identityModalHeader}>
               <Text style={styles.identityModalEyebrow}>MY IDENTITY</Text>
               <TouchableOpacity
@@ -1374,10 +1380,10 @@ export default function DailyDashboard({
 
               <View style={styles.identityModalFooter}>
                 <Text style={styles.identityModalFooterLeft}>IDENTITY  →  ACTION  →  EVIDENCE</Text>
-                <Text style={styles.identityModalFooterRight}>COMPOUND{'\n'}TO GREATNESS</Text>
+                <Text style={styles.identityModalFooterScript}>Keep Going.</Text>
               </View>
             </ScrollView>
-          </LinearGradient>
+          </View>
         </View>
       </Modal>
     </View>
@@ -1870,14 +1876,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     color: 'rgba(255,255,255,0.4)',
   },
-  identityModalFooterRight: {
-    fontSize: 10,
-    fontWeight: '800',
-    fontFamily: 'Inter-Black',
-    letterSpacing: 1,
+  identityModalFooterScript: {
+    fontSize: 22,
+    fontFamily: 'Yellowtail',
     color: '#ccff00',
-    textAlign: 'right',
-    lineHeight: 13,
   },
   activityCardLocked: {
     opacity: 0.6,
