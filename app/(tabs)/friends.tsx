@@ -190,21 +190,30 @@ export default function FriendsScreen() {
     }
   };
 
-  const cancelFriendRequest = async (friendId: string) => {
+  const deleteFriend = async (friend: FriendWithStreak) => {
     if (!user) return;
     try {
-      const { error: delErr } = await supabase
-        .from('friendships')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('friend_id', friendId)
-        .eq('status', 'pending');
-      if (delErr) throw delErr;
+      if (friend.status === 'pending') {
+        const { error: delErr } = await supabase
+          .from('friendships')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('friend_id', friend.id)
+          .eq('status', 'pending');
+        if (delErr) throw delErr;
+      } else {
+        const { error: delErr } = await supabase
+          .from('friendships')
+          .delete()
+          .or(`and(user_id.eq.${user.id},friend_id.eq.${friend.id}),and(user_id.eq.${friend.id},friend_id.eq.${user.id})`)
+          .eq('status', 'accepted');
+        if (delErr) throw delErr;
+      }
       queryClient.setQueryData<FriendWithStreak[]>(friendsKey(user.id), (prev = []) =>
-        prev.filter((f) => f.id !== friendId)
+        prev.filter((f) => f.id !== friend.id)
       );
     } catch (e: any) {
-      setError(e.message || 'Failed to cancel friend request');
+      setError(e.message || 'Failed to remove friend');
     }
   };
 
@@ -628,19 +637,18 @@ export default function FriendsScreen() {
                   >
                     <Swipeable
                       ref={(ref) => { swipeableRefs.current[friend.id] = ref; }}
-                      renderRightActions={
-                        friend.status === 'accepted'
-                          ? (progress) => renderSwipeAction(progress, 'Block', <Ban size={20} color="#FFFFFF" strokeWidth={2.5} />, '#fc433d', () => {
-                              setBlockConfirmId(friend.id);
-                              swipeableRefs.current[friend.id]?.close();
-                            })
-                          : friend.status === 'pending'
-                          ? (progress) => renderSwipeAction(progress, 'Delete', <Trash2 size={20} color="#FFFFFF" strokeWidth={2.5} />, '#3A3A3A', () => {
-                              swipeableRefs.current[friend.id]?.close();
-                              cancelFriendRequest(friend.id);
-                            })
-                          : undefined
-                      }
+                      renderRightActions={(progress) => (
+                        <View style={styles.swipeActionsRow}>
+                          {renderSwipeAction(progress, 'Delete', <Trash2 size={20} color="#FFFFFF" strokeWidth={2.5} />, '#3A3A3A', () => {
+                            swipeableRefs.current[friend.id]?.close();
+                            deleteFriend(friend);
+                          })}
+                          {renderSwipeAction(progress, 'Block', <Ban size={20} color="#FFFFFF" strokeWidth={2.5} />, '#fc433d', () => {
+                            setBlockConfirmId(friend.id);
+                            swipeableRefs.current[friend.id]?.close();
+                          })}
+                        </View>
+                      )}
                       overshootRight={false}
                     >
                     <View style={styles.friendHeader}>
@@ -1358,8 +1366,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
+  swipeActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 12,
+    gap: 8,
+  },
   swipeAction: {
     width: 80,
+    marginVertical: 10,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
