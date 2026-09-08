@@ -68,6 +68,7 @@ export default function FriendsScreen() {
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
   const [blockConfirmId, setBlockConfirmId] = useState<string | null>(null);
   const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
+  const [inboxLoading, setInboxLoading] = useState(true);
   const [myDisplayName, setMyDisplayName] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipeableRefs = useRef<Record<string, Swipeable | null>>({});
@@ -78,13 +79,18 @@ export default function FriendsScreen() {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setInboxLoading(false);
+      return;
+    }
     (async () => {
       try {
         const items = await getInboxItems(user.id);
         setInboxItems(items);
       } catch {
         // silently fail — inbox is non-critical
+      } finally {
+        setInboxLoading(false);
       }
     })();
   }, [user]);
@@ -430,7 +436,7 @@ export default function FriendsScreen() {
 
   const displayError = error ?? (friendsLoadError ? (friendsLoadError as Error).message || 'Failed to load friends' : null);
 
-  if (loading) {
+  if (loading || inboxLoading) {
     return <BrandedLoadingScreen />;
   }
 

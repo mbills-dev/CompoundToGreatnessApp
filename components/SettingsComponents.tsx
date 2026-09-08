@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import Animated, {
   useAnimatedStyle,
+  useSharedValue,
   withTiming,
   interpolateColor,
 } from 'react-native-reanimated';
@@ -61,14 +62,27 @@ interface ProfilePhotoSectionProps {
 }
 
 export function ProfilePhotoSection({ profilePhoto, uploading, onPress, colors }: ProfilePhotoSectionProps) {
+  const photoOpacity = useSharedValue(0);
+
+  React.useEffect(() => {
+    photoOpacity.value = 0;
+  }, [profilePhoto]);
+
+  const photoAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: photoOpacity.value,
+  }));
+
   return (
     <TouchableOpacity style={styles.profileSection} onPress={onPress} disabled={uploading} activeOpacity={0.7}>
-      {profilePhoto ? (
-        <Image source={{ uri: profilePhoto }} style={styles.profilePhoto} />
-      ) : (
-        <View style={[styles.profilePhotoPlaceholder, { backgroundColor: colors.textTertiary }]}>
-          <User size={36} color="#FFFFFF" strokeWidth={1.8} />
-        </View>
+      <View style={[styles.profilePhotoPlaceholder, { backgroundColor: colors.textTertiary }]}>
+        <User size={36} color="#FFFFFF" strokeWidth={1.8} />
+      </View>
+      {profilePhoto && (
+        <Animated.Image
+          source={{ uri: profilePhoto }}
+          style={[styles.profilePhoto, styles.profilePhotoOverlay, photoAnimatedStyle]}
+          onLoad={() => { photoOpacity.value = withTiming(1, { duration: 200 }); }}
+        />
       )}
       <View style={[styles.cameraButton, { backgroundColor: colors.primary }]}>
         {uploading ? (
@@ -396,6 +410,11 @@ const styles = StyleSheet.create({
     borderRadius: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  profilePhotoOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   cameraButton: {
     position: 'absolute',
