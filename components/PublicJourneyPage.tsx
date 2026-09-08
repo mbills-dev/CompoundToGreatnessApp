@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChallengeWall from './ChallengeWall';
+import { responsiveStyle } from '@/components/ResponsiveContainer';
 import MonthWall from './MonthWall';
 import { getDateForChallengeDay, getTodayDateString, toLocalDateString, parseLocalDate } from '@/lib/dateHelpers';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
@@ -462,13 +463,20 @@ function EncourageModal({ visible, onClose, watchedUserId, watchedName }: Encour
   const doneCloseBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent presentationStyle="pageSheet">
+    <Modal
+      visible={visible}
+      animationType={Platform.OS === 'web' ? 'fade' : 'slide'}
+      transparent
+      presentationStyle="pageSheet"
+    >
       <KeyboardAvoidingView
         style={styles.modalOverlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={[styles.modalSheet, { backgroundColor: sheetBg, borderColor }]}>
-          <View style={[styles.dragHandle, { backgroundColor: dragBg }]} />
+        <View style={[styles.modalSheet, responsiveStyle.sheet, { backgroundColor: sheetBg, borderColor }]}>
+          {Platform.OS !== 'web' && (
+            <View style={[styles.dragHandle, { backgroundColor: dragBg }]} />
+          )}
 
           <View style={styles.modalTopRow}>
             <Text style={[styles.modalTitle, { color: textPrimary }]}>
@@ -858,14 +866,19 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
+    alignItems: Platform.OS === 'web' ? 'center' : 'stretch',
     backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: Platform.OS === 'web' ? 20 : 0,
   },
   modalSheet: {
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    borderBottomLeftRadius: Platform.OS === 'web' ? 28 : 0,
+    borderBottomRightRadius: Platform.OS === 'web' ? 28 : 0,
     padding: 28,
-    paddingBottom: 48,
+    paddingBottom: Platform.OS === 'web' ? 28 : 48,
+    borderWidth: Platform.OS === 'web' ? 1 : 0,
     borderTopWidth: 1,
   },
   dragHandle: {
