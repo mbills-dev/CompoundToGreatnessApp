@@ -67,6 +67,7 @@ export default function FriendsScreen() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
   const [blockConfirmId, setBlockConfirmId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
   const [inboxLoading, setInboxLoading] = useState(true);
   const [myDisplayName, setMyDisplayName] = useState('');
@@ -641,7 +642,7 @@ export default function FriendsScreen() {
                         <View style={styles.swipeActionsRow}>
                           {renderSwipeAction(progress, 'Delete', <Trash2 size={20} color="#FFFFFF" strokeWidth={2.5} />, '#3A3A3A', () => {
                             swipeableRefs.current[friend.id]?.close();
-                            deleteFriend(friend);
+                            setDeleteConfirmId(friend.id);
                           })}
                           {renderSwipeAction(progress, 'Block', <Ban size={20} color="#FFFFFF" strokeWidth={2.5} />, '#fc433d', () => {
                             setBlockConfirmId(friend.id);
@@ -710,6 +711,32 @@ export default function FriendsScreen() {
                           >
                             <Ban size={16} color="#FFFFFF" strokeWidth={2.5} />
                             <Text style={styles.blockConfirmButtonText}>Block</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ) : deleteConfirmId === friend.id ? (
+                      <View style={[styles.deleteConfirmRow, { borderColor: colors.border }]}>
+                        <Text style={[styles.blockConfirmText, { color: colors.textSecondary }]}>
+                          {friend.status === 'pending'
+                            ? `Cancel your friend request to @${friend.username}?`
+                            : `Remove @${friend.username} from your friends? You can add them again later.`}
+                        </Text>
+                        <View style={styles.blockConfirmActions}>
+                          <TouchableOpacity
+                            style={styles.blockCancelButton}
+                            onPress={() => setDeleteConfirmId(null)}
+                          >
+                            <Text style={[styles.blockCancelText, { color: colors.textTertiary }]}>Cancel</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.deleteConfirmButton}
+                            onPress={() => {
+                              setDeleteConfirmId(null);
+                              deleteFriend(friend);
+                            }}
+                          >
+                            <Trash2 size={16} color="#FFFFFF" strokeWidth={2.5} />
+                            <Text style={styles.blockConfirmButtonText}>Delete</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -1395,6 +1422,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(252,67,61,0.06)',
     gap: 12,
   },
+  deleteConfirmRow: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(120,120,120,0.3)',
+    backgroundColor: 'rgba(120,120,120,0.08)',
+  },
   blockConfirmText: {
     fontSize: 13,
     fontWeight: '600',
@@ -1424,6 +1459,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 10,
     backgroundColor: '#fc433d',
+  },
+  deleteConfirmButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: '#3A3A3A',
   },
   blockConfirmButtonText: {
     fontSize: 14,
