@@ -727,7 +727,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   identitySection: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 20,
     paddingHorizontal: 8,
   },
@@ -743,7 +743,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     fontFamily: 'Inter-Bold',
-    textAlign: 'center',
+    textAlign: 'left',
     lineHeight: 28,
     fontStyle: 'italic',
   },
