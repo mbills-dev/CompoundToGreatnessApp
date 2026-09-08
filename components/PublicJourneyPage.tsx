@@ -435,6 +435,13 @@ function EncourageModal({ visible, onClose, watchedUserId, watchedName }: Encour
         email: email.trim().toLowerCase(),
         message: message.trim() || null,
       });
+
+      supabase.functions
+        .invoke('tag-journey-lead', {
+          body: { email: email.trim().toLowerCase(), name: name.trim() },
+        })
+        .catch(() => {});
+
       setDone(true);
     } catch {
       setError('Something went wrong. Please try again.');
