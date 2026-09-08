@@ -216,7 +216,7 @@ export default function PublicJourneyPage({ username }: Props) {
           style={styles.startOwnButton}
           onPress={() => {
             if (Platform.OS === 'web' && typeof window !== 'undefined') {
-              window.open('https://apps.apple.com/app/your-app-id', '_blank');
+              window.open('https://compoundtogreatness.com', '_blank');
             }
           }}
         >
@@ -372,7 +372,7 @@ export default function PublicJourneyPage({ username }: Props) {
             style={[styles.startOwnOutline, { borderColor }]}
             onPress={() => {
               if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                window.open('https://apps.apple.com/app/your-app-id', '_blank');
+                window.open('https://compoundtogreatness.com', '_blank');
               }
             }}
           >
