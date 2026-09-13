@@ -912,39 +912,42 @@ function QuickReactButton({ emoji, onPress }: { emoji: string; onPress: () => vo
   );
 }
 
+const BURST_PAGE_WIDTH = 38 * 4 + 8 * 3;
+
 function QuickReactRow({ friendId, onReact }: { friendId: string; onReact: (friendId: string, emoji: string) => void }) {
   const [page, setPage] = useState(0);
 
   return (
     <View>
-      <ScrollView
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        scrollEventThrottle={16}
-        onScroll={(e) => {
-          const x = e.nativeEvent.contentOffset.x;
-          const w = e.nativeEvent.layoutMeasurement.width;
-          if (w > 0) {
-            const newPage = Math.round(x / w);
-            if (newPage !== page) setPage(newPage);
-          }
-        }}
-        style={styles.burstCarousel}
-        contentContainerStyle={styles.burstCarouselContent}
-      >
-        {BURST_PAGES.map((emojis, pageIndex) => (
-          <View key={pageIndex} style={styles.burstCarouselPage}>
-            {emojis.map((emoji) => (
-              <QuickReactButton
-                key={emoji}
-                emoji={emoji}
-                onPress={() => onReact(friendId, emoji)}
-              />
-            ))}
-          </View>
-        ))}
-      </ScrollView>
+      <View style={styles.burstCarouselViewport}>
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={(e) => {
+            const x = e.nativeEvent.contentOffset.x;
+            if (BURST_PAGE_WIDTH > 0) {
+              const newPage = Math.round(x / BURST_PAGE_WIDTH);
+              if (newPage !== page) setPage(newPage);
+            }
+          }}
+          style={styles.burstCarousel}
+          contentContainerStyle={styles.burstCarouselContent}
+        >
+          {BURST_PAGES.map((emojis, pageIndex) => (
+            <View key={pageIndex} style={[styles.burstCarouselPage, { width: BURST_PAGE_WIDTH }]}>
+              {emojis.map((emoji) => (
+                <QuickReactButton
+                  key={emoji}
+                  emoji={emoji}
+                  onPress={() => onReact(friendId, emoji)}
+                />
+              ))}
+            </View>
+          ))}
+        </ScrollView>
+      </View>
       <View style={styles.burstDots}>
         {BURST_PAGES.map((_, i) => (
           <View
@@ -1294,8 +1297,12 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     gap: 8,
   },
+  burstCarouselViewport: {
+    width: BURST_PAGE_WIDTH,
+    overflow: 'hidden',
+  },
   burstCarousel: {
-    flexDirection: 'row',
+    width: BURST_PAGE_WIDTH,
   },
   burstCarouselContent: {
     flexGrow: 0,
@@ -1303,7 +1310,6 @@ const styles = StyleSheet.create({
   burstCarouselPage: {
     flexDirection: 'row',
     gap: 8,
-    width: 174,
   },
   burstDots: {
     flexDirection: 'row',
