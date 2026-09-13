@@ -46,7 +46,7 @@ export default function EncourageModal({
           <View style={styles.handle} />
 
           <View style={styles.headerRow}>
-            <Text style={[styles.title, { color: colors.text }]}>ENCOURAGE {friendName.toUpperCase()}</Text>
+            <Text style={[styles.title, { color: colors.text }]}>SEND ENCOURAGEMENT</Text>
             <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
               <X size={22} color={colors.textTertiary} strokeWidth={2.5} />
             </TouchableOpacity>
@@ -64,8 +64,10 @@ export default function EncourageModal({
             )}
             <Text style={[styles.identityName, { color: colors.text }]} numberOfLines={1}>{friendName}</Text>
             <View style={styles.streakPill}>
-              <Zap size={13} color={colors.primary} fill={colors.primary} strokeWidth={2.5} />
-              <Text style={[styles.streakNumber, { color: colors.text }]}>{friendStreak}</Text>
+              <View style={styles.streakNumberRow}>
+                <Zap size={15} color={colors.primary} fill={colors.primary} strokeWidth={2.5} />
+                <Text style={[styles.streakNumber, { color: colors.text }]}>{friendStreak}</Text>
+              </View>
               <Text style={[styles.streakLabel, { color: colors.primary }]}>DAY STREAK</Text>
             </View>
           </View>
@@ -79,6 +81,7 @@ export default function EncourageModal({
             multiline
             autoFocus
             maxLength={500}
+            selectionColor="#CCFF00"
           />
 
           <Text style={styles.sectionLabel}>QUICK ENCOURAGEMENT</Text>
@@ -95,10 +98,6 @@ export default function EncourageModal({
               </TouchableOpacity>
             ))}
           </View>
-
-          <Text style={[styles.helperText, { color: colors.textTertiary }]}>
-            Bursts are instant. Messages stay in their inbox.
-          </Text>
 
           <TouchableOpacity
             style={styles.sendButton}
@@ -180,12 +179,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Black',
   },
   streakPill: {
+    alignItems: 'flex-end',
+  },
+  streakNumberRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
   },
   streakNumber: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
   },
@@ -193,17 +195,18 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: '800',
     fontFamily: 'Inter-Bold',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
+    marginTop: 1,
   },
   messageInput: {
     borderWidth: 1.5,
     borderRadius: 14,
-    padding: 16,
+    padding: 14,
     fontSize: 15,
     fontWeight: '600',
     fontFamily: 'Inter-Bold',
-    minHeight: 90,
-    maxHeight: 140,
+    minHeight: 72,
+    maxHeight: 112,
     textAlignVertical: 'top',
   },
   sectionLabel: {
@@ -230,13 +233,6 @@ const styles = StyleSheet.create({
   },
   emojiText: {
     fontSize: 24,
-  },
-  helperText: {
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'Inter-Bold',
-    marginTop: 14,
-    marginBottom: 16,
   },
   sendButton: {
     flexDirection: 'row',

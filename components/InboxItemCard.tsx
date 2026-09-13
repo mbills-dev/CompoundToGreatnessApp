@@ -104,11 +104,11 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 14,
     borderWidth: 1,
-    padding: 14,
-    gap: 6,
+    padding: 11,
+    gap: 5,
   },
   itemBody: {
-    gap: 4,
+    gap: 3,
   },
   senderRow: {
     flexDirection: 'row',
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 2,
+    marginTop: 1,
   },
   timestamp: {
     fontSize: 11,

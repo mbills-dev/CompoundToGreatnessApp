@@ -90,33 +90,35 @@ export default function InboxScreen() {
       </View>
 
       <View style={styles.filterRow}>
-        {filters.map((filter) => (
-          <TouchableOpacity
-            key={filter.key}
-            style={[
-              styles.filterTab,
-              {
-                backgroundColor: activeFilter === filter.key ? '#CCFF00' : 'transparent',
-              },
-            ]}
-            onPress={() => {
-              setActiveFilter(filter.key);
-              setVisibleCount(PAGE_SIZE);
-            }}
-            activeOpacity={0.7}
-          >
-            <Text
+        <View style={styles.filterContainer}>
+          {filters.map((filter) => (
+            <TouchableOpacity
+              key={filter.key}
               style={[
-                styles.filterText,
+                styles.filterTab,
                 {
-                  color: activeFilter === filter.key ? '#000000' : colors.textTertiary,
+                  backgroundColor: activeFilter === filter.key ? '#CCFF00' : 'transparent',
                 },
               ]}
+              onPress={() => {
+                setActiveFilter(filter.key);
+                setVisibleCount(PAGE_SIZE);
+              }}
+              activeOpacity={0.7}
             >
-              {filter.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.filterText,
+                  {
+                    color: activeFilter === filter.key ? '#000000' : colors.textTertiary,
+                  },
+                ]}
+              >
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       {loading ? (
@@ -207,13 +209,23 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
+    paddingVertical: 10,
+    gap: 4,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    flex: 1,
+    backgroundColor: 'rgba(128,128,128,0.12)',
+    borderRadius: 10,
+    padding: 3,
+    gap: 3,
   },
   filterTab: {
+    flex: 1,
     paddingVertical: 7,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    borderRadius: 7,
+    alignItems: 'center',
   },
   filterText: {
     fontSize: 12,
