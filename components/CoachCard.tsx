@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ImageBackground, ImageSourcePropType } from 'react-native';
 import { MILESTONE_DATA, getNextMilestone, getMilestoneProgress, isMilestoneDay } from '@/constants/milestones';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -106,19 +106,32 @@ const DAYS: DayEntry[] = [
 
 interface CoachCardProps {
   challengeDay: number;
+  firstName?: string;
+  backgroundImage?: ImageSourcePropType;
 }
 
-export default function CoachCard({ challengeDay }: CoachCardProps) {
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'GOOD MORNING';
+  if (hour < 17) return 'GOOD AFTERNOON';
+  return 'GOOD EVENING';
+}
+
+export default function CoachCard({ challengeDay, firstName, backgroundImage }: CoachCardProps) {
   const { colors, isDark } = useTheme();
   const cardBg = '#1A1A1A';
   const textPrimary = '#FFFFFF';
-  const textAttr = '#444444';
-  const footerLabelColor = '#555555';
+  const textAttr = 'rgba(255,255,255,0.45)';
+  const footerLabelColor = 'rgba(255,255,255,0.4)';
   const footerBorderColor = 'rgba(255,255,255,0.08)';
   const progressTrackBg = 'rgba(255,255,255,0.12)';
   const day = challengeDay || 1;
   const index = Math.min(Math.max(day - 1, 0), DAYS.length - 1);
   const entry = DAYS[index];
+
+  const greeting = firstName
+    ? `${getGreeting()}, ${firstName.toUpperCase()}`
+    : null;
 
   if (entry.type === 'milestone') {
     const isLastMilestone = MILESTONE_DATA[day]?.nextMilestone === null;
@@ -151,9 +164,23 @@ export default function CoachCard({ challengeDay }: CoachCardProps) {
   const nextMilestone = getNextMilestone(day);
   const progress = getMilestoneProgress(day);
 
+  const hasImage = !!backgroundImage;
+
   return (
     <View style={[styles.quoteCard, { backgroundColor: cardBg }]}>
+      {hasImage && (
+        <ImageBackground
+          source={backgroundImage!}
+          style={StyleSheet.absoluteFillObject}
+          imageStyle={{ resizeMode: 'cover' }}
+        >
+          <View style={styles.imageOverlay} />
+        </ImageBackground>
+      )}
       <View style={styles.quoteContent}>
+        {greeting && (
+          <Text style={styles.eyebrow}>{greeting}</Text>
+        )}
         <Text style={[styles.quoteLine1, { color: textPrimary }]}>{quoteEntry.l1}</Text>
         <Text style={styles.quoteLine2}>{quoteEntry.l2}</Text>
         <Text style={[styles.quoteLine3, { color: textPrimary }]}>{quoteEntry.l3}</Text>
@@ -174,14 +201,25 @@ export default function CoachCard({ challengeDay }: CoachCardProps) {
 
 const styles = StyleSheet.create({
   quoteCard: {
-    backgroundColor: '#1A1A1A',
     borderRadius: 16,
     marginBottom: 16,
     overflow: 'hidden',
   },
+  imageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10,10,10,0.82)',
+  },
   quoteContent: {
     padding: 16,
-    paddingBottom: 14,
+    paddingBottom: 12,
+  },
+  eyebrow: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#CCFF00',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom: 8,
   },
   quoteLine1: {
     fontSize: 25,
@@ -203,11 +241,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     lineHeight: 25,
     letterSpacing: -0.25,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   quoteAttr: {
     fontSize: 9,
-    color: '#444444',
+    color: 'rgba(255,255,255,0.45)',
     textTransform: 'uppercase',
     letterSpacing: 1,
     fontWeight: '600',
@@ -223,7 +261,7 @@ const styles = StyleSheet.create({
   },
   quoteNextLabel: {
     fontSize: 8,
-    color: '#555555',
+    color: 'rgba(255,255,255,0.4)',
     textTransform: 'uppercase',
     letterSpacing: 1,
     fontWeight: '700',

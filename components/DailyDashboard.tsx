@@ -1040,7 +1040,10 @@ export default function DailyDashboard({
                 </View>
               </View>
             ) : (
-              <CoachCard challengeDay={displayDay} />
+              <CoachCard
+                challengeDay={displayDay}
+                firstName={user?.user_metadata?.first_name}
+              />
             )}
 
             {goal.identity_statement && (() => {
