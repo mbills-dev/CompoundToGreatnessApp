@@ -680,6 +680,14 @@ export default function FriendsScreen() {
                     </View>
                     </Swipeable>
 
+                    {friend.status === 'accepted' && friend.todayTotal > 0 && (
+                      <TodayProgress
+                        completed={friend.todayCompleted}
+                        total={friend.todayTotal}
+                        isDark={isDark}
+                      />
+                    )}
+
                     {blockConfirmId === friend.id ? (
                       <View style={[styles.blockConfirmRow, { borderColor: colors.border }]}>
                         <Text style={[styles.blockConfirmText, { color: colors.textSecondary }]}>
@@ -840,6 +848,30 @@ export default function FriendsScreen() {
 }
 
 const QUICK_EMOJIS = ['🔥', '💪', '👏', '🚀'];
+
+function TodayProgress({ completed, total, isDark }: { completed: number; total: number; isDark: boolean }) {
+  const allDone = completed >= total && total > 0;
+  const pct = total > 0 ? Math.min(completed / total, 1) : 0;
+  const trackColor = isDark ? '#1A1A1A' : 'rgba(0,0,0,0.08)';
+  const fillColor = allDone ? '#CCFF00' : isDark ? '#808080' : 'rgba(0,0,0,0.25)';
+  const textColor = allDone ? '#CCFF00' : isDark ? '#808080' : 'rgba(0,0,0,0.5)';
+
+  return (
+    <View style={styles.todayProgressRow}>
+      <Text style={[styles.todayProgressText, { color: textColor }]}>
+        {completed} / {total} TODAY
+      </Text>
+      <View style={[styles.todayProgressBar, { backgroundColor: trackColor }]}>
+        <View
+          style={[
+            styles.todayProgressFill,
+            { width: `${pct * 100}%`, backgroundColor: fillColor },
+          ]}
+        />
+      </View>
+    </View>
+  );
+}
 
 function QuickReactButton({ emoji, onPress }: { emoji: string; onPress: () => void }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -1136,6 +1168,29 @@ const styles = StyleSheet.create({
   },
   encouragementSection: {
     marginTop: 16,
+  },
+  todayProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 16,
+  },
+  todayProgressText: {
+    fontSize: 13,
+    fontWeight: '800',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 0.5,
+    minWidth: 90,
+  },
+  todayProgressBar: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  todayProgressFill: {
+    height: '100%',
+    borderRadius: 2,
   },
   actionButtons: {
     flexDirection: 'column',

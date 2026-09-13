@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { computeStreaksForGoals } from '@/lib/streakHelpers';
+import { getTodayDateString } from '@/lib/dateHelpers';
 
 export interface FriendWithStreak {
   id: string;
@@ -12,9 +13,53 @@ export interface FriendWithStreak {
   isWatching: boolean;
   status: 'pending' | 'accepted' | 'blocked';
   photo_url?: string | null;
+  todayCompleted: number;
+  todayTotal: number;
 }
 
 export const friendsKey = (userId: string | undefined) => ['friends', userId];
+
+async function fetchTodayProgress(
+  goalIds: string[]
+): Promise<Map<string, { total: number; completed: number }>> {
+  const result = new Map<string, { total: number; completed: number }>();
+  if (goalIds.length === 0) return result;
+
+  const today = getTodayDateString();
+
+  const [actsRes, completionsRes] = await Promise.all([
+    supabase
+      .from('daily_activities')
+      .select('id, goal_id')
+      .in('goal_id', goalIds),
+    supabase
+      .from('daily_completions')
+      .select('goal_id, activities_completed')
+      .in('goal_id', goalIds)
+      .eq('completion_date', today),
+  ]);
+
+  if (actsRes.error || completionsRes.error) return result;
+
+  const totalByGoal = new Map<string, number>();
+  (actsRes.data || []).forEach((a) => {
+    totalByGoal.set(a.goal_id, (totalByGoal.get(a.goal_id) || 0) + 1);
+  });
+
+  const completedByGoal = new Map<string, number>();
+  (completionsRes.data || []).forEach((c) => {
+    const ids = Array.isArray(c.activities_completed) ? c.activities_completed : [];
+    completedByGoal.set(c.goal_id, ids.length);
+  });
+
+  for (const goalId of goalIds) {
+    const total = totalByGoal.get(goalId) || 0;
+    const completed = completedByGoal.get(goalId) || 0;
+    result.set(goalId, { total, completed });
+  }
+
+  return result;
+}
 
 export async function fetchFriends(userId: string): Promise<FriendWithStreak[]> {
   // Fetch friendships where current user is on either side (exclude blocked)
@@ -105,8 +150,11 @@ export async function fetchFriends(userId: string): Promise<FriendWithStreak[]> 
     return goal ? (streakMap.get(goal.id) ?? 0) : 0;
   });
 
+  const todayProgressMap = await fetchTodayProgress(goalIdsForStreaks);
+
   const friendsData: FriendWithStreak[] = profileList.map((p, i) => {
     const goal = goalMap.get(p.id);
+    const progress = goal ? todayProgressMap.get(goal.id) : undefined;
     return {
       id: p.id,
       username: p.username || '',
@@ -118,6 +166,8 @@ export async function fetchFriends(userId: string): Promise<FriendWithStreak[]> 
       isWatching: myWatchedIds.has(p.id),
       status: statusByFriendId.get(p.id) || 'accepted',
       photo_url: p.photo_url || null,
+      todayCompleted: progress?.completed ?? 0,
+      todayTotal: progress?.total ?? 0,
     };
   });
 
