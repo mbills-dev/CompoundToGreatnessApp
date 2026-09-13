@@ -244,7 +244,6 @@ export default function DailyDashboard({
   const [gracePeriodMode, setGracePeriodMode] = useState<'grace' | 'reset'>('grace');
   const [realtimeGen, setRealtimeGen] = useState(0);
   const [showIdentityModal, setShowIdentityModal] = useState(false);
-  const [identityTruncated, setIdentityTruncated] = useState(false);
   const prevAppStateRef = useRef<string>('active');
   const completionRef = useRef<DailyCompletion | null>(null);
   const refetchIfDayChangedRef = useRef<(() => void) | null>(null);
@@ -1044,33 +1043,41 @@ export default function DailyDashboard({
               <CoachCard challengeDay={displayDay} />
             )}
 
-            {goal.identity_statement && (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => setShowIdentityModal(true)}
-                style={[styles.identityChip, {
-                  backgroundColor: isDark ? colors.backgroundSecondary : '#1A1A1A',
-                  borderColor: isDark ? colors.border : '#1A1A1A',
-                }]}
-              >
-                <Text style={styles.identityChipLabel}>MY IDENTITY</Text>
-                <Text style={styles.identityChipHeadline}>
-                  THIS IS WHO I AM <Text style={styles.identityChipHeadlineAccent}>BECOMING.</Text>
-                </Text>
-                <Text
-                  style={styles.identityChipText}
-                  numberOfLines={4}
-                  onTextLayout={(e) => {
-                    setIdentityTruncated(e.nativeEvent.lines.length > 4);
-                  }}
+            {goal.identity_statement && (() => {
+              const identityStatements = (goal.identity_statement || '')
+                .split('\n')
+                .map((line) => line.trim())
+                .filter(Boolean);
+              const totalStatements = identityStatements.length;
+              const previewStatements = identityStatements.slice(0, 3);
+              return (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => setShowIdentityModal(true)}
+                  style={[styles.identityChip, {
+                    backgroundColor: isDark ? colors.backgroundSecondary : '#1A1A1A',
+                    borderColor: isDark ? colors.border : '#1A1A1A',
+                  }]}
                 >
-                  {goal.identity_statement}
-                </Text>
-                {identityTruncated && (
-                  <Text style={styles.identityChipHint}>+ tap to see all</Text>
-                )}
-              </TouchableOpacity>
-            )}
+                  <Text style={styles.identityChipLabel}>MY IDENTITY</Text>
+                  <Text style={styles.identityChipHeadline}>
+                    THIS IS WHO I AM <Text style={styles.identityChipHeadlineAccent}>BECOMING.</Text>
+                  </Text>
+                  <View style={styles.identityChipStatements}>
+                    {previewStatements.map((stmt, i) => (
+                      <Text key={i} style={styles.identityChipText} numberOfLines={1}>
+                        {stmt}
+                      </Text>
+                    ))}
+                  </View>
+                  <View style={styles.identityChipFooter}>
+                    <Text style={styles.identityChipViewAll}>
+                      VIEW ALL {totalStatements} →
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })()}
 
             <View style={[styles.watcherBadge, {
               backgroundColor: isDark ? colors.backgroundSecondary : colors.card,
@@ -1754,9 +1761,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1.5,
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingVertical: 16,
     marginBottom: 16,
-    gap: 4,
+    gap: 6,
   },
   identityChipLabel: {
     fontSize: 10,
@@ -1765,27 +1772,37 @@ const styles = StyleSheet.create({
     color: '#ccff00',
   },
   identityChipHeadline: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
     color: '#FFFFFF',
-    lineHeight: 24,
-    marginBottom: 8,
+    lineHeight: 27,
+    marginBottom: 14,
   },
   identityChipHeadlineAccent: {
     color: '#ccff00',
   },
-  identityChipText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    lineHeight: 22,
+  identityChipStatements: {
+    gap: 4,
   },
-  identityChipHint: {
-    fontSize: 12,
+  identityChipText: {
+    fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter-Bold',
+    color: 'rgba(255,255,255,0.7)',
+    lineHeight: 20,
+  },
+  identityChipFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 10,
+  },
+  identityChipViewAll: {
+    fontSize: 11,
+    fontWeight: '800',
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 1,
     color: '#ccff00',
-    marginTop: 4,
   },
   identityModalOverlay: {
     flex: 1,
