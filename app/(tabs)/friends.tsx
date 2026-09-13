@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Swipeable } from 'react-native-gesture-handler';
-import { Heart, UserPlus, Eye, Share2, Zap, Check, X, Ban, Clock, Trash2 } from 'lucide-react-native';
+import { Heart, UserPlus, Eye, Share2, Zap, Check, X, Ban, Clock, Trash2, Plus, MoreVertical } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,8 +22,9 @@ import { computeCurrentStreak } from '@/lib/streakHelpers';
 import InviteWatcherModal from '@/components/InviteWatcherModal';
 import { getInboxItems, markInboxItemRead, inboxKey, type InboxItem } from '@/lib/inboxHelpers';
 import InboxItemCard from '@/components/InboxItemCard';
+import ReactionBurst from '@/components/ReactionBurst';
 import { useRouter } from 'expo-router';
-import { Animated } from 'react-native';
+import { Animated, Modal } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchFriends, friendsKey, FriendWithStreak } from '@/hooks/useFriends';
 import { awardWatcherBadges, awardEncouragementBadge } from '@/lib/badgeHelpers';
@@ -63,6 +64,9 @@ export default function FriendsScreen() {
   const [selectedFriend, setSelectedFriend] = useState<string | null>(null);
   const [encouragementMessage, setEncouragementMessage] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showAddFriendModal, setShowAddFriendModal] = useState(false);
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [burstPreview, setBurstPreview] = useState<{ emoji: string; count: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
@@ -387,6 +391,7 @@ export default function FriendsScreen() {
 
   const sendQuickReact = async (friendId: string, emoji: string) => {
     if (!user) return;
+    setBurstPreview({ emoji, count: 1 });
     try {
       const { error: insErr } = await supabase
         .from('encouragements')
@@ -448,67 +453,17 @@ export default function FriendsScreen() {
           <View style={styles.headerTop}>
             <View>
               <Text style={[styles.title, { color: colors.text }]}>Your Friends</Text>
+              <Text style={[styles.headerSubLabel, { color: colors.textTertiary }]}>
+                {friends.filter(f => f.isWatching).length} {friends.filter(f => f.isWatching).length === 1 ? "person" : "people"} you're watching
+              </Text>
             </View>
-          </View>
-
-          {isSubscribed && user ? (
             <TouchableOpacity
-              style={[styles.inviteButton, { backgroundColor: colors.primary }]}
-              onPress={() => setShowInviteModal(true)}
+              style={[styles.addButton, { backgroundColor: colors.primary }]}
+              onPress={() => setShowAddMenu(true)}
             >
-              <Share2 size={18} color="#000000" strokeWidth={2.5} />
-              <Text style={styles.inviteButtonText}>Invite Watchers</Text>
+              <Plus size={24} color="#000000" strokeWidth={2.5} />
             </TouchableOpacity>
-          ) : null}
-        </View>
-
-        <View style={styles.addFriendSection}>
-          <View style={styles.addFriendInputContainer}>
-            <TextInput
-              style={[styles.addFriendInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
-              placeholder="Enter username"
-              placeholderTextColor={colors.textTertiary}
-              value={searchUsername}
-              onChangeText={setSearchUsername}
-              autoCapitalize="none"
-            />
           </View>
-
-          {searching ? (
-            <View style={styles.searchLoadingRow}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={[styles.searchLoadingText, { color: colors.textTertiary }]}>Searching...</Text>
-            </View>
-          ) : searchResults.length > 0 ? (
-            <View style={[styles.searchResultsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              {searchResults.map((result) => (
-                <TouchableOpacity
-                  key={result.id}
-                  style={styles.searchResultRow}
-                  onPress={() => addFriend(result.id)}
-                >
-                  {result.photo_url ? (
-                    <Image source={{ uri: result.photo_url }} style={styles.searchResultAvatar} />
-                  ) : (
-                    <View style={[styles.searchResultAvatar, styles.avatarPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
-                      <Text style={styles.avatarText}>
-                        {(result.display_name || result.username || '?').charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                  <View style={styles.searchResultInfo}>
-                    <Text style={[styles.searchResultName, { color: colors.text }]}>
-                      {result.display_name || 'Unknown'}
-                    </Text>
-                    <Text style={[styles.searchResultUsername, { color: colors.textTertiary }]}>
-                      @{result.username}
-                    </Text>
-                  </View>
-                  <UserPlus size={20} color={colors.primary} strokeWidth={2.5} />
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : null}
         </View>
 
         {inboxItems.length > 0 && (
@@ -605,10 +560,6 @@ export default function FriendsScreen() {
         )}
 
         <View style={styles.content}>
-          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-            {friends.length} {friends.length === 1 ? 'person' : 'people'} crushing their goals
-          </Text>
-
           <View style={styles.friendsList}>
             {friends.length === 0 ? (
               <View style={styles.emptyState}>
@@ -641,10 +592,9 @@ export default function FriendsScreen() {
                     >
                     <View style={styles.friendHeader}>
                       <TouchableOpacity
-                        style={[styles.friendInfo, !friend.isWatching && { opacity: 0.6 }]}
+                        style={styles.friendInfo}
                         activeOpacity={0.7}
-                        onPress={() => router.push(`/friend/${friend.id}`)}
-                        disabled={!friend.isWatching}
+                        onPress={() => friend.isWatching ? router.push(`/friend/${friend.id}`) : toggleWatch(friend.id)}
                       >
                         {friend.photo_url ? (
                           <Image source={{ uri: friend.photo_url }} style={styles.avatarImage} />
@@ -656,26 +606,22 @@ export default function FriendsScreen() {
                           </View>
                         )}
                         <View style={styles.friendDetails}>
-                          <Text style={[styles.friendName, { color: colors.text }]}>{friend.display_name}</Text>
-                          <Text style={[styles.friendUsername, { color: colors.textTertiary }]}>@{friend.username}</Text>
-                          <Text style={[styles.friendGoal, { color: colors.textSecondary }]} numberOfLines={1}>
-                            {friend.goalTitle}
-                          </Text>
-                          <View style={styles.friendStats}>
-                            <Eye size={14} color={colors.textTertiary} strokeWidth={2.5} />
-                            <Text style={[styles.friendWatchers, { color: colors.textTertiary }]}>
-                              {friend.watchers} watching
-                            </Text>
-                          </View>
+                          <Text style={[styles.friendName, { color: colors.text }]} numberOfLines={1}>{friend.display_name}</Text>
+                          {friend.isWatching ? (
+                            <View style={styles.watchingStatusRow}>
+                              <View style={styles.watchingDot} />
+                              <Text style={styles.watchingStatusText}>WATCHING</Text>
+                            </View>
+                          ) : (
+                            <Text style={[styles.notWatchingText, { color: colors.textTertiary }]}>Tap to watch</Text>
+                          )}
                         </View>
                       </TouchableOpacity>
 
-                      <View style={styles.friendSideColumn}>
-                        <View style={[styles.streakBadge, { backgroundColor: isDark ? '#000000' : '#1A1A1A' }]}>
-                          <Zap size={20} color={colors.primary} fill={colors.primary} strokeWidth={2.5} />
-                          <Text style={styles.streakNumber}>{friend.streak}</Text>
-                          <Text style={[styles.streakLabel, { color: colors.primary }]}>DAY STREAK</Text>
-                        </View>
+                      <View style={styles.streakCompact}>
+                        <Zap size={16} color={colors.primary} fill={colors.primary} strokeWidth={2.5} />
+                        <Text style={[styles.streakCompactNumber, { color: colors.text }]}>{friend.streak}</Text>
+                        <Text style={[styles.streakCompactLabel, { color: colors.primary }]}>STREAK</Text>
                       </View>
                     </View>
                     </Swipeable>
@@ -786,36 +732,18 @@ export default function FriendsScreen() {
                           </View>
                         </View>
                       ) : (
-                        <View style={styles.actionButtons}>
-                          <QuickReactRow friendId={friend.id} onReact={sendQuickReact} />
-                          <View style={styles.mainActionButtons}>
+                        <View style={styles.compactActions}>
+                          <View style={styles.burstColumn}>
+                            <Text style={styles.burstLabel}>SEND A BURST</Text>
+                            <QuickReactRow friendId={friend.id} onReact={sendQuickReact} />
+                          </View>
                           <TouchableOpacity
-                            style={styles.watchButton}
-                            onPress={() => toggleWatch(friend.id)}
-                          >
-                            <LinearGradient
-                              colors={friend.isWatching ? [colors.primary, colors.primaryDark] : isDark ? ['#404040', '#2A2A2A'] : ['#1A1A1A', '#111111']}
-                              style={styles.watchButtonGradient}
-                            >
-                              <Eye
-                                size={18}
-                                color={friend.isWatching ? "#000000" : "#FFFFFF"}
-                                strokeWidth={2.5}
-                                fill="transparent"
-                              />
-                              <Text style={[styles.watchButtonText, { color: friend.isWatching ? "#000000" : "#FFFFFF" }]}>
-                                {friend.isWatching ? 'Watching' : 'Watch'}
-                              </Text>
-                            </LinearGradient>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.encourageButton, { backgroundColor: colors.backgroundSecondary, borderColor: 'rgba(204,255,0,0.3)', borderWidth: 1.5 }]}
+                            style={[styles.encourageCompactButton, { borderColor: 'rgba(204,255,0,0.3)' }]}
                             onPress={() => setSelectedFriend(friend.id)}
                           >
-                              <Heart size={18} color={colors.primary} strokeWidth={2.5} />
-                              <Text style={[styles.encourageButtonText, { color: colors.primary }]}>Encourage</Text>
+                            <Heart size={16} color={colors.primary} strokeWidth={2.5} />
+                            <Text style={[styles.encourageCompactText, { color: colors.primary }]}>Encourage</Text>
                           </TouchableOpacity>
-                          </View>
                         </View>
                       )}
                     </View>
@@ -843,6 +771,97 @@ export default function FriendsScreen() {
         userId={user.id}
       />
     ) : null}
+
+    <Modal
+      visible={showAddMenu}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowAddMenu(false)}
+    >
+      <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setShowAddMenu(false)}>
+        <View style={[styles.menuSheet, { backgroundColor: colors.card }]}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => { setShowAddMenu(false); setShowAddFriendModal(true); }}
+          >
+            <UserPlus size={20} color={colors.primary} strokeWidth={2.5} />
+            <Text style={[styles.menuItemText, { color: colors.text }]}>Add a Friend</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => { setShowAddMenu(false); setShowInviteModal(true); }}
+          >
+            <Share2 size={20} color={colors.primary} strokeWidth={2.5} />
+            <Text style={[styles.menuItemText, { color: colors.text }]}>Invite a Watcher</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+
+    <Modal
+      visible={showAddFriendModal}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowAddFriendModal(false)}
+    >
+      <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setShowAddFriendModal(false)}>
+        <View style={[styles.addFriendSheet, { backgroundColor: colors.card }]}>
+          <Text style={[styles.addFriendSheetTitle, { color: colors.text }]}>ADD A FRIEND</Text>
+          <TextInput
+            style={[styles.addFriendInput, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border, color: colors.text }]}
+            placeholder="Enter username"
+            placeholderTextColor={colors.textTertiary}
+            value={searchUsername}
+            onChangeText={setSearchUsername}
+            autoCapitalize="none"
+            autoFocus
+          />
+          {searching ? (
+            <View style={styles.searchLoadingRow}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={[styles.searchLoadingText, { color: colors.textTertiary }]}>Searching...</Text>
+            </View>
+          ) : searchResults.length > 0 ? (
+            <View style={[styles.searchResultsContainer, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+              {searchResults.map((result) => (
+                <TouchableOpacity
+                  key={result.id}
+                  style={styles.searchResultRow}
+                  onPress={() => { addFriend(result.id); setShowAddFriendModal(false); }}
+                >
+                  {result.photo_url ? (
+                    <Image source={{ uri: result.photo_url }} style={styles.searchResultAvatar} />
+                  ) : (
+                    <View style={[styles.searchResultAvatar, styles.avatarPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
+                      <Text style={styles.avatarText}>
+                        {(result.display_name || result.username || '?').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.searchResultInfo}>
+                    <Text style={[styles.searchResultName, { color: colors.text }]}>
+                      {result.display_name || 'Unknown'}
+                    </Text>
+                    <Text style={[styles.searchResultUsername, { color: colors.textTertiary }]}>
+                      @{result.username}
+                    </Text>
+                  </View>
+                  <UserPlus size={20} color={colors.primary} strokeWidth={2.5} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      </TouchableOpacity>
+    </Modal>
+
+    {burstPreview && (
+      <ReactionBurst
+        emoji={burstPreview.emoji}
+        count={burstPreview.count}
+        onComplete={() => setBurstPreview(null)}
+      />
+    )}
   </>
   );
 }
@@ -946,8 +965,21 @@ const styles = StyleSheet.create({
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: 16,
+  },
+  headerSubLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: 'Inter-Bold',
+    marginTop: 4,
+  },
+  addButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerLabel: {
     fontSize: 12,
@@ -1058,7 +1090,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   friendsList: {
-    gap: 16,
+    gap: 12,
   },
   emptyState: {
     padding: 40,
@@ -1076,13 +1108,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   friendCardGradient: {
-    padding: 24,
+    padding: 16,
   },
   friendHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
-    gap: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
   },
   friendInfo: {
     flexDirection: 'row',
@@ -1090,21 +1123,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatarPlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
     borderColor: 'rgba(204,255,0,0.3)',
   },
   avatarImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   avatarText: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
     color: '#FFFFFF',
@@ -1113,28 +1146,49 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   friendName: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '800',
     fontFamily: 'Inter-Black',
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  friendUsername: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Inter-Bold',
-    marginBottom: 8,
-  },
-  friendGoal: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Inter-Bold',
-    marginBottom: 6,
-  },
-  friendStats: {
+  watchingStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
+    gap: 5,
+  },
+  watchingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#CCFF00',
+  },
+  watchingStatusText: {
+    fontSize: 11,
+    fontWeight: '800',
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 1,
+    color: '#CCFF00',
+  },
+  notWatchingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: 'Inter-Bold',
+  },
+  streakCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  streakCompactNumber: {
+    fontSize: 18,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+  },
+  streakCompactLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 0.5,
   },
   friendWatchers: {
     fontSize: 12,
@@ -1167,13 +1221,13 @@ const styles = StyleSheet.create({
     marginRight: -1,
   },
   encouragementSection: {
-    marginTop: 16,
+    marginTop: 12,
   },
   todayProgressRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginTop: 16,
+    marginTop: 12,
   },
   todayProgressText: {
     fontSize: 13,
@@ -1206,9 +1260,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   quickReactButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(204, 255, 0, 0.08)',
@@ -1216,7 +1270,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(204, 255, 0, 0.15)',
   },
   quickReactEmoji: {
-    fontSize: 22,
+    fontSize: 18,
   },
   watchButton: {
     flex: 1,
@@ -1248,6 +1302,78 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     fontFamily: 'Inter-Bold',
+  },
+  compactActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 12,
+  },
+  burstColumn: {
+    flex: 1,
+    gap: 6,
+  },
+  burstLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 1.5,
+    color: '#CCFF00',
+  },
+  encourageCompactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    backgroundColor: '#1A1A1A',
+  },
+  encourageCompactText: {
+    fontSize: 13,
+    fontWeight: '800',
+    fontFamily: 'Inter-Bold',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  menuSheet: {
+    borderRadius: 20,
+    padding: 8,
+    width: '100%',
+    maxWidth: 320,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  menuItemText: {
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: 'Inter-Black',
+  },
+  addFriendSheet: {
+    borderRadius: 20,
+    padding: 20,
+    width: '100%',
+    maxWidth: 380,
+  },
+  addFriendSheetTitle: {
+    fontSize: 12,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 1.5,
+    marginBottom: 16,
   },
   encouragementForm: {
     gap: 12,
