@@ -430,8 +430,8 @@ export default function FriendsScreen() {
     const scale = progress.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1], extrapolate: 'clamp' });
     const opacity = progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0.6, 1], extrapolate: 'clamp' });
     return (
-      <Animated.View style={{ transform: [{ scale }], opacity }}>
-        <TouchableOpacity style={[styles.swipeAction, { backgroundColor: color }]} onPress={onPress}>
+      <Animated.View style={{ transform: [{ scale }], opacity, justifyContent: 'center' }}>
+        <TouchableOpacity style={[styles.swipeAction, { backgroundColor: color }]} onPress={onPress} activeOpacity={0.8}>
           {icon}
           <Text style={styles.swipeActionText}>{label}</Text>
         </TouchableOpacity>
@@ -1587,22 +1587,26 @@ const styles = StyleSheet.create({
   swipeActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
     marginLeft: 12,
-    gap: 8,
+    paddingVertical: 18,
+    gap: 11,
   },
   swipeAction: {
-    width: 80,
-    marginVertical: 10,
-    borderRadius: 16,
+    width: 72,
+    height: 58,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 5,
   },
   swipeActionText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'Inter-Black',
     color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   blockConfirmRow: {
     marginTop: 16,
