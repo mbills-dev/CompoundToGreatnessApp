@@ -620,7 +620,7 @@ export default function FriendsScreen() {
 
                       <View style={styles.streakCompact}>
                         <View style={styles.streakNumberRow}>
-                          <Zap size={15} color={colors.primary} fill={colors.primary} strokeWidth={2.5} />
+                          <Zap size={18} color={colors.primary} fill={colors.primary} strokeWidth={2.5} />
                           <Text style={[styles.streakCompactNumber, { color: colors.text }]}>{friend.streak}</Text>
                         </View>
                         <Text style={[styles.streakCompactLabel, { color: colors.primary }]}>DAY STREAK</Text>
@@ -1187,7 +1187,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   streakCompactNumber: {
-    fontSize: 22,
+    fontSize: 30,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
   },
