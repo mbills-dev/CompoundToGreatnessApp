@@ -335,172 +335,181 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
   const journeyPct = Math.round((clampedDay / 77) * 100);
   const completionDateSet = new Set(watched?.completionDates || []);
 
+  const watcherLabel = watcherCount === 1 ? '1 watching' : `${watcherCount} watching`;
+
   return (
     <LinearGradient colors={rootGradient} style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 8 }]}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { paddingTop: hideAccountActions ? 8 : insets.top + 8 }]}>
+        {/* COMPACT HEADER */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.headerLabel}>WATCHER MODE</Text>
-            <Text style={[styles.headerTitle, { color: textPrimary }]}>You're Watching</Text>
-          </View>
+          <Text style={styles.headerLabel}>WATCHER MODE</Text>
+          <Text style={[styles.headerSub, { color: textTertiary }]}>You're Watching</Text>
           {!hideAccountActions && (
             <TouchableOpacity style={[styles.signOutButton, { backgroundColor: cardBg, borderColor }]} onPress={onSignOut}>
-              <LogOut size={18} color={textTertiary} strokeWidth={2} />
+              <LogOut size={16} color={textTertiary} strokeWidth={2} />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* HERO */}
-        <View style={styles.heroCard}>
+        {/* HERO — horizontal compact */}
+        <View style={[styles.heroCard, { borderColor: 'rgba(204,255,0,0.12)' }]}>
           <LinearGradient
-            colors={['rgba(204, 255, 0, 0.08)', 'rgba(204, 255, 0, 0.02)']}
+            colors={['rgba(204, 255, 0, 0.06)', 'rgba(204, 255, 0, 0.01)']}
             style={styles.heroCardInner}
           >
-            <View style={styles.heroTop}>
-              {watched?.photoUrl ? (
-                <Image source={{ uri: watched.photoUrl }} style={styles.avatarLarge} />
-              ) : (
-                <View style={styles.avatarLarge}>
-                  <Text style={styles.avatarLargeText}>
-                    {watched?.displayName.charAt(0).toUpperCase()}
-                  </Text>
+            <View style={styles.heroMainRow}>
+              {/* Left: avatar + name + identity */}
+              <View style={styles.heroLeft}>
+                <View style={styles.heroTopRow}>
+                  {watched?.photoUrl ? (
+                    <Image source={{ uri: watched.photoUrl }} style={styles.avatar} />
+                  ) : (
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>
+                        {watched?.displayName.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.heroInfo}>
+                    <Text style={[styles.heroName, { color: textPrimary }]} numberOfLines={1}>{watched?.displayName}</Text>
+                    <Text style={styles.heroActive}>{getLastActiveLabel()}</Text>
+                  </View>
+                </View>
+
+                {watched?.shareFullJourney && watched?.identityStatement ? (
+                  <View style={styles.identityWrap}>
+                    <Text style={styles.identityLabel}>THEIR IDENTITY</Text>
+                    <Text style={[styles.identityText, { color: textPrimary }]} numberOfLines={4}>
+                      {watched.identityStatement}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Right: streak */}
+              {!isPreStart && (
+                <View style={[styles.heroRight, { borderLeftColor: isDark ? '#1A1A1A' : colors.border }]}>
+                  {isPreStart ? null : (
+                    <>
+                      <View style={styles.streakRow}>
+                        <Zap size={18} color="#CCFF00" fill="#CCFF00" strokeWidth={2} />
+                        <Text style={[styles.streakNumber, { color: textPrimary }]}>{watched?.streak ?? 0}</Text>
+                      </View>
+                      <Text style={[styles.streakLabel, { color: textTertiary }]}>DAY{'\n'}STREAK</Text>
+                    </>
+                  )}
                 </View>
               )}
-              <View style={styles.heroInfo}>
-                <Text style={[styles.heroName, { color: textPrimary }]}>{watched?.displayName}</Text>
-                <Text style={styles.heroActive}>{getLastActiveLabel()}</Text>
-              </View>
             </View>
-
-            {watched?.shareFullJourney && watched?.identityStatement ? (
-              <View style={[styles.identityChip, { backgroundColor: secondaryBg, borderColor }]}>
-                <Text style={styles.identityChipLabel}>THEIR IDENTITY</Text>
-                <Text style={[styles.identityChipText, { color: textPrimary }]} numberOfLines={6}>
-                  {watched.identityStatement}
-                </Text>
-              </View>
-            ) : null}
 
             {isPreStart ? (
               <View style={styles.preStartPill}>
                 <Text style={styles.preStartPillText}>STARTS IN {preStartDaysUntil} {preStartDaysUntil === 1 ? 'DAY' : 'DAYS'}</Text>
               </View>
-            ) : (
-              <>
-                <View style={styles.streakHeroRow}>
-                  <Zap size={34} color="#CCFF00" fill="#CCFF00" strokeWidth={2} />
-                  <Text style={[styles.streakNumber, { color: textPrimary }]}>{watched?.streak ?? 0}</Text>
-                  <View style={styles.streakIconSpacer} />
-                </View>
-                <Text style={[styles.streakLabel, { color: textTertiary }]}>DAY STREAK</Text>
-              </>
-            )}
+            ) : null}
           </LinearGradient>
         </View>
 
-        {/* SUPPORT ACTIONS */}
+        {/* SUPPORT — one horizontal card */}
         {!isPreStart && (
           <View style={[styles.supportCard, { backgroundColor: cardBg, borderColor }]}>
-            <Text style={styles.supportLabel}>SEND A BURST</Text>
-            <View style={styles.burstRow}>
-              {QUICK_EMOJIS.map((emoji) => (
-                <TouchableOpacity
-                  key={emoji}
-                  style={styles.burstButton}
-                  onPress={() => sendQuickBurst(emoji)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.burstEmoji}>{emoji}</Text>
-                </TouchableOpacity>
-              ))}
+            <View style={styles.supportLeft}>
+              <Text style={styles.supportLabel}>SEND A BURST</Text>
+              <View style={styles.burstRow}>
+                {QUICK_EMOJIS.map((emoji) => (
+                  <TouchableOpacity
+                    key={emoji}
+                    style={styles.burstButton}
+                    onPress={() => sendQuickBurst(emoji)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.burstEmoji}>{emoji}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
+            <View style={[styles.supportDivider, { backgroundColor: isDark ? '#1A1A1A' : colors.border }]} />
             <TouchableOpacity
-              style={[styles.encourageButton, { borderColor: 'rgba(204,255,0,0.3)' }]}
+              style={styles.supportRight}
               onPress={() => setEncourageVisible(true)}
               activeOpacity={0.7}
             >
-              <Heart size={16} color="#ccff00" strokeWidth={2.5} />
-              <Text style={styles.encourageButtonText}>Encourage {firstName}</Text>
+              <Heart size={18} color="#ccff00" strokeWidth={2.5} />
+              <Text style={styles.encourageLabel}>ENCOURAGE</Text>
+              <Text style={[styles.encourageName, { color: textPrimary }]} numberOfLines={1}>{firstName.toUpperCase()}</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* TODAY'S SUCCESS STACK */}
+        {/* TODAY'S SUCCESS STACK — compact */}
         {!isPreStart && watched?.shareFullJourney && watched && watched.activities.length > 0 ? (
           <View style={[styles.stackCard, { backgroundColor: cardBg, borderColor }]}>
             <View style={styles.stackHeader}>
               <Text style={styles.stackLabel}>TODAY'S SUCCESS STACK</Text>
-              <Text style={[styles.stackCount, { color: textMuted }]}>
+              <Text style={[styles.stackCount, { color: todayCompletedCount > 0 ? '#CCFF00' : textTertiary }]}>
                 {todayCompletedCount} / {totalActivities}
               </Text>
             </View>
-            {watched.activities.map((activity) => {
+            {watched.activities.map((activity, idx) => {
               const completed = watched.todayCompletedIds.includes(activity.id);
+              const isLast = idx === watched.activities.length - 1;
               return (
-                <View key={activity.id} style={styles.stackRow}>
-                  <Text style={[styles.stackActivityName, { color: completed ? textPrimary : textMuted }]}>
-                    {activity.activity_name}
-                  </Text>
-                  <View style={styles.checkmarkContainer}>
+                <View key={activity.id} style={[styles.stackRow, !isLast && styles.stackRowBorder, { borderBottomColor: isDark ? '#151515' : 'rgba(0,0,0,0.05)' }]}>
+                  <View style={styles.stackCircleContainer}>
                     {completed ? (
-                      <View style={styles.checkmarkCircleInner}>
-                        <Check size={18} color="#000000" strokeWidth={3} />
+                      <View style={styles.stackCheckCircle}>
+                        <Check size={14} color="#000000" strokeWidth={3} />
                       </View>
                     ) : (
-                      <View style={[styles.uncheckedCircleInner, { borderColor: isDark ? '#333' : colors.border }]} />
+                      <View style={[styles.stackEmptyCircle, { borderColor: isDark ? '#333' : 'rgba(0,0,0,0.12)' }]} />
                     )}
                   </View>
+                  <Text style={[styles.stackActivityName, { color: completed ? textPrimary : textMuted }]} numberOfLines={1}>
+                    {activity.activity_name}
+                  </Text>
                 </View>
               );
             })}
           </View>
         ) : null}
 
-        {/* THEIR 77-DAY JOURNEY */}
+        {/* THEIR 77-DAY JOURNEY — visual */}
         {!isPreStart && (
           <View style={[styles.journeyCard, { backgroundColor: cardBg, borderColor }]}>
-            <Text style={styles.journeyLabel}>THEIR 77-DAY JOURNEY</Text>
             <View style={styles.journeyHeaderRow}>
-              <Text style={[styles.journeyDayText, { color: textPrimary }]}>
-                DAY {clampedDay} OF 77
-              </Text>
-              <Text style={styles.journeyPctText}>{journeyPct}%</Text>
+              <Text style={styles.journeyLabel}>THEIR 77-DAY JOURNEY</Text>
+              <Text style={[styles.journeyDayText, { color: textPrimary }]}>DAY {clampedDay} OF 77</Text>
             </View>
+            <Text style={styles.journeyPctText}>{journeyPct}% COMPLETE</Text>
 
-            {/* Compact 77-day progress strip */}
-            <View style={styles.dayStrip}>
-              {Array.from({ length: 77 }, (_, i) => {
-                const dayNum = i + 1;
-                const isCompleted = dayNum < clampedDay;
-                const isCurrent = dayNum === clampedDay;
-                const isFinal = dayNum === 77;
-                const bgColor = isCompleted
-                  ? '#CCFF00'
-                  : isCurrent
-                    ? '#CCFF00'
-                    : isDark ? '#1A1A1A' : 'rgba(0,0,0,0.06)';
-                const borderWidth = isCurrent ? 2 : isFinal ? 1.5 : 0;
-                const accentBorder = isCurrent
-                  ? '#FFFFFF'
-                  : isFinal
-                    ? 'rgba(204,255,0,0.5)'
-                    : 'transparent';
-                return (
-                  <View
-                    key={dayNum}
-                    style={[
-                      styles.dayMarker,
-                      { backgroundColor: bgColor, borderWidth, borderColor: accentBorder },
-                      isCurrent && styles.dayMarkerCurrent,
-                    ]}
-                  />
-                );
-              })}
+            <View style={styles.dayStripWrap}>
+              <Text style={styles.dayEndpoint}>1</Text>
+              <View style={styles.dayStrip}>
+                {Array.from({ length: 77 }, (_, i) => {
+                  const dayNum = i + 1;
+                  const isCompleted = dayNum < clampedDay;
+                  const isCurrent = dayNum === clampedDay;
+                  const isFinal = dayNum === 77;
+                  return (
+                    <View
+                      key={dayNum}
+                      style={[
+                        styles.dayDot,
+                        isCompleted && styles.dayDotCompleted,
+                        isCurrent && styles.dayDotCurrent,
+                        !isCompleted && !isCurrent && styles.dayDotFuture,
+                        isFinal && styles.dayDotFinal,
+                      ]}
+                    />
+                  );
+                })}
+              </View>
+              <Text style={styles.dayEndpoint}>77</Text>
             </View>
           </View>
         )}
 
-        {/* BADGES */}
+        {/* BADGES — compact */}
         <View style={styles.badgesSection}>
           <Text style={[styles.sectionTitle, { color: textPrimary }]}>Badges</Text>
           {earnedBadges.length > 0 ? (
@@ -510,10 +519,10 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
                 const badgeColor = badge.badges?.[0]?.color || '#ccff00';
                 return (
                   <View key={`${badge.badge_key}-${index}`} style={styles.badgeItem}>
-                    <View style={[styles.badgeCircle, { backgroundColor: hexWithOpacity(badgeColor, 0.15), borderColor: hexWithOpacity(badgeColor, 0.3) }]}>
-                      <Icon size={22} color={badgeColor} strokeWidth={2} />
+                    <View style={[styles.badgeCircle, { backgroundColor: hexWithOpacity(badgeColor, 0.12), borderColor: hexWithOpacity(badgeColor, 0.25) }]}>
+                      <Icon size={18} color={badgeColor} strokeWidth={2} />
                     </View>
-                    <Text style={[styles.badgeCaption, { color: textMuted }]} numberOfLines={2}>{badge.badges?.[0]?.title || badge.badge_key}</Text>
+                    <Text style={[styles.badgeCaption, { color: textMuted }]} numberOfLines={1}>{badge.badges?.[0]?.title || badge.badge_key}</Text>
                   </View>
                 );
               })}
@@ -523,29 +532,26 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           )}
         </View>
 
-        {/* STATS */}
+        {/* THREE-COLUMN STATS */}
         {!isPreStart && (
           <View style={styles.statsRow}>
             <View style={[styles.statCard, { backgroundColor: cardBg, borderColor }]}>
-              <Flame size={18} color="#ccff00" strokeWidth={2} />
               <Text style={[styles.statNumber, { color: textPrimary }]}>{watched?.bestStreak ?? 0}</Text>
               <Text style={[styles.statLabel, { color: textTertiary }]}>Best Streak</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: cardBg, borderColor }]}>
-              <Calendar size={18} color="#ccff00" strokeWidth={2} />
               <Text style={[styles.statNumber, { color: textPrimary }]}>{watched?.lifetimeDays ?? 0}</Text>
               <Text style={[styles.statLabel, { color: textTertiary }]}>Lifetime Days</Text>
             </View>
+            <View style={[styles.statCard, { backgroundColor: cardBg, borderColor }]}>
+              <View style={styles.statWatcherRow}>
+                <Eye size={14} color="#ccff00" strokeWidth={2.5} />
+                <Text style={[styles.statNumber, { color: textPrimary, fontSize: 18 }]}>{watcherCount}</Text>
+              </View>
+              <Text style={[styles.statLabel, { color: textTertiary }]}>Watching</Text>
+            </View>
           </View>
         )}
-
-        {/* WATCHER COUNT */}
-        <View style={[styles.watcherPill, { backgroundColor: cardBg, borderColor }]}>
-          <Eye size={16} color="#ccff00" strokeWidth={2.5} />
-          <Text style={[styles.watcherPillText, { color: textMuted }]}>
-            {watcherCount} {watcherCount === 1 ? 'person watching' : 'people watching'}
-          </Text>
-        </View>
 
         {!hideAccountActions && (
         <View style={styles.convertBanner}>
@@ -601,104 +607,104 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000' },
-  scroll: { padding: 24, paddingTop: 48, paddingBottom: 60 },
+  scroll: { paddingHorizontal: 20, paddingBottom: 60 },
+
+  // Compact header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 20,
+    alignItems: 'center',
+    marginBottom: 14,
+    paddingRight: 4,
   },
   headerLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 2,
-    color: '#ccff00',
-    marginBottom: 6,
+    fontSize: 16,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    color: '#FFFFFF',
+    marginBottom: 2,
   },
-  headerTitle: { fontSize: 36, fontWeight: '900', color: '#FFFFFF' },
+  headerSub: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   signOutButton: {
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: '#0A0A0A',
+    padding: 10,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#1A1A1A',
   },
-  heroCard: { borderRadius: 24, overflow: 'hidden', marginBottom: 20, borderWidth: 1, borderColor: 'rgba(204, 255, 0, 0.15)' },
-  heroCardInner: { padding: 20 },
-  heroTop: { flexDirection: 'row', gap: 14, alignItems: 'center', marginBottom: 16 },
-  avatarLarge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+
+  // Hero — horizontal
+  heroCard: { borderRadius: 18, overflow: 'hidden', marginBottom: 14, borderWidth: 1 },
+  heroCardInner: { padding: 16 },
+  heroMainRow: { flexDirection: 'row' },
+  heroLeft: { flex: 1, paddingRight: 12 },
+  heroTopRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#111',
     borderWidth: 2,
     borderColor: '#ccff00',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarLargeText: { fontSize: 22, fontWeight: '900', color: '#ccff00' },
+  avatarText: { fontSize: 18, fontWeight: '900', color: '#ccff00' },
   heroInfo: { flex: 1 },
-  heroName: { fontSize: 20, fontWeight: '900', color: '#FFFFFF', marginBottom: 4 },
-  heroActive: { fontSize: 12, fontWeight: '600', color: '#ccff00' },
-
-  identityChip: {
-    borderRadius: 14,
-    borderWidth: 1.5,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 16,
-    gap: 4,
-  },
-  identityChipLabel: {
-    fontSize: 10,
+  heroName: { fontSize: 17, fontWeight: '900', fontFamily: 'Inter-Black', marginBottom: 2 },
+  heroActive: { fontSize: 11, fontWeight: '600', color: '#ccff00' },
+  identityWrap: { gap: 4 },
+  identityLabel: {
+    fontSize: 9,
     fontWeight: '800',
-    letterSpacing: 2,
+    letterSpacing: 1.5,
     color: '#ccff00',
   },
-  identityChipText: {
-    fontSize: 14,
+  identityText: {
+    fontSize: 13,
     fontWeight: '700',
-    lineHeight: 20,
+    lineHeight: 18,
   },
-  streakHeroRow: {
-    flexDirection: 'row',
+  heroRight: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    borderLeftWidth: 1,
+    paddingLeft: 14,
+    minWidth: 80,
+  },
+  streakRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   streakNumber: {
-    fontSize: 64,
+    fontSize: 44,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
-    letterSpacing: -2,
-    textAlign: 'center',
-    color: '#FFFFFF',
+    letterSpacing: -1.5,
   },
   streakLabel: {
-    fontSize: 12,
+    fontSize: 9,
     fontWeight: '800',
     fontFamily: 'Inter-Black',
-    letterSpacing: 1.5,
-    color: '#555',
-    marginTop: 2,
-    marginBottom: 4,
+    letterSpacing: 1,
     textAlign: 'center',
-  },
-  streakIconSpacer: {
-    width: 34,
+    marginTop: 2,
+    lineHeight: 11,
   },
   preStartPill: {
     backgroundColor: '#0A0A0A',
     borderRadius: 999,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderWidth: 1.5,
     borderColor: 'rgba(204, 255, 0, 0.3)',
     alignSelf: 'center',
-    marginVertical: 8,
+    marginTop: 12,
   },
   preStartPillText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
     color: '#CCFF00',
@@ -706,223 +712,251 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Support card
+  // Support — one horizontal card
   supportCard: {
-    borderRadius: 20,
-    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
     borderWidth: 1,
-    marginBottom: 20,
+    marginBottom: 14,
+    minHeight: 110,
+    overflow: 'hidden',
+  },
+  supportLeft: {
+    flex: 1,
+    padding: 16,
   },
   supportLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
     fontFamily: 'Inter-Black',
-    letterSpacing: 2,
+    letterSpacing: 1.5,
     color: '#ccff00',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   burstRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
-    gap: 10,
-    marginBottom: 14,
+    gap: 8,
   },
   burstButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(204, 255, 0, 0.08)',
+    backgroundColor: 'rgba(204, 255, 0, 0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(204, 255, 0, 0.15)',
+    borderColor: 'rgba(204, 255, 0, 0.12)',
   },
-  burstEmoji: {
-    fontSize: 20,
+  burstEmoji: { fontSize: 18 },
+  supportDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    marginVertical: 16,
   },
-  encourageButton: {
-    flexDirection: 'row',
+  supportRight: {
+    padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    backgroundColor: 'rgba(204,255,0,0.04)',
+    minWidth: 90,
+    gap: 4,
   },
-  encourageButtonText: {
-    fontSize: 14,
+  encourageLabel: {
+    fontSize: 10,
     fontWeight: '800',
     fontFamily: 'Inter-Black',
+    letterSpacing: 1,
     color: '#ccff00',
-    letterSpacing: 0.5,
+    marginTop: 4,
+  },
+  encourageName: {
+    fontSize: 12,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
   },
 
-  // Success stack
+  // Success stack — compact
   stackCard: {
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    marginBottom: 20,
+    marginBottom: 14,
   },
   stackHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   stackLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
     fontFamily: 'Inter-Black',
-    letterSpacing: 2,
+    letterSpacing: 1.5,
     color: '#ccff00',
   },
   stackCount: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '900',
     fontFamily: 'Inter-Black',
   },
   stackRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    minHeight: 52,
+    minHeight: 46,
   },
-  stackActivityName: {
-    fontSize: 15,
-    fontWeight: '700',
-    fontFamily: 'Inter-Bold',
-    flex: 1,
-    paddingRight: 12,
+  stackRowBorder: {
+    borderBottomWidth: 1,
   },
-  checkmarkContainer: {
-    width: 36,
-    height: 36,
+  stackCircleContainer: {
+    width: 26,
+    height: 26,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
-  checkmarkCircleInner: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#ccff00',
+  stackCheckCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#CCFF00',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  uncheckedCircleInner: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
+  stackEmptyCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+  },
+  stackActivityName: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
+    flex: 1,
+    marginLeft: 10,
   },
 
-  // 77-day journey
+  // 77-day journey — visual
   journeyCard: {
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    marginBottom: 20,
-  },
-  journeyLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    fontFamily: 'Inter-Black',
-    letterSpacing: 2,
-    color: '#ccff00',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   journeyHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 2,
+  },
+  journeyLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 1.5,
+    color: '#ccff00',
   },
   journeyDayText: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   journeyPctText: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '800',
     fontFamily: 'Inter-Black',
     color: '#ccff00',
+    alignSelf: 'flex-end',
+    marginBottom: 12,
+  },
+  dayStripWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dayEndpoint: {
+    fontSize: 10,
+    fontWeight: '800',
+    fontFamily: 'Inter-Black',
+    color: '#555',
   },
   dayStrip: {
+    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 4,
   },
-  dayMarker: {
-    width: 8,
-    height: 8,
-    borderRadius: 2,
+  dayDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
   },
-  dayMarkerCurrent: {
-    width: 10,
-    height: 10,
-    borderRadius: 3,
+  dayDotCompleted: {
+    backgroundColor: '#CCFF00',
+  },
+  dayDotCurrent: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#CCFF00',
+    width: 11,
+    height: 11,
+    borderRadius: 5.5,
+  },
+  dayDotFuture: {
+    backgroundColor: '#1A1A1A',
+  },
+  dayDotFinal: {
+    borderWidth: 1.5,
+    borderColor: 'rgba(204,255,0,0.4)',
   },
 
-  // Badges
-  badgesSection: { marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '900', color: '#FFFFFF', marginBottom: 14 },
-  badgeScroll: { gap: 14, paddingRight: 8 },
-  badgeItem: { alignItems: 'center', width: 72, gap: 8 },
+  // Badges — compact
+  badgesSection: { marginBottom: 14 },
+  sectionTitle: { fontSize: 14, fontWeight: '900', fontFamily: 'Inter-Black', color: '#FFFFFF', marginBottom: 10 },
+  badgeScroll: { gap: 12, paddingRight: 8 },
+  badgeItem: { alignItems: 'center', width: 60, gap: 6 },
   badgeCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
   },
-  badgeCaption: { fontSize: 11, fontWeight: '700', color: '#808080', textAlign: 'center', lineHeight: 14 },
-  badgesEmpty: { fontSize: 13, fontWeight: '600', color: '#555', fontStyle: 'italic' },
+  badgeCaption: { fontSize: 10, fontWeight: '700', fontFamily: 'Inter-Bold', textAlign: 'center', lineHeight: 13 },
+  badgesEmpty: { fontSize: 12, fontWeight: '600', fontStyle: 'italic' },
 
-  // Stats
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  // Three-column stats
+  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   statCard: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 14,
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     borderWidth: 1,
-    borderColor: '#1A1A1A',
   },
-  statNumber: { fontSize: 22, fontWeight: '900', color: '#FFFFFF' },
-  statLabel: { fontSize: 11, fontWeight: '600', color: '#555', textAlign: 'center' },
-
-  // Watcher pill
-  watcherPill: {
+  statNumber: { fontSize: 20, fontWeight: '900', fontFamily: 'Inter-Black', color: '#FFFFFF' },
+  statLabel: { fontSize: 10, fontWeight: '700', fontFamily: 'Inter-Bold', textAlign: 'center' },
+  statWatcherRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    alignSelf: 'center',
-    backgroundColor: '#0A0A0A',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#1A1A1A',
-    marginBottom: 24,
+    gap: 4,
   },
-  watcherPillText: { fontSize: 13, fontWeight: '700', color: '#808080' },
 
   // Convert banner
-  convertBanner: { borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(204, 255, 0, 0.2)' },
-  convertBannerInner: { padding: 28, alignItems: 'center', gap: 16 },
+  convertBanner: { borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(204, 255, 0, 0.2)' },
+  convertBannerInner: { padding: 24, alignItems: 'center', gap: 14 },
   convertTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
+    fontFamily: 'Inter-Black',
     color: '#FFFFFF',
     textAlign: 'center',
-    lineHeight: 28,
+    lineHeight: 26,
   },
   convertButton: { width: '100%', borderRadius: 14, overflow: 'hidden' },
   convertButtonGradient: {
@@ -930,8 +964,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    padding: 18,
+    padding: 16,
   },
-  convertButtonText: { fontSize: 16, fontWeight: '900', color: '#000000' },
-  convertSub: { fontSize: 13, fontWeight: '600', color: '#555', textAlign: 'center' },
+  convertButtonText: { fontSize: 15, fontWeight: '900', fontFamily: 'Inter-Black', color: '#000000' },
+  convertSub: { fontSize: 12, fontWeight: '600', color: '#555', textAlign: 'center' },
 });
