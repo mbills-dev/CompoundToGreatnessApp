@@ -861,6 +861,8 @@ export default function FriendsScreen() {
 }
 
 const QUICK_EMOJIS = ['🔥', '💪', '👏', '🚀'];
+const QUICK_EMOJIS_PAGE2 = ['🙌', '⚡', '🎯', '💰'];
+const BURST_PAGES = [QUICK_EMOJIS, QUICK_EMOJIS_PAGE2];
 
 function TodayProgress({ completed, total, isDark }: { completed: number; total: number; isDark: boolean }) {
   const allDone = completed >= total && total > 0;
@@ -911,15 +913,49 @@ function QuickReactButton({ emoji, onPress }: { emoji: string; onPress: () => vo
 }
 
 function QuickReactRow({ friendId, onReact }: { friendId: string; onReact: (friendId: string, emoji: string) => void }) {
+  const [page, setPage] = useState(0);
+
   return (
-    <View style={styles.quickReactRow}>
-      {QUICK_EMOJIS.map((emoji) => (
-        <QuickReactButton
-          key={emoji}
-          emoji={emoji}
-          onPress={() => onReact(friendId, emoji)}
-        />
-      ))}
+    <View>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={(e) => {
+          const x = e.nativeEvent.contentOffset.x;
+          const w = e.nativeEvent.layoutMeasurement.width;
+          if (w > 0) {
+            const newPage = Math.round(x / w);
+            if (newPage !== page) setPage(newPage);
+          }
+        }}
+        style={styles.burstCarousel}
+        contentContainerStyle={styles.burstCarouselContent}
+      >
+        {BURST_PAGES.map((emojis, pageIndex) => (
+          <View key={pageIndex} style={styles.burstCarouselPage}>
+            {emojis.map((emoji) => (
+              <QuickReactButton
+                key={emoji}
+                emoji={emoji}
+                onPress={() => onReact(friendId, emoji)}
+              />
+            ))}
+          </View>
+        ))}
+      </ScrollView>
+      <View style={styles.burstDots}>
+        {BURST_PAGES.map((_, i) => (
+          <View
+            key={i}
+            style={[
+              styles.burstDot,
+              i === page ? styles.burstDotActive : styles.burstDotInactive,
+            ]}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -1257,6 +1293,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-start',
     gap: 8,
+  },
+  burstCarousel: {
+    flexDirection: 'row',
+  },
+  burstCarouselContent: {
+    flexGrow: 0,
+  },
+  burstCarouselPage: {
+    flexDirection: 'row',
+    gap: 8,
+    width: 174,
+  },
+  burstDots: {
+    flexDirection: 'row',
+    gap: 5,
+    marginTop: 6,
+    alignItems: 'center',
+  },
+  burstDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  burstDotActive: {
+    backgroundColor: '#CCFF00',
+  },
+  burstDotInactive: {
+    backgroundColor: '#333333',
   },
   quickReactButton: {
     width: 38,
