@@ -25,122 +25,143 @@ type Props = {
 export default function InboxItemCard({ item, onPress }: Props) {
   const { colors, isDark } = useTheme();
   const isUnread = !item.readAt;
+  const isFriend = item.source === 'friend';
 
   return (
     <TouchableOpacity
       key={`${item.source}-${item.id}`}
       style={[
-        styles.inboxCard,
+        styles.card,
         {
-          backgroundColor: colors.card,
-          borderColor: colors.border,
+          backgroundColor: isDark ? '#111111' : colors.card,
+          borderColor: isUnread ? 'rgba(204,255,0,0.15)' : colors.border,
         },
       ]}
       onPress={() => isUnread && onPress(item)}
       activeOpacity={isUnread ? 0.7 : 1}
     >
-      <View style={styles.inboxCardHeader}>
-        <View style={styles.inboxSenderRow}>
-          {item.source === 'friend' ? (
-            <Heart size={14} color={colors.primary} strokeWidth={2.5} />
-          ) : (
-            <Mail size={14} color={colors.primary} strokeWidth={2.5} />
-          )}
-          {item.source === 'public' ? (
-            <View style={styles.publicHeaderContent}>
-              <View style={[styles.publicPill, { backgroundColor: isDark ? 'rgba(204,255,0,0.12)' : 'rgba(204,255,0,0.1)', borderColor: 'rgba(204,255,0,0.3)' }]}>
-                <Text style={styles.publicPillText}>PUBLIC PAGE VISITOR</Text>
-              </View>
-              <Text style={[styles.inboxSenderName, { color: colors.textSecondary, fontStyle: 'italic' }]} numberOfLines={1}>
-                "{item.visitorName || 'Anonymous'}" via your public page
-              </Text>
-            </View>
-          ) : (
-            <>
-              <Text style={[styles.inboxSenderName, { color: colors.text }]} numberOfLines={1}>
-                {item.senderName}
-              </Text>
-              {item.emoji && <Text style={styles.inboxEmoji}>{item.emoji}</Text>}
-            </>
-          )}
-        </View>
+      {isFriend ? (
+        <FriendEncouragementItem item={item} isUnread={isUnread} />
+      ) : (
+        <PublicPageItem item={item} isUnread={isUnread} />
+      )}
+
+      <View style={styles.footerRow}>
+        <Text style={[styles.timestamp, { color: colors.textTertiary }]}>
+          {getRelativeTime(item.createdAt)}
+        </Text>
         {isUnread && <View style={styles.unreadDot} />}
       </View>
-      {item.message && (
-        <Text style={[styles.inboxMessage, { color: colors.textSecondary }]} numberOfLines={3}>
-          {item.message}
-        </Text>
-      )}
-      <Text style={[styles.inboxTimestamp, { color: colors.textTertiary }]}>
-        {getRelativeTime(item.createdAt)}
-      </Text>
     </TouchableOpacity>
   );
 }
 
+function FriendEncouragementItem({ item }: { item: InboxItem; isUnread: boolean }) {
+  const { colors } = useTheme();
+
+  return (
+    <View style={styles.itemBody}>
+      <View style={styles.senderRow}>
+        <Heart size={14} color={colors.primary} strokeWidth={2.5} fill={colors.primary} />
+        <Text style={[styles.senderName, { color: colors.text }]} numberOfLines={1}>
+          {item.senderName}
+        </Text>
+        {item.emoji && <Text style={styles.emoji}>{item.emoji}</Text>}
+      </View>
+      {item.message && (
+        <Text style={[styles.message, { color: colors.textSecondary }]} numberOfLines={3}>
+          {item.message}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function PublicPageItem({ item }: { item: InboxItem; isUnread: boolean }) {
+  const { colors, isDark } = useTheme();
+
+  return (
+    <View style={styles.itemBody}>
+      <View style={styles.publicEyebrowRow}>
+        <Mail size={13} color={colors.primary} strokeWidth={2.5} />
+        <View style={[styles.publicBadge, { backgroundColor: isDark ? 'rgba(204,255,0,0.1)' : 'rgba(204,255,0,0.08)' }]}>
+          <Text style={styles.publicBadgeText}>PUBLIC PAGE</Text>
+        </View>
+      </View>
+      <Text style={[styles.senderName, { color: colors.text }]} numberOfLines={1}>
+        {item.visitorName || 'Anonymous'}
+      </Text>
+      {item.message && (
+        <Text style={[styles.message, { color: colors.textSecondary }]} numberOfLines={3}>
+          {item.message}
+        </Text>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  inboxCard: {
-    borderRadius: 24,
+  card: {
+    borderRadius: 14,
     borderWidth: 1,
     padding: 14,
+    gap: 6,
+  },
+  itemBody: {
     gap: 4,
   },
-  inboxCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  inboxSenderRow: {
+  senderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    flex: 1,
   },
-  inboxSenderName: {
-    fontSize: 14,
-    fontWeight: '800',
+  senderName: {
+    fontSize: 15,
+    fontWeight: '900',
     fontFamily: 'Inter-Black',
     flexShrink: 1,
   },
-  publicHeaderContent: {
-    flex: 1,
-    flexShrink: 1,
-    gap: 4,
+  emoji: {
+    fontSize: 15,
   },
-  publicPill: {
-    borderRadius: 6,
-    borderWidth: 1,
-    paddingHorizontal: 8,
+  message: {
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 19,
+    fontFamily: 'Inter-Bold',
+  },
+  publicEyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  publicBadge: {
+    borderRadius: 5,
+    paddingHorizontal: 7,
     paddingVertical: 2,
-    alignSelf: 'flex-start',
   },
-  publicPillText: {
+  publicBadgeText: {
     fontSize: 9,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
     letterSpacing: 1,
     color: '#CCFF00',
   },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#CCFF00',
-    marginLeft: 8,
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
   },
-  inboxEmoji: {
-    fontSize: 16,
-  },
-  inboxMessage: {
-    fontSize: 13,
-    fontWeight: '500',
-    lineHeight: 18,
-    fontFamily: 'Inter-Bold',
-  },
-  inboxTimestamp: {
+  timestamp: {
     fontSize: 11,
     fontWeight: '600',
-    marginTop: 2,
     fontFamily: 'Inter-Bold',
+  },
+  unreadDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#CCFF00',
   },
 });

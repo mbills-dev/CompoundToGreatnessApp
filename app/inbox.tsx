@@ -19,8 +19,10 @@ import { responsiveStyle } from '@/components/ResponsiveContainer';
 
 const PAGE_SIZE = 20;
 
+type FilterTab = 'all' | 'friend' | 'public';
+
 export default function InboxScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { user } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -28,6 +30,7 @@ export default function InboxScreen() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
 
   const loadInbox = useCallback(async () => {
     if (!user) return;
@@ -59,8 +62,18 @@ export default function InboxScreen() {
     }
   };
 
-  const visibleItems = allItems.slice(0, visibleCount);
-  const hasMore = visibleCount < allItems.length;
+  const filteredItems = activeFilter === 'all'
+    ? allItems
+    : allItems.filter((item) => item.source === activeFilter);
+
+  const visibleItems = filteredItems.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredItems.length;
+
+  const filters: { key: FilterTab; label: string }[] = [
+    { key: 'all', label: 'ALL' },
+    { key: 'friend', label: 'FRIENDS' },
+    { key: 'public', label: 'PUBLIC' },
+  ];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -74,6 +87,36 @@ export default function InboxScreen() {
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Inbox</Text>
         <View style={styles.headerSpacer} />
+      </View>
+
+      <View style={styles.filterRow}>
+        {filters.map((filter) => (
+          <TouchableOpacity
+            key={filter.key}
+            style={[
+              styles.filterTab,
+              {
+                backgroundColor: activeFilter === filter.key ? '#CCFF00' : 'transparent',
+              },
+            ]}
+            onPress={() => {
+              setActiveFilter(filter.key);
+              setVisibleCount(PAGE_SIZE);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                {
+                  color: activeFilter === filter.key ? '#000000' : colors.textTertiary,
+                },
+              ]}
+            >
+              {filter.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {loading ? (
@@ -97,8 +140,17 @@ export default function InboxScreen() {
         >
           {allItems.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
-                No messages yet
+              <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>
+                NO ENCOURAGEMENT YET
+              </Text>
+              <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
+                When your people send you a push, it'll show up here.
+              </Text>
+            </View>
+          ) : filteredItems.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
+                Nothing here yet.
               </Text>
             </View>
           ) : (
@@ -152,6 +204,23 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 32,
   },
+  filterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  filterTab: {
+    paddingVertical: 7,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  filterText: {
+    fontSize: 12,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 0.8,
+  },
   scrollView: {
     flex: 1,
   },
@@ -168,11 +237,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 80,
+    paddingHorizontal: 32,
   },
-  emptyText: {
-    fontSize: 15,
+  emptyTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 1.2,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 13,
     fontWeight: '600',
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'Inter-Bold',
+    textAlign: 'center',
+    lineHeight: 19,
   },
   list: {
     gap: 10,
@@ -181,12 +261,12 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 24,
+    borderRadius: 20,
     borderWidth: 1,
     marginTop: 8,
   },
   loadMoreText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     fontFamily: 'Inter-Black',
   },

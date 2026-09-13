@@ -23,6 +23,7 @@ import InviteWatcherModal from '@/components/InviteWatcherModal';
 import { getInboxItems, markInboxItemRead, inboxKey, type InboxItem } from '@/lib/inboxHelpers';
 import InboxItemCard from '@/components/InboxItemCard';
 import ReactionBurst from '@/components/ReactionBurst';
+import EncourageModal from '@/components/EncourageModal';
 import { useRouter } from 'expo-router';
 import { Animated, Modal } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -62,6 +63,7 @@ export default function FriendsScreen() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<string | null>(null);
+  const [encourageFriend, setEncourageFriend] = useState<FriendWithStreak | null>(null);
   const [encouragementMessage, setEncouragementMessage] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showAddFriendModal, setShowAddFriendModal] = useState(false);
@@ -383,6 +385,7 @@ export default function FriendsScreen() {
         },
       }).catch(() => {});
       setSelectedFriend(null);
+      setEncourageFriend(null);
       setEncouragementMessage('');
     } catch (e: any) {
       setError(e.message || 'Failed to send encouragement');
@@ -685,55 +688,6 @@ export default function FriendsScreen() {
                       </View>
                     ) : friend.status === 'accepted' ? (
                       <View style={styles.encouragementSection}>
-                      {selectedFriend === friend.id ? (
-                        <View style={styles.encouragementForm}>
-                          <TextInput
-                            style={[styles.messageInput, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border, color: colors.text }]}
-                            placeholder="Add a message (optional)"
-                            placeholderTextColor={colors.textTertiary}
-                            value={encouragementMessage}
-                            onChangeText={setEncouragementMessage}
-                            multiline
-                            returnKeyType="done"
-                            blurOnSubmit={true}
-                          />
-                          <View style={styles.emojiButtons}>
-                            {['🔥', '💪', '👏', '⭐', '🎯', '🚀', '💰', '🙌', '⚡', '✨'].map((emoji) => (
-                              <TouchableOpacity
-                                key={emoji}
-                                style={[
-                                  styles.emojiButton,
-                                  {
-                                    backgroundColor: isDark ? '#1A1A1A' : colors.backgroundSecondary,
-                                    borderColor: isDark ? '#2A2A2A' : colors.border,
-                                    borderWidth: 2,
-                                  },
-                                ]}
-                                onPress={() => setEncouragementMessage(prev => prev + emoji)}
-                              >
-                                <Text style={styles.emojiButtonText}>{emoji}</Text>
-                              </TouchableOpacity>
-                            ))}
-                          </View>
-                          <View style={styles.encouragementActions}>
-                            <TouchableOpacity
-                              style={styles.cancelButton}
-                              onPress={() => {
-                                setSelectedFriend(null);
-                                setEncouragementMessage('');
-                              }}
-                            >
-                              <Text style={[styles.cancelButtonText, { color: colors.textTertiary }]}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={[styles.sendButton, { backgroundColor: colors.primary }]}
-                              onPress={() => sendEncouragement(friend.id, null)}
-                            >
-                              <Text style={styles.sendButtonText}>Send</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      ) : (
                         <View style={styles.compactActions}>
                           <View style={styles.burstColumn}>
                             <Text style={styles.burstLabel}>SEND A BURST</Text>
@@ -742,15 +696,17 @@ export default function FriendsScreen() {
                           <View style={styles.encourageAligner}>
                             <TouchableOpacity
                               style={[styles.encourageCompactButton, { borderColor: 'rgba(204,255,0,0.3)' }]}
-                              onPress={() => setSelectedFriend(friend.id)}
+                              onPress={() => {
+                                setSelectedFriend(friend.id);
+                                setEncourageFriend(friend);
+                              }}
                             >
                               <Heart size={16} color={colors.primary} strokeWidth={2.5} />
                               <Text style={[styles.encourageCompactText, { color: colors.primary }]}>Encourage</Text>
                             </TouchableOpacity>
                           </View>
                         </View>
-                      )}
-                    </View>
+                      </View>
                     ) : (
                       <View style={[styles.pendingNotice, { borderColor: colors.border }]}>
                         <Clock size={16} color={colors.textTertiary} strokeWidth={2.5} />
@@ -866,6 +822,23 @@ export default function FriendsScreen() {
         onComplete={() => setBurstPreview(null)}
       />
     )}
+
+    <EncourageModal
+      visible={!!encourageFriend}
+      friendName={encourageFriend?.display_name || ''}
+      friendPhotoUrl={encourageFriend?.photo_url}
+      friendStreak={encourageFriend?.streak ?? 0}
+      message={encouragementMessage}
+      onMessageChange={setEncouragementMessage}
+      onSend={() => {
+        if (selectedFriend) sendEncouragement(selectedFriend, null);
+      }}
+      onClose={() => {
+        setEncourageFriend(null);
+        setSelectedFriend(null);
+        setEncouragementMessage('');
+      }}
+    />
   </>
   );
 }
