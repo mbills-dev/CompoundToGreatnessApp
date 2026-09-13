@@ -119,7 +119,7 @@ export default function InviteWatcherModal({ visible, onClose, userId }: Props) 
 
           <View style={styles.eyeRow}>
             <View style={[styles.eyeCircle, { borderColor: 'rgba(204, 255, 0, 0.3)' }]}>
-              <Eye size={32} color="#ccff00" strokeWidth={2} />
+              <Eye size={26} color="#ccff00" strokeWidth={2} />
             </View>
           </View>
 
@@ -145,10 +145,6 @@ export default function InviteWatcherModal({ visible, onClose, userId }: Props) 
                   {getShareLink()}
                 </Text>
               </View>
-
-              <Text style={[styles.disclosureText, { color: colors.textTertiary }]}>
-                Your identity and daily inputs are visible to watchers by default — manage this in Settings.
-              </Text>
 
               <TouchableOpacity
                 style={styles.shareButton}
@@ -181,7 +177,7 @@ export default function InviteWatcherModal({ visible, onClose, userId }: Props) 
 
               <View style={[styles.infoBox, { backgroundColor: isDark ? '#0D0D0D' : '#FFFFFF', borderColor: isDark ? '#1A1A1A' : '#E0E0DB' }]}>
                 <Text style={[styles.infoText, { color: colors.textTertiary }]}>
-                  Watchers see your streak, identity, and daily progress by default. You can manage what they see in Settings → Privacy. They can't see your personal settings or edit anything.
+                  Watchers can see your streak, identity, and daily progress. Manage what they see in Settings → Privacy.
                 </Text>
               </View>
             </>
@@ -228,11 +224,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  eyeRow: { alignItems: 'center', marginBottom: 20 },
+  eyeRow: { alignItems: 'center', marginBottom: 16 },
   eyeCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: 'rgba(204, 255, 0, 0.1)',
     borderWidth: 2,
     alignItems: 'center',
@@ -297,14 +293,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   copyButtonText: { fontSize: 15, fontWeight: '700' },
-  disclosureText: {
-    fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
-    marginTop: 10,
-    marginBottom: 16,
-    lineHeight: 17,
-  },
   infoBox: {
     borderRadius: 12,
     padding: 16,

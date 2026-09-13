@@ -782,7 +782,7 @@ export default function FriendsScreen() {
       onRequestClose={() => setShowAddFriendModal(false)}
     >
       <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setShowAddFriendModal(false)}>
-        <View style={[styles.addFriendSheet, { backgroundColor: colors.card }]}>
+        <View style={[styles.addFriendSheet, { backgroundColor: colors.card }]} onStartShouldSetResponder={() => true}>
           <Text style={[styles.addFriendSheetTitle, { color: colors.text }]}>ADD A FRIEND</Text>
           <TextInput
             style={[styles.addFriendInput, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border, color: colors.text }]}
