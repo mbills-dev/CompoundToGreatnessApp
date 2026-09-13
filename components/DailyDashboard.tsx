@@ -1049,7 +1049,7 @@ export default function DailyDashboard({
                 .map((line) => line.trim())
                 .filter(Boolean);
               const totalStatements = identityStatements.length;
-              const previewStatements = identityStatements.slice(0, 3);
+              const previewStatements = identityStatements.slice(0, 2);
               return (
                 <TouchableOpacity
                   activeOpacity={0.8}
@@ -1761,9 +1761,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1.5,
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 10,
     marginBottom: 16,
-    gap: 6,
+    gap: 3,
   },
   identityChipLabel: {
     fontSize: 10,
@@ -1776,26 +1776,26 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     fontFamily: 'Inter-Black',
     color: '#FFFFFF',
-    lineHeight: 27,
-    marginBottom: 14,
+    lineHeight: 26,
+    marginBottom: 8,
   },
   identityChipHeadlineAccent: {
     color: '#ccff00',
   },
   identityChipStatements: {
-    gap: 4,
+    gap: 2,
   },
   identityChipText: {
     fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Inter-Bold',
     color: 'rgba(255,255,255,0.7)',
-    lineHeight: 20,
+    lineHeight: 19,
   },
   identityChipFooter: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 10,
+    marginTop: 6,
   },
   identityChipViewAll: {
     fontSize: 11,
