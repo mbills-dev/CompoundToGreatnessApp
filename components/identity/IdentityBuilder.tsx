@@ -847,10 +847,10 @@ export default function IdentityBuilder({ onComplete }: Props) {
     setLocked(prev => [
       ...prev.filter(l => l.goalId !== goal.id),
       {
-        goalId: goal.id, dailyInput, goalLabel, doneLooksText,
+        goalId: goal.id, dailyInput, goalLabel, originalGoalLabel: goal.label, doneLooksText,
         what: dailyInput, when, where, schedule, isStandard, decodePath,
         resolvedTargetStr, dailyNumber, winNoun, actionNoun, ratio, periodSuffix,
-        identityLine: isAiSourced ? aiIdentityLines[goalIdx] : undefined,
+        identityLine: aiIdentityLines[goalIdx],
         additionalInputs: [],
       },
     ]);

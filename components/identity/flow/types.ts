@@ -38,6 +38,7 @@ export interface LockedGoal {
   goalId: number;
   dailyInput: string;
   goalLabel: string;
+  originalGoalLabel?: string;
   doneLooksText?: string;
   identityLine?: string;
   what: string;

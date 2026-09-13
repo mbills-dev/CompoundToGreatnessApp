@@ -42,6 +42,17 @@ export function formatTargetDisplay(raw: string): string {
   return raw.startsWith('$') ? `$${formatted}` : formatted;
 }
 
+function buildNumericFallbackSentence(lock: LockedGoal): string | null {
+  if (!lock.resolvedTargetStr) return null;
+  const source = (lock.originalGoalLabel ?? lock.goalLabel).trim();
+  const match = source.match(/^(\w+)/);
+  if (!match) return null;
+  const verb = match[1].toLowerCase();
+  const suffix = lock.periodSuffix ?? 'month';
+  const target = formatTargetDisplay(lock.resolvedTargetStr);
+  return `I ${verb} ${target}/${suffix}, consistently.`;
+}
+
 export function deriveIdentityLine(lock: LockedGoal): IdentityShape {
   const refined = lock.doneLooksText?.trim();
 
@@ -53,6 +64,8 @@ export function deriveIdentityLine(lock: LockedGoal): IdentityShape {
         return { kind: 'stacked', finishLine: refined };
       }
       if (lock.identityLine) return { kind: 'sentence', text: lock.identityLine };
+      const fallback = buildNumericFallbackSentence(lock);
+      if (fallback) return { kind: 'sentence', text: fallback };
       return { kind: 'stacked', finishLine: lock.goalLabel };
     }
     case 'practice': {
@@ -62,6 +75,8 @@ export function deriveIdentityLine(lock: LockedGoal): IdentityShape {
         return { kind: 'stacked', finishLine: refined };
       }
       if (lock.identityLine) return { kind: 'sentence', text: lock.identityLine };
+      const fallback = buildNumericFallbackSentence(lock);
+      if (fallback) return { kind: 'sentence', text: fallback };
       return { kind: 'stacked', finishLine: lock.goalLabel };
     }
     case 'starting': {
