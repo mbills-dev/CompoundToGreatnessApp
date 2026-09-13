@@ -781,13 +781,9 @@ export default function IdentityBuilder({ onComplete }: Props) {
         setGoalLabelOverrides(prev => ({ ...prev, [goal.id]: existingLabel }));
       } else {
         const suffix = numbersPayload?.periodSuffix ?? 'month';
-        const stripped = existingLabel
-          .replace(/\s+(?:per|\/|a)\s+\w+$/i, '')
-          .replace(/\s+consistently$/i, '')
-          .trim();
         setGoalLabelOverrides(prev => ({
           ...prev,
-          [goal.id]: `${stripped} ${displayTarget}/${suffix} consistently`,
+          [goal.id]: `${displayTarget}/${suffix} consistently`,
         }));
       }
     }
