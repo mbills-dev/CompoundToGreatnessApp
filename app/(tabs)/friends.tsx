@@ -12,7 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Swipeable } from 'react-native-gesture-handler';
+import { Swipeable, PanGestureHandler, State } from 'react-native-gesture-handler';
 import { Heart, UserPlus, Eye, Share2, Zap, Check, X, Ban, Clock, Trash2, Plus, MoreVertical } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -420,24 +420,7 @@ export default function FriendsScreen() {
     }
   };
 
-  const renderSwipeAction = (
-    progress: Animated.AnimatedInterpolation<number>,
-    label: string,
-    icon: React.ReactNode,
-    color: string,
-    onPress: () => void
-  ) => {
-    const scale = progress.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1], extrapolate: 'clamp' });
-    const opacity = progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0.6, 1], extrapolate: 'clamp' });
-    return (
-      <Animated.View style={{ transform: [{ scale }], opacity, justifyContent: 'center' }}>
-        <TouchableOpacity style={[styles.swipeAction, { backgroundColor: color }]} onPress={onPress} activeOpacity={0.8}>
-          {icon}
-          <Text style={styles.swipeActionText}>{label}</Text>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  };
+
 
   const displayError = error ?? (friendsLoadError ? (friendsLoadError as Error).message || 'Failed to load friends' : null);
 
@@ -573,26 +556,34 @@ export default function FriendsScreen() {
             ) : (
               friends.map((friend) => (
                 <View key={friend.id} style={styles.friendCard}>
+                  <Swipeable
+                    ref={(ref) => { swipeableRefs.current[friend.id] = ref; }}
+                    renderRightActions={() => (
+                      <View style={styles.swipeActionsRow}>
+                        <TouchableOpacity style={[styles.swipeAction, { backgroundColor: '#3A3A3A' }]} onPress={() => {
+                          swipeableRefs.current[friend.id]?.close();
+                          setDeleteConfirmId(friend.id);
+                        }} activeOpacity={0.8}>
+                          <Trash2 size={20} color="#FFFFFF" strokeWidth={2.5} />
+                          <Text style={styles.swipeActionText}>Delete</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.swipeAction, { backgroundColor: '#fc433d' }]} onPress={() => {
+                          setBlockConfirmId(friend.id);
+                          swipeableRefs.current[friend.id]?.close();
+                        }} activeOpacity={0.8}>
+                          <Ban size={20} color="#FFFFFF" strokeWidth={2.5} />
+                          <Text style={styles.swipeActionText}>Block</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    overshootRight={false}
+                    rightThreshold={95}
+                    containerStyle={styles.friendCardSwipeable}
+                  >
                   <LinearGradient
                     colors={colors.cardGradient as [string, string, ...string[]]}
                     style={[styles.friendCardGradient, { backgroundColor: colors.card }]}
                   >
-                    <Swipeable
-                      ref={(ref) => { swipeableRefs.current[friend.id] = ref; }}
-                      renderRightActions={(progress) => (
-                        <View style={styles.swipeActionsRow}>
-                          {renderSwipeAction(progress, 'Delete', <Trash2 size={20} color="#FFFFFF" strokeWidth={2.5} />, '#3A3A3A', () => {
-                            swipeableRefs.current[friend.id]?.close();
-                            setDeleteConfirmId(friend.id);
-                          })}
-                          {renderSwipeAction(progress, 'Block', <Ban size={20} color="#FFFFFF" strokeWidth={2.5} />, '#fc433d', () => {
-                            setBlockConfirmId(friend.id);
-                            swipeableRefs.current[friend.id]?.close();
-                          })}
-                        </View>
-                      )}
-                      overshootRight={false}
-                    >
                     <View style={styles.friendHeader}>
                       <TouchableOpacity
                         style={styles.friendInfo}
@@ -629,7 +620,6 @@ export default function FriendsScreen() {
                         <Text style={[styles.streakCompactLabel, { color: colors.primary }]}>DAY STREAK</Text>
                       </View>
                     </View>
-                    </Swipeable>
 
                     {friend.status === 'accepted' && friend.todayTotal > 0 && (
                       <TodayProgress
@@ -716,6 +706,7 @@ export default function FriendsScreen() {
                       </View>
                     )}
                   </LinearGradient>
+                  </Swipeable>
                 </View>
               ))
             )}
@@ -915,38 +906,66 @@ function QuickReactButton({ emoji, onPress }: { emoji: string; onPress: () => vo
 const BURST_PAGE_WIDTH = 38 * 4 + 8 * 3;
 
 function QuickReactRow({ friendId, onReact }: { friendId: string; onReact: (friendId: string, emoji: string) => void }) {
+  const translateX = useRef(new Animated.Value(0)).current;
   const [page, setPage] = useState(0);
+  const pageRef = useRef(0);
+  const dragStartX = useRef(0);
+
+  const onHandlerStateChange = (ev: any) => {
+    if (ev.nativeEvent.state === State.ACTIVE) {
+      dragStartX.current = -pageRef.current * BURST_PAGE_WIDTH;
+    }
+    if (ev.nativeEvent.oldState === State.ACTIVE) {
+      const dx = ev.nativeEvent.translationX;
+      let newPage = pageRef.current;
+      if (dx <= -20 && pageRef.current === 0) newPage = 1;
+      else if (dx >= 20 && pageRef.current === 1) newPage = 0;
+      Animated.spring(translateX, {
+        toValue: -newPage * BURST_PAGE_WIDTH,
+        useNativeDriver: false,
+        stiffness: 300,
+        damping: 30,
+      }).start();
+      pageRef.current = newPage;
+      setPage(newPage);
+    }
+  };
+
+  const onGestureEvent = (ev: any) => {
+    if (ev.nativeEvent.state === State.ACTIVE) {
+      const raw = dragStartX.current + ev.nativeEvent.translationX;
+      const clamped = Math.max(-BURST_PAGE_WIDTH, Math.min(0, raw));
+      translateX.setValue(clamped);
+    }
+  };
 
   return (
     <View>
       <View style={styles.burstCarouselViewport}>
-        <ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          scrollEventThrottle={16}
-          onScroll={(e) => {
-            const x = e.nativeEvent.contentOffset.x;
-            if (BURST_PAGE_WIDTH > 0) {
-              const newPage = Math.round(x / BURST_PAGE_WIDTH);
-              if (newPage !== page) setPage(newPage);
-            }
-          }}
-          style={styles.burstCarousel}
-          contentContainerStyle={styles.burstCarouselContent}
+        <PanGestureHandler
+          activeOffsetX={[-5, 5]}
+          onGestureEvent={onGestureEvent}
+          onHandlerStateChange={onHandlerStateChange}
         >
-          {BURST_PAGES.map((emojis, pageIndex) => (
-            <View key={pageIndex} style={[styles.burstCarouselPage, { width: BURST_PAGE_WIDTH }]}>
-              {emojis.map((emoji) => (
-                <QuickReactButton
-                  key={emoji}
-                  emoji={emoji}
-                  onPress={() => onReact(friendId, emoji)}
-                />
-              ))}
-            </View>
-          ))}
-        </ScrollView>
+          <Animated.View
+            style={{
+              flexDirection: 'row',
+              transform: [{ translateX }],
+            }}
+          >
+            {BURST_PAGES.map((emojis, pageIndex) => (
+              <View key={pageIndex} style={[styles.burstCarouselPage, { width: BURST_PAGE_WIDTH }]}>
+                {emojis.map((emoji) => (
+                  <QuickReactButton
+                    key={emoji}
+                    emoji={emoji}
+                    onPress={() => onReact(friendId, emoji)}
+                  />
+                ))}
+              </View>
+            ))}
+          </Animated.View>
+        </PanGestureHandler>
       </View>
       <View style={styles.burstDots}>
         {BURST_PAGES.map((_, i) => (
@@ -1140,6 +1159,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
   },
+  friendCardSwipeable: {
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
   friendCardGradient: {
     padding: 14,
   },
@@ -1300,12 +1323,6 @@ const styles = StyleSheet.create({
   burstCarouselViewport: {
     width: BURST_PAGE_WIDTH,
     overflow: 'hidden',
-  },
-  burstCarousel: {
-    width: BURST_PAGE_WIDTH,
-  },
-  burstCarouselContent: {
-    flexGrow: 0,
   },
   burstCarouselPage: {
     flexDirection: 'row',
@@ -1657,8 +1674,8 @@ const styles = StyleSheet.create({
   swipeActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
+    justifyContent: 'flex-end',
+    width: 190,
     marginLeft: 12,
     paddingVertical: 18,
     gap: 11,
