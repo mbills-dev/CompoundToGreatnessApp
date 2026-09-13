@@ -242,6 +242,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#CCFF00',
     borderRadius: 14,
     paddingVertical: 16,
+    marginTop: 22,
   },
   sendButtonText: {
     fontSize: 15,
