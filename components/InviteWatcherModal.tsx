@@ -25,12 +25,14 @@ interface Props {
 export default function InviteWatcherModal({ visible, onClose, userId }: Props) {
   const { colors, isDark } = useTheme();
   const [username, setUsername] = useState('');
+  const [challengeDay, setChallengeDay] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (visible) {
       loadUsername();
+      loadChallengeDay();
     }
   }, [visible]);
 
@@ -52,6 +54,25 @@ export default function InviteWatcherModal({ visible, onClose, userId }: Props) 
     }
   };
 
+  const loadChallengeDay = async () => {
+    try {
+      const { data: goal } = await supabase
+        .from('goals')
+        .select('current_challenge_day')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (goal?.current_challenge_day != null && goal.current_challenge_day > 0) {
+        setChallengeDay(goal.current_challenge_day);
+      } else {
+        setChallengeDay(null);
+      }
+    } catch {
+      setChallengeDay(null);
+    }
+  };
+
   const getShareLink = () => {
     if (!username) return '';
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -66,10 +87,18 @@ export default function InviteWatcherModal({ visible, onClose, userId }: Props) 
     setTimeout(() => setCopied(false), 2500);
   };
 
+  const getShareMessage = () => {
+    if (challengeDay != null) {
+      return `I'm on Day ${challengeDay} of my 77-Day Challenge. Follow along and watch my journey for free:\n\n${getShareLink()}`;
+    }
+    return `I'm doing the 77-Day Compound to Greatness Challenge. Follow along and watch my journey for free:\n\n${getShareLink()}`;
+  };
+
   const handleShare = async () => {
+    if (!username) return;
     try {
       await Share.share({
-        message: `I'm on Day ${0} of my 77-Day Challenge. Follow along and watch my journey for free:\n\n${getShareLink()}`,
+        message: getShareMessage(),
         url: getShareLink(),
       });
     } catch {}
@@ -102,6 +131,12 @@ export default function InviteWatcherModal({ visible, onClose, userId }: Props) 
             <View style={styles.loadingContainer}>
               <ActivityIndicator color="#ccff00" />
             </View>
+          ) : !username ? (
+            <View style={styles.noUsernameContainer}>
+              <Text style={[styles.noUsernameText, { color: colors.textSecondary }]}>
+                You need to set a username before you can share your watcher link. Go to Settings to set one.
+              </Text>
+            </View>
           ) : (
             <>
               <View style={[styles.codeCard, { backgroundColor: isDark ? '#111' : '#FFFFFF', borderColor: isDark ? '#1A1A1A' : '#E0E0DB' }]}>
@@ -118,6 +153,7 @@ export default function InviteWatcherModal({ visible, onClose, userId }: Props) 
               <TouchableOpacity
                 style={styles.shareButton}
                 onPress={handleShare}
+                activeOpacity={0.85}
               >
                 <LinearGradient colors={['#ccff00', '#aed900']} style={styles.shareButtonGradient}>
                   <Share2 size={20} color="#000000" strokeWidth={2.5} />
@@ -128,6 +164,7 @@ export default function InviteWatcherModal({ visible, onClose, userId }: Props) 
               <TouchableOpacity
                 style={[styles.copyButton, { backgroundColor: isDark ? '#111' : '#FFFFFF', borderColor: isDark ? '#1A1A1A' : '#E0E0DB' }]}
                 onPress={handleCopy}
+                activeOpacity={0.7}
               >
                 {copied ? (
                   <>
@@ -209,6 +246,16 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   loadingContainer: { height: 100, alignItems: 'center', justifyContent: 'center' },
+  noUsernameContainer: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  noUsernameText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   codeCard: {
     borderRadius: 14,
     padding: 18,

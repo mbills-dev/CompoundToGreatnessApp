@@ -739,20 +739,37 @@ export default function FriendsScreen() {
       onRequestClose={() => setShowAddMenu(false)}
     >
       <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setShowAddMenu(false)}>
-        <View style={[styles.menuSheet, { backgroundColor: colors.card }]}>
+        <View style={[styles.menuSheet, { backgroundColor: isDark ? '#0D0D0D' : '#FFFFFF' }]}>
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => { setShowAddMenu(false); setShowAddFriendModal(true); }}
+            activeOpacity={0.7}
           >
-            <UserPlus size={20} color={colors.primary} strokeWidth={2.5} />
-            <Text style={[styles.menuItemText, { color: colors.text }]}>Add a Friend</Text>
+            <View style={[styles.menuIcon, { backgroundColor: 'rgba(204,255,0,0.1)' }]}>
+              <UserPlus size={20} color={colors.primary} strokeWidth={2.5} />
+            </View>
+            <View style={styles.menuTextColumn}>
+              <Text style={[styles.menuItemText, { color: colors.text }]}>Add a Friend</Text>
+              <Text style={[styles.menuItemSubtext, { color: colors.textTertiary }]}>
+                Search for someone already using Compound to Greatness.
+              </Text>
+            </View>
           </TouchableOpacity>
+          <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => { setShowAddMenu(false); setShowInviteModal(true); }}
+            activeOpacity={0.7}
           >
-            <Share2 size={20} color={colors.primary} strokeWidth={2.5} />
-            <Text style={[styles.menuItemText, { color: colors.text }]}>Invite a Watcher</Text>
+            <View style={[styles.menuIcon, { backgroundColor: 'rgba(204,255,0,0.1)' }]}>
+              <Share2 size={20} color={colors.primary} strokeWidth={2.5} />
+            </View>
+            <View style={styles.menuTextColumn}>
+              <Text style={[styles.menuItemText, { color: colors.text }]}>Invite a Watcher</Text>
+              <Text style={[styles.menuItemSubtext, { color: colors.textTertiary }]}>
+                Share your public journey link with anyone.
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -1332,20 +1349,41 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 8,
     width: '100%',
-    maxWidth: 320,
+    maxWidth: 340,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+  },
+  menuIcon: {
+    width: 40,
+    height: 40,
     borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuTextColumn: {
+    flex: 1,
+    gap: 2,
   },
   menuItemText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '900',
     fontFamily: 'Inter-Black',
+  },
+  menuItemSubtext: {
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: 'Inter-Bold',
+    lineHeight: 16,
+  },
+  menuDivider: {
+    height: 1,
+    marginHorizontal: 12,
   },
   addFriendSheet: {
     borderRadius: 20,
