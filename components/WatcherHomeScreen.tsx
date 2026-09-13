@@ -8,14 +8,19 @@ import {
   ActivityIndicator,
   Image,
   AppState,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Eye, Zap, Calendar, Target, LogOut, Star, Shield, Layers, Flame, Check } from 'lucide-react-native';
+import { Eye, Zap, Calendar, LogOut, Star, Shield, Layers, Flame, Check, Heart, X } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
 import { getTodayDateString, toLocalDateString, parseLocalDate } from '@/lib/dateHelpers';
+import { awardEncouragementBadge } from '@/lib/badgeHelpers';
+import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
+import EncourageModal from '@/components/EncourageModal';
+import ReactionBurst from '@/components/ReactionBurst';
 
 interface Activity {
   id: string;
@@ -67,6 +72,8 @@ const badgeIconMap: Record<string, React.ComponentType<{ size?: number; color?: 
   zap: Zap,
 };
 
+const QUICK_EMOJIS = ['🔥', '💪', '👏', '🚀'];
+
 function hexWithOpacity(hex: string, opacity: number): string {
   const cleaned = hex.replace('#', '');
   const r = parseInt(cleaned.substring(0, 2), 16);
@@ -78,6 +85,7 @@ function hexWithOpacity(hex: string, opacity: number): string {
 export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onStartOwn, hideAccountActions = false }: Props) {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { celebrateBadge } = useBadgeCelebration();
   const rootGradient: [string, string, string] = isDark ? ['#000000', '#050505', '#000000'] : [colors.background, colors.background, colors.background];
   const cardBg = isDark ? '#0A0A0A' : colors.card;
   const secondaryBg = isDark ? '#1A1A1A' : colors.backgroundSecondary;
@@ -88,9 +96,13 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
   const [watched, setWatched] = useState<WatchedUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [watcherName, setWatcherName] = useState('');
+  const [watcherDisplayName, setWatcherDisplayName] = useState('');
   const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>([]);
   const [watcherCount, setWatcherCount] = useState(0);
   const prevAppStateRef = useRef<string>('active');
+  const [encourageVisible, setEncourageVisible] = useState(false);
+  const [encourageMessage, setEncourageMessage] = useState('');
+  const [burstPreview, setBurstPreview] = useState<{ emoji: string; count: number } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -212,8 +224,14 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
       });
 
       setEarnedBadges((badgeRes.data as unknown as EarnedBadge[]) || []);
-
       setWatcherName(watcherRes.data?.first_name || 'You');
+
+      const { data: watcherProfile } = await supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('id', watcherId)
+        .maybeSingle();
+      setWatcherDisplayName(watcherProfile?.display_name || watcherRes.data?.first_name || 'Someone');
     } catch {
     } finally {
       setLoading(false);
@@ -227,6 +245,70 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
     if (watched.lastActive === today) return 'Active today';
     if (watched.lastActive === yesterday) return 'Active yesterday';
     return `Last active ${watched.lastActive}`;
+  };
+
+  const firstName = watched?.displayName.split(' ')[0] || watched?.displayName || 'them';
+
+  const sendQuickBurst = async (emoji: string) => {
+    setBurstPreview({ emoji, count: 1 });
+    try {
+      const { error: insErr } = await supabase
+        .from('encouragements')
+        .insert({
+          from_user_id: watcherId,
+          to_user_id: watchedId,
+          emoji,
+          message: null,
+        });
+      if (insErr) throw insErr;
+      awardEncouragementBadge(watcherId).then((keys) => keys.forEach((key) => celebrateBadge(key))).catch(() => {});
+      const senderName = watcherDisplayName || 'Someone';
+      supabase.functions.invoke('send-push', {
+        body: {
+          recipientUserId: watchedId,
+          title: `${senderName} sent you ${emoji}`,
+          body: `Tap to see it in the app.`,
+          data: { type: 'reaction' },
+        },
+      }).catch(() => {});
+    } catch {
+    }
+  };
+
+  const sendEncouragement = async () => {
+    try {
+      const { error: insErr } = await supabase
+        .from('encouragements')
+        .insert({
+          from_user_id: watcherId,
+          to_user_id: watchedId,
+          emoji: null,
+          message: encourageMessage.trim() || null,
+        });
+      if (insErr) throw insErr;
+      awardEncouragementBadge(watcherId).then((keys) => keys.forEach((key) => celebrateBadge(key))).catch(() => {});
+      const senderName = watcherDisplayName || 'Someone';
+      const hasMessage = !!encourageMessage.trim();
+      const trimmedMessage = encourageMessage.trim();
+      const pushBody = hasMessage
+        ? trimmedMessage.length > 40
+          ? `"${trimmedMessage.slice(0, 40)}..."`
+          : `"${trimmedMessage}"`
+        : `Tap to see it in the app.`;
+      supabase.functions.invoke('send-push', {
+        body: {
+          recipientUserId: watchedId,
+          title: hasMessage
+            ? `${senderName} sent you a message`
+            : `${senderName} sent you encouragement`,
+          body: pushBody,
+          data: { type: 'reaction' },
+        },
+      }).catch(() => {});
+      setEncourageVisible(false);
+      setEncourageMessage('');
+    } catch {
+    }
   };
 
   if (loading) {
@@ -246,9 +328,16 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
     return Math.round((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   })();
 
+  const todayCompletedCount = watched?.todayCompletedIds.length ?? 0;
+  const totalActivities = watched?.activities.length ?? 0;
+
+  const clampedDay = Math.max(0, Math.min(watched?.currentDay ?? 0, 77));
+  const journeyPct = Math.round((clampedDay / 77) * 100);
+  const completionDateSet = new Set(watched?.completionDates || []);
+
   return (
     <LinearGradient colors={rootGradient} style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 16 }]}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 8 }]}>
         <View style={styles.header}>
           <View>
             <Text style={styles.headerLabel}>WATCHER MODE</Text>
@@ -261,6 +350,7 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           )}
         </View>
 
+        {/* HERO */}
         <View style={styles.heroCard}>
           <LinearGradient
             colors={['rgba(204, 255, 0, 0.08)', 'rgba(204, 255, 0, 0.02)']}
@@ -298,7 +388,7 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
             ) : (
               <>
                 <View style={styles.streakHeroRow}>
-                  <Zap size={40} color="#CCFF00" fill="#CCFF00" strokeWidth={2} />
+                  <Zap size={34} color="#CCFF00" fill="#CCFF00" strokeWidth={2} />
                   <Text style={[styles.streakNumber, { color: textPrimary }]}>{watched?.streak ?? 0}</Text>
                   <View style={styles.streakIconSpacer} />
                 </View>
@@ -308,23 +398,56 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           </LinearGradient>
         </View>
 
+        {/* SUPPORT ACTIONS */}
+        {!isPreStart && (
+          <View style={[styles.supportCard, { backgroundColor: cardBg, borderColor }]}>
+            <Text style={styles.supportLabel}>SEND A BURST</Text>
+            <View style={styles.burstRow}>
+              {QUICK_EMOJIS.map((emoji) => (
+                <TouchableOpacity
+                  key={emoji}
+                  style={styles.burstButton}
+                  onPress={() => sendQuickBurst(emoji)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.burstEmoji}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={[styles.encourageButton, { borderColor: 'rgba(204,255,0,0.3)' }]}
+              onPress={() => setEncourageVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Heart size={16} color="#ccff00" strokeWidth={2.5} />
+              <Text style={styles.encourageButtonText}>Encourage {firstName}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* TODAY'S SUCCESS STACK */}
         {!isPreStart && watched?.shareFullJourney && watched && watched.activities.length > 0 ? (
-          <View style={[styles.stackCard, { backgroundColor: cardBg, borderColor}]}>
-            <Text style={styles.stackLabel}>TODAY'S SUCCESS STACK</Text>
+          <View style={[styles.stackCard, { backgroundColor: cardBg, borderColor }]}>
+            <View style={styles.stackHeader}>
+              <Text style={styles.stackLabel}>TODAY'S SUCCESS STACK</Text>
+              <Text style={[styles.stackCount, { color: textMuted }]}>
+                {todayCompletedCount} / {totalActivities}
+              </Text>
+            </View>
             {watched.activities.map((activity) => {
               const completed = watched.todayCompletedIds.includes(activity.id);
               return (
                 <View key={activity.id} style={styles.stackRow}>
-                  <Text style={[styles.stackActivityName, { color: textTertiary }, completed && { color: textPrimary }]}>
+                  <Text style={[styles.stackActivityName, { color: completed ? textPrimary : textMuted }]}>
                     {activity.activity_name}
                   </Text>
                   <View style={styles.checkmarkContainer}>
                     {completed ? (
                       <View style={styles.checkmarkCircleInner}>
-                        <Check size={24} color="#000000" strokeWidth={3} />
+                        <Check size={18} color="#000000" strokeWidth={3} />
                       </View>
                     ) : (
-                      <View style={[styles.uncheckedCircleInner, { borderColor }]} />
+                      <View style={[styles.uncheckedCircleInner, { borderColor: isDark ? '#333' : colors.border }]} />
                     )}
                   </View>
                 </View>
@@ -333,6 +456,51 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           </View>
         ) : null}
 
+        {/* THEIR 77-DAY JOURNEY */}
+        {!isPreStart && (
+          <View style={[styles.journeyCard, { backgroundColor: cardBg, borderColor }]}>
+            <Text style={styles.journeyLabel}>THEIR 77-DAY JOURNEY</Text>
+            <View style={styles.journeyHeaderRow}>
+              <Text style={[styles.journeyDayText, { color: textPrimary }]}>
+                DAY {clampedDay} OF 77
+              </Text>
+              <Text style={styles.journeyPctText}>{journeyPct}%</Text>
+            </View>
+
+            {/* Compact 77-day progress strip */}
+            <View style={styles.dayStrip}>
+              {Array.from({ length: 77 }, (_, i) => {
+                const dayNum = i + 1;
+                const isCompleted = dayNum < clampedDay;
+                const isCurrent = dayNum === clampedDay;
+                const isFinal = dayNum === 77;
+                const bgColor = isCompleted
+                  ? '#CCFF00'
+                  : isCurrent
+                    ? '#CCFF00'
+                    : isDark ? '#1A1A1A' : 'rgba(0,0,0,0.06)';
+                const borderWidth = isCurrent ? 2 : isFinal ? 1.5 : 0;
+                const accentBorder = isCurrent
+                  ? '#FFFFFF'
+                  : isFinal
+                    ? 'rgba(204,255,0,0.5)'
+                    : 'transparent';
+                return (
+                  <View
+                    key={dayNum}
+                    style={[
+                      styles.dayMarker,
+                      { backgroundColor: bgColor, borderWidth, borderColor: accentBorder },
+                      isCurrent && styles.dayMarkerCurrent,
+                    ]}
+                  />
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* BADGES */}
         <View style={styles.badgesSection}>
           <Text style={[styles.sectionTitle, { color: textPrimary }]}>Badges</Text>
           {earnedBadges.length > 0 ? (
@@ -355,21 +523,23 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           )}
         </View>
 
+        {/* STATS */}
         {!isPreStart && (
           <View style={styles.statsRow}>
             <View style={[styles.statCard, { backgroundColor: cardBg, borderColor }]}>
-              <Flame size={20} color="#ccff00" strokeWidth={2} />
+              <Flame size={18} color="#ccff00" strokeWidth={2} />
               <Text style={[styles.statNumber, { color: textPrimary }]}>{watched?.bestStreak ?? 0}</Text>
               <Text style={[styles.statLabel, { color: textTertiary }]}>Best Streak</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: cardBg, borderColor }]}>
-              <Calendar size={20} color="#ccff00" strokeWidth={2} />
+              <Calendar size={18} color="#ccff00" strokeWidth={2} />
               <Text style={[styles.statNumber, { color: textPrimary }]}>{watched?.lifetimeDays ?? 0}</Text>
               <Text style={[styles.statLabel, { color: textTertiary }]}>Lifetime Days</Text>
             </View>
           </View>
         )}
 
+        {/* WATCHER COUNT */}
         <View style={[styles.watcherPill, { backgroundColor: cardBg, borderColor }]}>
           <Eye size={16} color="#ccff00" strokeWidth={2.5} />
           <Text style={[styles.watcherPillText, { color: textMuted }]}>
@@ -400,6 +570,30 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
         </View>
         )}
       </ScrollView>
+
+      {/* ENCOURAGE MODAL */}
+      <EncourageModal
+        visible={encourageVisible}
+        friendName={watched?.displayName || ''}
+        friendPhotoUrl={watched?.photoUrl}
+        friendStreak={watched?.streak ?? 0}
+        message={encourageMessage}
+        onMessageChange={setEncourageMessage}
+        onSend={sendEncouragement}
+        onClose={() => {
+          setEncourageVisible(false);
+          setEncourageMessage('');
+        }}
+      />
+
+      {/* BURST PREVIEW */}
+      {burstPreview && (
+        <ReactionBurst
+          emoji={burstPreview.emoji}
+          count={burstPreview.count}
+          onComplete={() => setBurstPreview(null)}
+        />
+      )}
     </LinearGradient>
   );
 }
@@ -407,12 +601,12 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000' },
-  scroll: { padding: 24, paddingTop: 64, paddingBottom: 60 },
+  scroll: { padding: 24, paddingTop: 48, paddingBottom: 60 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 28,
+    marginBottom: 20,
   },
   headerLabel: {
     fontSize: 11,
@@ -421,7 +615,7 @@ const styles = StyleSheet.create({
     color: '#ccff00',
     marginBottom: 6,
   },
-  headerTitle: { fontSize: 38, fontWeight: '900', color: '#FFFFFF' },
+  headerTitle: { fontSize: 36, fontWeight: '900', color: '#FFFFFF' },
   signOutButton: {
     padding: 12,
     borderRadius: 12,
@@ -429,31 +623,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1A1A1A',
   },
-  heroCard: { borderRadius: 24, overflow: 'hidden', marginBottom: 28, borderWidth: 1, borderColor: 'rgba(204, 255, 0, 0.15)' },
-  heroCardInner: { padding: 24 },
-  heroTop: { flexDirection: 'row', gap: 16, alignItems: 'flex-start', marginBottom: 20 },
+  heroCard: { borderRadius: 24, overflow: 'hidden', marginBottom: 20, borderWidth: 1, borderColor: 'rgba(204, 255, 0, 0.15)' },
+  heroCardInner: { padding: 20 },
+  heroTop: { flexDirection: 'row', gap: 14, alignItems: 'center', marginBottom: 16 },
   avatarLarge: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#111',
     borderWidth: 2,
     borderColor: '#ccff00',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarLargeText: { fontSize: 24, fontWeight: '900', color: '#ccff00' },
+  avatarLargeText: { fontSize: 22, fontWeight: '900', color: '#ccff00' },
   heroInfo: { flex: 1 },
   heroName: { fontSize: 20, fontWeight: '900', color: '#FFFFFF', marginBottom: 4 },
-  heroGoal: { fontSize: 13, fontWeight: '600', color: '#808080', lineHeight: 18, marginBottom: 6 },
   heroActive: { fontSize: 12, fontWeight: '600', color: '#ccff00' },
 
   identityChip: {
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1.5,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
     gap: 4,
   },
   identityChipLabel: {
@@ -463,67 +656,18 @@ const styles = StyleSheet.create({
     color: '#ccff00',
   },
   identityChipText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    lineHeight: 22,
-  },
-  stackCard: {
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    marginBottom: 20,
-  },
-  stackLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    fontFamily: 'Inter-Black',
-    letterSpacing: 2,
-    color: '#ccff00',
-    marginBottom: 16,
-  },
-  stackRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    borderRadius: 16,
-    minHeight: 72,
-  },
-  checkmarkContainer: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  checkmarkCircleInner: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#ccff00',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  uncheckedCircleInner: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-  },
-  stackActivityName: {
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: 'Inter-Bold',
-    flex: 1,
-    paddingRight: 12,
+    lineHeight: 20,
   },
   streakHeroRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 8,
   },
   streakNumber: {
-    fontSize: 80,
+    fontSize: 64,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
     letterSpacing: -2,
@@ -541,7 +685,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   streakIconSpacer: {
-    width: 40,
+    width: 34,
   },
   preStartPill: {
     backgroundColor: '#0A0A0A',
@@ -561,21 +705,200 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textAlign: 'center',
   },
-  badgesSection: { marginBottom: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: '900', color: '#FFFFFF', marginBottom: 16 },
+
+  // Support card
+  supportCard: {
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    marginBottom: 20,
+  },
+  supportLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 2,
+    color: '#ccff00',
+    marginBottom: 14,
+  },
+  burstRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    gap: 10,
+    marginBottom: 14,
+  },
+  burstButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(204, 255, 0, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(204, 255, 0, 0.15)',
+  },
+  burstEmoji: {
+    fontSize: 20,
+  },
+  encourageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(204,255,0,0.04)',
+  },
+  encourageButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+    fontFamily: 'Inter-Black',
+    color: '#ccff00',
+    letterSpacing: 0.5,
+  },
+
+  // Success stack
+  stackCard: {
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    marginBottom: 20,
+  },
+  stackHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  stackLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 2,
+    color: '#ccff00',
+  },
+  stackCount: {
+    fontSize: 13,
+    fontWeight: '800',
+    fontFamily: 'Inter-Black',
+  },
+  stackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    minHeight: 52,
+  },
+  stackActivityName: {
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
+    flex: 1,
+    paddingRight: 12,
+  },
+  checkmarkContainer: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  checkmarkCircleInner: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#ccff00',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uncheckedCircleInner: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+  },
+
+  // 77-day journey
+  journeyCard: {
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    marginBottom: 20,
+  },
+  journeyLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 2,
+    color: '#ccff00',
+    marginBottom: 12,
+  },
+  journeyHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  journeyDayText: {
+    fontSize: 20,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 0.5,
+  },
+  journeyPctText: {
+    fontSize: 14,
+    fontWeight: '800',
+    fontFamily: 'Inter-Black',
+    color: '#ccff00',
+  },
+  dayStrip: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  dayMarker: {
+    width: 8,
+    height: 8,
+    borderRadius: 2,
+  },
+  dayMarkerCurrent: {
+    width: 10,
+    height: 10,
+    borderRadius: 3,
+  },
+
+  // Badges
+  badgesSection: { marginBottom: 20 },
+  sectionTitle: { fontSize: 16, fontWeight: '900', color: '#FFFFFF', marginBottom: 14 },
   badgeScroll: { gap: 14, paddingRight: 8 },
-  badgeItem: { alignItems: 'center', width: 76, gap: 8 },
+  badgeItem: { alignItems: 'center', width: 72, gap: 8 },
   badgeCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
   },
   badgeCaption: { fontSize: 11, fontWeight: '700', color: '#808080', textAlign: 'center', lineHeight: 14 },
-  badgesEmpty: { fontSize: 14, fontWeight: '600', color: '#555', fontStyle: 'italic' },
+  badgesEmpty: { fontSize: 13, fontWeight: '600', color: '#555', fontStyle: 'italic' },
+
+  // Stats
   statsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#0A0A0A',
+    borderRadius: 16,
+    padding: 14,
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#1A1A1A',
+  },
+  statNumber: { fontSize: 22, fontWeight: '900', color: '#FFFFFF' },
+  statLabel: { fontSize: 11, fontWeight: '600', color: '#555', textAlign: 'center' },
+
+  // Watcher pill
   watcherPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -587,21 +910,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#1A1A1A',
-    marginBottom: 28,
+    marginBottom: 24,
   },
   watcherPillText: { fontSize: 13, fontWeight: '700', color: '#808080' },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#0A0A0A',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#1A1A1A',
-  },
-  statNumber: { fontSize: 24, fontWeight: '900', color: '#FFFFFF' },
-  statLabel: { fontSize: 11, fontWeight: '600', color: '#555', textAlign: 'center' },
+
+  // Convert banner
   convertBanner: { borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(204, 255, 0, 0.2)' },
   convertBannerInner: { padding: 28, alignItems: 'center', gap: 16 },
   convertTitle: {
