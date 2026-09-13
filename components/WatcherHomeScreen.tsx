@@ -340,14 +340,22 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
   return (
     <LinearGradient colors={rootGradient} style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { paddingTop: hideAccountActions ? 8 : insets.top + 8 }]}>
-        {/* COMPACT HEADER */}
+        {/* COMPACT HEADER — centered */}
         <View style={styles.header}>
-          <Text style={styles.headerLabel}>WATCHER MODE</Text>
-          <Text style={[styles.headerSub, { color: textTertiary }]}>You're Watching</Text>
           {!hideAccountActions && (
             <TouchableOpacity style={[styles.signOutButton, { backgroundColor: cardBg, borderColor }]} onPress={onSignOut}>
               <LogOut size={16} color={textTertiary} strokeWidth={2} />
             </TouchableOpacity>
+          )}
+          {hideAccountActions && <View style={styles.headerSpacer} />}
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerLabel}>WATCHER MODE</Text>
+            <Text style={[styles.headerSub, { color: textTertiary }]}>You're Watching</Text>
+          </View>
+          {!hideAccountActions ? (
+            <View style={styles.signOutButton} />
+          ) : (
+            <View style={styles.headerSpacer} />
           )}
         </View>
 
@@ -432,11 +440,13 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
             <TouchableOpacity
               style={styles.supportRight}
               onPress={() => setEncourageVisible(true)}
-              activeOpacity={0.7}
+              activeOpacity={0.85}
             >
-              <Heart size={18} color="#ccff00" strokeWidth={2.5} />
-              <Text style={styles.encourageLabel}>ENCOURAGE</Text>
-              <Text style={[styles.encourageName, { color: textPrimary }]} numberOfLines={1}>{firstName.toUpperCase()}</Text>
+              <LinearGradient colors={['#CCFF00', '#aed900']} style={styles.encourageButton}>
+                <Heart size={16} color="#000000" strokeWidth={2.5} fill="#000000" />
+                <Text style={styles.encourageBtnText}>ENCOURAGE</Text>
+                <Text style={styles.encourageBtnName} numberOfLines={1}>{firstName.toUpperCase()}</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         )}
@@ -509,28 +519,26 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           </View>
         )}
 
-        {/* BADGES — compact */}
+        {/* BADGES — compact, hidden when empty */}
+        {earnedBadges.length > 0 && (
         <View style={styles.badgesSection}>
           <Text style={[styles.sectionTitle, { color: textPrimary }]}>Badges</Text>
-          {earnedBadges.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.badgeScroll}>
-              {earnedBadges.map((badge, index) => {
-                const Icon = (badge.badges?.[0]?.icon && badgeIconMap[badge.badges[0].icon]) || Star;
-                const badgeColor = badge.badges?.[0]?.color || '#ccff00';
-                return (
-                  <View key={`${badge.badge_key}-${index}`} style={styles.badgeItem}>
-                    <View style={[styles.badgeCircle, { backgroundColor: hexWithOpacity(badgeColor, 0.12), borderColor: hexWithOpacity(badgeColor, 0.25) }]}>
-                      <Icon size={18} color={badgeColor} strokeWidth={2} />
-                    </View>
-                    <Text style={[styles.badgeCaption, { color: textMuted }]} numberOfLines={1}>{badge.badges?.[0]?.title || badge.badge_key}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.badgeScroll}>
+            {earnedBadges.map((badge, index) => {
+              const Icon = (badge.badges?.[0]?.icon && badgeIconMap[badge.badges[0].icon]) || Star;
+              const badgeColor = badge.badges?.[0]?.color || '#ccff00';
+              return (
+                <View key={`${badge.badge_key}-${index}`} style={styles.badgeItem}>
+                  <View style={[styles.badgeCircle, { backgroundColor: hexWithOpacity(badgeColor, 0.12), borderColor: hexWithOpacity(badgeColor, 0.25) }]}>
+                    <Icon size={18} color={badgeColor} strokeWidth={2} />
                   </View>
-                );
-              })}
-            </ScrollView>
-          ) : (
-            <Text style={[styles.badgesEmpty, { color: textTertiary }]}>No badges earned yet</Text>
-          )}
+                  <Text style={[styles.badgeCaption, { color: textMuted }]} numberOfLines={1}>{badge.badges?.[0]?.title || badge.badge_key}</Text>
+                </View>
+              );
+            })}
+          </ScrollView>
         </View>
+        )}
 
         {/* THREE-COLUMN STATS */}
         {!isPreStart && (
@@ -609,16 +617,21 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000' },
   scroll: { paddingHorizontal: 20, paddingBottom: 60 },
 
-  // Compact header
+  // Compact header — centered
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 14,
-    paddingRight: 4,
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
   },
   headerLabel: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
     color: '#FFFFFF',
@@ -632,6 +645,9 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
     borderWidth: 1,
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // Hero — horizontal
@@ -662,9 +678,10 @@ const styles = StyleSheet.create({
     color: '#ccff00',
   },
   identityText: {
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 18,
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: 'Inter-Bold',
+    lineHeight: 17,
   },
   heroRight: {
     alignItems: 'center',
@@ -755,24 +772,31 @@ const styles = StyleSheet.create({
     marginVertical: 16,
   },
   supportRight: {
-    padding: 16,
+    padding: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 90,
-    gap: 4,
   },
-  encourageLabel: {
+  encourageButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 2,
+    minWidth: 80,
+  },
+  encourageBtnText: {
     fontSize: 10,
-    fontWeight: '800',
-    fontFamily: 'Inter-Black',
-    letterSpacing: 1,
-    color: '#ccff00',
-    marginTop: 4,
-  },
-  encourageName: {
-    fontSize: 12,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
+    color: '#000000',
+    letterSpacing: 0.8,
+  },
+  encourageBtnName: {
+    fontSize: 11,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    color: '#000000',
   },
 
   // Success stack — compact
@@ -890,9 +914,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   dayDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   dayDotCompleted: {
     backgroundColor: '#CCFF00',
@@ -901,9 +925,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 2,
     borderColor: '#CCFF00',
-    width: 11,
-    height: 11,
-    borderRadius: 5.5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   dayDotFuture: {
     backgroundColor: '#1A1A1A',
@@ -927,7 +951,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   badgeCaption: { fontSize: 10, fontWeight: '700', fontFamily: 'Inter-Bold', textAlign: 'center', lineHeight: 13 },
-  badgesEmpty: { fontSize: 12, fontWeight: '600', fontStyle: 'italic' },
+  badgesEmpty: { fontSize: 12, fontWeight: '600', fontStyle: 'italic', display: 'none' },
 
   // Three-column stats
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
