@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
 import InviteWatcherModal from '@/components/InviteWatcherModal';
-import { getInboxItems, markInboxItemRead, type InboxItem } from '@/lib/inboxHelpers';
+import { getInboxItems, markInboxItemRead, inboxKey, type InboxItem } from '@/lib/inboxHelpers';
 import InboxItemCard from '@/components/InboxItemCard';
 import { useRouter } from 'expo-router';
 import { Animated } from 'react-native';
@@ -68,8 +68,12 @@ export default function FriendsScreen() {
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
   const [blockConfirmId, setBlockConfirmId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
-  const [inboxLoading, setInboxLoading] = useState(true);
+  const { data: inboxItems = [], isLoading: inboxLoading } = useQuery({
+    queryKey: inboxKey(user?.id),
+    queryFn: () => getInboxItems(user!.id),
+    enabled: !!user,
+    initialData: () => queryClient.getQueryData(inboxKey(user?.id)),
+  });
   const [myDisplayName, setMyDisplayName] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipeableRefs = useRef<Record<string, Swipeable | null>>({});
@@ -78,23 +82,6 @@ export default function FriendsScreen() {
   const loadFriends = () => {
     return queryClient.invalidateQueries({ queryKey: friendsKey(user?.id) });
   };
-
-  useEffect(() => {
-    if (!user) {
-      setInboxLoading(false);
-      return;
-    }
-    (async () => {
-      try {
-        const items = await getInboxItems(user.id);
-        setInboxItems(items);
-      } catch {
-        // silently fail — inbox is non-critical
-      } finally {
-        setInboxLoading(false);
-      }
-    })();
-  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -219,14 +206,14 @@ export default function FriendsScreen() {
   };
 
   const handleMarkInboxRead = async (item: InboxItem) => {
-    setInboxItems((prev) =>
+    queryClient.setQueryData<InboxItem[]>(inboxKey(user?.id), (prev = []) =>
       prev.map((i) => (i.id === item.id ? { ...i, readAt: new Date().toISOString() } : i)),
     );
     try {
       await markInboxItemRead(item);
     } catch {
       // revert on failure
-      setInboxItems((prev) =>
+      queryClient.setQueryData<InboxItem[]>(inboxKey(user?.id), (prev = []) =>
         prev.map((i) => (i.id === item.id ? { ...i, readAt: null } : i)),
       );
     }

@@ -11,6 +11,8 @@ export type InboxItem = {
   readAt: string | null;
 };
 
+export const inboxKey = (userId: string | undefined) => ['inbox', userId];
+
 export async function getInboxItems(userId: string): Promise<InboxItem[]> {
   const [encouragementsRes, leadsRes] = await Promise.all([
     supabase

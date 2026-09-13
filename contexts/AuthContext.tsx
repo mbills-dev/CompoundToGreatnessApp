@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Image } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
@@ -75,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loadOnboardingState(session.user.id);
         checkWatcherStatus(session.user.id);
         checkUsernameStatus(session.user.id, session.user.is_anonymous ?? false);
+        prefetchAvatar(session.user.id);
       } else {
         try {
           logBreadcrumb('anon_signin_start');
@@ -105,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await loadOnboardingState(session.user.id);
           await checkWatcherStatus(session.user.id);
           await checkUsernameStatus(session.user.id, session.user.is_anonymous ?? false);
+          prefetchAvatar(session.user.id);
         })();
       } else {
         setIsSubscribed(false);
@@ -140,6 +142,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {
         setOnboardingCompleted(true);
       }
+    }
+  };
+
+  const prefetchAvatar = async (userId: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('photo_url')
+        .eq('id', userId)
+        .maybeSingle();
+      if (profile?.photo_url) {
+        Image.prefetch(profile.photo_url);
+      }
+    } catch {
+      // non-critical — Settings still has its own fade-in fallback if this misses
     }
   };
 
