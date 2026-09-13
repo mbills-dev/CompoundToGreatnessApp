@@ -609,7 +609,7 @@ export default function FriendsScreen() {
                           <Text style={[styles.friendName, { color: colors.text }]} numberOfLines={1}>{friend.display_name}</Text>
                           {friend.isWatching ? (
                             <View style={styles.watchingStatusRow}>
-                              <View style={styles.watchingDot} />
+                              <Eye size={12} color="#CCFF00" strokeWidth={2.5} fill="transparent" />
                               <Text style={styles.watchingStatusText}>WATCHING</Text>
                             </View>
                           ) : (
@@ -619,9 +619,11 @@ export default function FriendsScreen() {
                       </TouchableOpacity>
 
                       <View style={styles.streakCompact}>
-                        <Zap size={16} color={colors.primary} fill={colors.primary} strokeWidth={2.5} />
-                        <Text style={[styles.streakCompactNumber, { color: colors.text }]}>{friend.streak}</Text>
-                        <Text style={[styles.streakCompactLabel, { color: colors.primary }]}>STREAK</Text>
+                        <View style={styles.streakNumberRow}>
+                          <Zap size={15} color={colors.primary} fill={colors.primary} strokeWidth={2.5} />
+                          <Text style={[styles.streakCompactNumber, { color: colors.text }]}>{friend.streak}</Text>
+                        </View>
+                        <Text style={[styles.streakCompactLabel, { color: colors.primary }]}>DAY STREAK</Text>
                       </View>
                     </View>
                     </Swipeable>
@@ -737,13 +739,15 @@ export default function FriendsScreen() {
                             <Text style={styles.burstLabel}>SEND A BURST</Text>
                             <QuickReactRow friendId={friend.id} onReact={sendQuickReact} />
                           </View>
-                          <TouchableOpacity
-                            style={[styles.encourageCompactButton, { borderColor: 'rgba(204,255,0,0.3)' }]}
-                            onPress={() => setSelectedFriend(friend.id)}
-                          >
-                            <Heart size={16} color={colors.primary} strokeWidth={2.5} />
-                            <Text style={[styles.encourageCompactText, { color: colors.primary }]}>Encourage</Text>
-                          </TouchableOpacity>
+                          <View style={styles.encourageAligner}>
+                            <TouchableOpacity
+                              style={[styles.encourageCompactButton, { borderColor: 'rgba(204,255,0,0.3)' }]}
+                              onPress={() => setSelectedFriend(friend.id)}
+                            >
+                              <Heart size={16} color={colors.primary} strokeWidth={2.5} />
+                              <Text style={[styles.encourageCompactText, { color: colors.primary }]}>Encourage</Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
                       )}
                     </View>
@@ -1108,13 +1112,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   friendCardGradient: {
-    padding: 16,
+    padding: 14,
   },
   friendHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
     gap: 12,
   },
   friendInfo: {
@@ -1154,7 +1158,7 @@ const styles = StyleSheet.create({
   watchingStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
   },
   watchingDot: {
     width: 6,
@@ -1175,20 +1179,25 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
   },
   streakCompact: {
+    alignItems: 'flex-end',
+  },
+  streakNumberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
   },
   streakCompactNumber: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '900',
     fontFamily: 'Inter-Black',
   },
   streakCompactLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
     fontFamily: 'Inter-Bold',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
+    color: '#CCFF00',
+    marginTop: 1,
   },
   friendWatchers: {
     fontSize: 12,
@@ -1221,13 +1230,13 @@ const styles = StyleSheet.create({
     marginRight: -1,
   },
   encouragementSection: {
-    marginTop: 12,
+    marginTop: 10,
   },
   todayProgressRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginTop: 12,
+    marginTop: 10,
   },
   todayProgressText: {
     fontSize: 13,
@@ -1256,7 +1265,7 @@ const styles = StyleSheet.create({
   },
   quickReactRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: 8,
   },
   quickReactButton: {
@@ -1305,14 +1314,17 @@ const styles = StyleSheet.create({
   },
   compactActions: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
     gap: 12,
-    marginTop: 12,
+    marginTop: 10,
   },
   burstColumn: {
     flex: 1,
-    gap: 6,
+    gap: 4,
+  },
+  encourageAligner: {
+    justifyContent: 'flex-end',
   },
   burstLabel: {
     fontSize: 10,
