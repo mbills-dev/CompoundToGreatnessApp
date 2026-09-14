@@ -174,6 +174,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     marginBottom: 0,
     height: 58,
+    justifyContent: 'center',
   },
   compactCardContent: {
     gap: 6,
