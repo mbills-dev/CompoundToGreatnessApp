@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ImageBackground, ImageSourcePropType } from 'react-native';
+import { View, Text, StyleSheet, Image, ImageSourcePropType } from 'react-native';
 import { MILESTONE_DATA, getNextMilestone, getMilestoneProgress, isMilestoneDay } from '@/constants/milestones';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -170,10 +170,10 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
 
   return (
     <View style={[styles.quoteCard, { backgroundColor: cardBg }]}>
-      <ImageBackground
+      <Image
         source={bgSource}
         style={StyleSheet.absoluteFillObject}
-        imageStyle={{ resizeMode: 'cover' }}
+        resizeMode="stretch"
       />
       <View style={styles.quoteContent}>
         {greeting && (
