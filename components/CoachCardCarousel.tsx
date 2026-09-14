@@ -15,6 +15,7 @@ import {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedProps,
   withTiming,
   withDelay,
   withSequence,
@@ -27,6 +28,7 @@ import CoachCard from './CoachCard';
 
 const LIME = '#CCFF00';
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 const TOTAL_CURVE_DAYS = 77;
 
 // Canonical carousel height — both panels share this exact footprint
@@ -99,7 +101,7 @@ export default function CoachCardCarousel({
 
   // --- Animation shared values ---
   const scoreAnim = useSharedValue(0);
-  const curveClipWidth = useSharedValue(0);
+  const curveProgress = useSharedValue(0);
   const endpointOpacity = useSharedValue(0);
   const endpointScale = useSharedValue(0);
   const endpointGlowOpacity = useSharedValue(0);
@@ -124,8 +126,8 @@ export default function CoachCardCarousel({
       easing: Easing.out(Easing.cubic),
     });
 
-    curveClipWidth.value = 0;
-    curveClipWidth.value = withTiming(1, {
+    curveProgress.value = 0;
+    curveProgress.value = withTiming(progressFraction, {
       duration: 900,
       easing: Easing.out(Easing.cubic),
     });
@@ -179,7 +181,7 @@ export default function CoachCardCarousel({
   }, [hasAnimatedScore, score]);
 
   // --- Compound curve geometry ---
-  const curveW = SCREEN_WIDTH * 0.68;
+  const curveW = SCREEN_WIDTH * 0.72;
   const curveH = 126;
   const PAD_L = 10;
   const PAD_R = 10;
@@ -211,21 +213,39 @@ export default function CoachCardCarousel({
 
   const streakClamped = Math.min(Math.max(streak, 1), TOTAL_CURVE_DAYS);
   const progressFraction = streakClamped / TOTAL_CURVE_DAYS;
-  const endPt = cubicPoint(progressFraction);
   const fullPath = pathFromCubic();
   const guideRatios = [0.14, 0.24, 0.34, 0.44, 0.54, 0.64, 0.74, 0.84, 0.94];
-  const animDotX = useSharedValue(cubicPoint(0).x);
-  const animDotY = useSharedValue(cubicPoint(0).y);
+  const pathSamples: { x: number; y: number; length: number }[] = [];
+  let pathLength = 0;
+  for (let i = 0; i <= 400; i++) {
+    const point = cubicPoint(i / 400);
+    if (i > 0) {
+      const previous = pathSamples[i - 1];
+      pathLength += Math.hypot(point.x - previous.x, point.y - previous.y);
+    }
+    pathSamples.push({ ...point, length: pathLength });
+  }
+
+  const pointAtPathFraction = (fraction: number): { x: number; y: number } => {
+    const targetLength = pathLength * fraction;
+    const point = pathSamples.find((sample) => sample.length >= targetLength) ?? pathSamples[pathSamples.length - 1];
+    return { x: point.x, y: point.y };
+  };
+
+  const endPt = pointAtPathFraction(progressFraction);
+  const startPt = pointAtPathFraction(0);
+  const animDotX = useSharedValue(startPt.x);
+  const animDotY = useSharedValue(startPt.y);
 
   useEffect(() => {
     if (hasAnimatedScore) {
-      animDotX.value = cubicPoint(0).x;
-      animDotY.value = cubicPoint(0).y;
+      animDotX.value = startPt.x;
+      animDotY.value = startPt.y;
       animDotX.value = withTiming(endPt.x, { duration: 900, easing: Easing.out(Easing.cubic) });
       animDotY.value = withTiming(endPt.y, { duration: 900, easing: Easing.out(Easing.cubic) });
     } else {
-      animDotX.value = cubicPoint(0).x;
-      animDotY.value = cubicPoint(0).y;
+      animDotX.value = startPt.x;
+      animDotY.value = startPt.y;
     }
   }, [hasAnimatedScore]);
 
@@ -240,8 +260,8 @@ export default function CoachCardCarousel({
   }));
 
   // --- Animated styles ---
-  const curveClipStyle = useAnimatedStyle(() => ({
-    width: `${Math.max(curveClipWidth.value * progressFraction * 100, 2)}%`,
+  const progressPathProps = useAnimatedProps(() => ({
+    strokeDashoffset: pathLength * (1 - curveProgress.value),
   }));
 
   const endpointStyle = useAnimatedStyle(() => ({
@@ -319,8 +339,8 @@ export default function CoachCardCarousel({
                   </View>
 
                   {/* Compound curve — full muted track always visible, lime portion animated */}
-                  <View style={styles.curveOuter}>
-                    <Svg width={curveW} height={curveH} viewBox={`0 0 ${curveW} ${curveH}`} style={styles.curveBaseSvg}>
+                  <View style={styles.curveOuter} pointerEvents="none">
+                    <Svg width={curveW} height={curveH} viewBox={`0 0 ${curveW} ${curveH}`}>
                       {guideRatios.map((ratio) => {
                         const point = cubicPoint(ratio);
                         return (
@@ -337,38 +357,40 @@ export default function CoachCardCarousel({
                       })}
                       <Path
                         d={fullPath}
-                        stroke="rgba(190,190,190,0.52)"
+                        stroke="rgba(200,200,200,0.68)"
                         strokeWidth={2}
                         fill="none"
                         strokeLinecap="round"
+                        strokeDasharray={[pathLength, pathLength]}
                       />
                       <Path
                         d={fullPath}
-                        stroke="rgba(190,190,190,0.18)"
+                        stroke="rgba(200,200,200,0.12)"
                         strokeWidth={5}
                         fill="none"
                         strokeLinecap="round"
+                        strokeDasharray={[pathLength, pathLength]}
+                      />
+                      <AnimatedPath
+                        d={fullPath}
+                        stroke={LIME}
+                        strokeWidth={6}
+                        fill="none"
+                        strokeLinecap="round"
+                        opacity={0.2}
+                        strokeDasharray={[pathLength, pathLength]}
+                        animatedProps={progressPathProps}
+                      />
+                      <AnimatedPath
+                        d={fullPath}
+                        stroke={LIME}
+                        strokeWidth={2.5}
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeDasharray={[pathLength, pathLength]}
+                        animatedProps={progressPathProps}
                       />
                     </Svg>
-                    <Animated.View style={[styles.curveClip, curveClipStyle]} pointerEvents="none">
-                      <Svg width={curveW} height={curveH} viewBox={`0 0 ${curveW} ${curveH}`}>
-                        <Path
-                          d={fullPath}
-                          stroke={LIME}
-                          strokeWidth={6}
-                          fill="none"
-                          strokeLinecap="round"
-                          opacity={0.18}
-                        />
-                        <Path
-                          d={fullPath}
-                          stroke={LIME}
-                          strokeWidth={2.5}
-                          fill="none"
-                          strokeLinecap="round"
-                        />
-                      </Svg>
-                    </Animated.View>
                     {/* Current-position glowing dot — travels with animation */}
                     <Animated.View style={[styles.endpointGlow, animGlowStyle, endpointGlowStyle]} />
                     <Animated.View style={[styles.endpointDot, animDotStyle, endpointStyle]} />
@@ -381,24 +403,20 @@ export default function CoachCardCarousel({
                   <View style={styles.metricItem}>
                     <Text style={styles.metricLabel}>CONSISTENCY</Text>
                     <Text style={styles.metricValue}>{consistencyPct}</Text>
-                    <Text style={styles.metricSub} numberOfLines={1}>Show up over time.</Text>
+                    <Text style={styles.metricSub}>Show up over time.</Text>
                   </View>
-                  <View style={styles.metricDivider} />
+                  <View style={[styles.metricDivider, { left: '33.333%' }]} />
                   <View style={styles.metricItem}>
                     <Text style={styles.metricLabel}>STREAK</Text>
                     <Text style={styles.metricValue}>{streak} DAYS</Text>
-                    <Text style={styles.metricSub} numberOfLines={1}>Keep the chain alive.</Text>
+                    <Text style={styles.metricSub}>Keep the chain alive.</Text>
                   </View>
-                  {executionPct !== null && (
-                    <>
-                      <View style={styles.metricDivider} />
-                      <View style={styles.metricItem}>
-                        <Text style={styles.metricLabel}>EXECUTION</Text>
-                        <Text style={styles.metricValue}>{executionPct}%</Text>
-                        <Text style={styles.metricSub} numberOfLines={1}>Turn intentions into action.</Text>
-                      </View>
-                    </>
-                  )}
+                  <View style={[styles.metricDivider, { left: '66.666%' }]} />
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricLabel}>EXECUTION</Text>
+                    <Text style={styles.metricValue}>{executionPct === null ? '—' : `${executionPct}%`}</Text>
+                    <Text style={styles.metricSub}>Turn intentions{`\n`}into action.</Text>
+                  </View>
                 </View>
               </View>
             </View>
@@ -491,13 +509,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   heroRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
     flex: 1,
+    position: 'relative',
   },
   heroLeft: {
-    width: '38%',
-    marginRight: 4,
+    width: '44%',
+    zIndex: 2,
   },
   scoreRow: {
     flexDirection: 'row',
@@ -540,18 +557,12 @@ const styles = StyleSheet.create({
   },
   // Curve
   curveOuter: {
-    width: '62%',
-    height: 126,
-    overflow: 'hidden',
-  },
-  curveBaseSvg: {
     position: 'absolute',
     top: 0,
-    left: 0,
-  },
-  curveClip: {
+    right: 0,
+    width: '72%',
     height: 126,
-    overflow: 'hidden',
+    overflow: 'visible',
   },
   endpointGlow: {
     position: 'absolute',
@@ -586,11 +597,13 @@ const styles = StyleSheet.create({
   },
   metricItem: {
     flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
   metricLabel: {
+    width: '100%',
     fontSize: 8,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.35)',
@@ -600,6 +613,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   metricValue: {
+    width: '100%',
     fontSize: 14,
     fontWeight: '900',
     color: '#FFFFFF',
@@ -607,6 +621,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   metricSub: {
+    width: '100%',
     fontSize: 8,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.25)',
@@ -615,9 +630,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   metricDivider: {
+    position: 'absolute',
+    top: 2,
+    bottom: 0,
     width: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    marginVertical: 2,
+    backgroundColor: 'rgba(255,255,255,0.14)',
   },
   // Dots overlay — INSIDE the card, 12px from bottom
   dotsOverlay: {
