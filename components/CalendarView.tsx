@@ -293,12 +293,13 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
       });
     }
 
+    const goalUpdates: any = { last_completion_date: yesterdayStr };
+    if (!existing) {
+      goalUpdates.current_challenge_day = (goal.current_challenge_day || 0) + 1;
+    }
     const { data } = await supabase
       .from('goals')
-      .update({
-        last_completion_date: yesterdayStr,
-        current_challenge_day: (goal.current_challenge_day || 0) + 1,
-      })
+      .update(goalUpdates)
       .eq('id', goal.id)
       .select()
       .single();

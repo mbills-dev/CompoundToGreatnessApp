@@ -643,19 +643,19 @@ export default function DailyDashboard({
       });
     }
 
-    const newDay = (goal.current_challenge_day || 0) + 1;
+    const updates: any = { last_completion_date: yesterdayStr };
+    if (!existing) {
+      updates.current_challenge_day = (goal.current_challenge_day || 0) + 1;
+    }
     await supabase
       .from('goals')
-      .update({
-        last_completion_date: yesterdayStr,
-        current_challenge_day: newDay,
-      })
+      .update(updates)
       .eq('id', goal.id);
 
     refreshCompletions();
     if (user) {
       try {
-        const updatedGoal = { ...goal, current_challenge_day: newDay, last_completion_date: yesterdayStr };
+        const updatedGoal = { ...goal, ...updates };
         const newBadges = await checkAndAwardBadges(user.id, updatedGoal);
         newBadges.forEach((key) => celebrateBadge(key));
       } catch (err) {
