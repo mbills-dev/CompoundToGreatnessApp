@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, ImageSourcePropType } from 'react-native';
+import { View, Text, StyleSheet, Image, ImageSourcePropType, TouchableOpacity } from 'react-native';
 import { MILESTONE_DATA, getNextMilestone, getMilestoneProgress, isMilestoneDay } from '@/constants/milestones';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -110,6 +110,7 @@ interface CoachCardProps {
   challengeDay: number;
   firstName?: string;
   backgroundImage?: ImageSourcePropType;
+  onPress?: () => void;
 }
 
 function getGreeting(): string {
@@ -119,7 +120,7 @@ function getGreeting(): string {
   return 'GOOD EVENING';
 }
 
-export default function CoachCard({ challengeDay, firstName, backgroundImage }: CoachCardProps) {
+export default function CoachCard({ challengeDay, firstName, backgroundImage, onPress }: CoachCardProps) {
   const { colors, isDark } = useTheme();
   const cardBg = '#1A1A1A';
   const textPrimary = '#FFFFFF';
@@ -139,7 +140,7 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
     const isLastMilestone = MILESTONE_DATA[day]?.nextMilestone === null;
     const nextDay = MILESTONE_DATA[day]?.nextMilestone;
     return (
-      <View style={styles.milestoneCard}>
+      <TouchableOpacity style={styles.milestoneCard} onPress={onPress} activeOpacity={0.85} disabled={!onPress}>
         <View style={styles.milestoneContent}>
           <Text style={styles.milestoneTag}>{entry.tag}</Text>
           <Text style={styles.milestoneH1}>{entry.h1}</Text>
@@ -158,7 +159,7 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
             </>
           )}
         </View>
-      </View>
+      </TouchableOpacity>
     );
   }
 
@@ -169,7 +170,7 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
   const bgSource = backgroundImage ?? COACHING_BG;
 
   return (
-    <View style={[styles.quoteCard, { backgroundColor: cardBg }]}>
+    <TouchableOpacity style={[styles.quoteCard, { backgroundColor: cardBg }]} onPress={onPress} activeOpacity={0.85} disabled={!onPress}>
       <Image
         source={bgSource}
         style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
@@ -193,7 +194,7 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
           <View style={[styles.progressFill, { width: `${progress}%` }]} />
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

@@ -45,6 +45,7 @@ import { checkAndAwardBadges } from '@/lib/badgeHelpers';
 import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import CoachCard from './CoachCard';
+import GoalsVisualizationModal from './GoalsVisualizationModal';
 import { useRacingBorder } from '@/contexts/RacingBorderContext';
 import WhenPickerModal, { WhenPickerValue } from './identity/WhenPickerModal';
 import InviteWatcherModal from './InviteWatcherModal';
@@ -246,6 +247,7 @@ export default function DailyDashboard({
   const [gracePeriodMode, setGracePeriodMode] = useState<'grace' | 'reset'>('grace');
   const [realtimeGen, setRealtimeGen] = useState(0);
   const [showIdentityModal, setShowIdentityModal] = useState(false);
+  const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showWatcherSheet, setShowWatcherSheet] = useState(false);
   const [watcherProfiles, setWatcherProfiles] = useState<{ id: string; display_name: string; username: string; photo_url: string | null; created_at: string }[]>([]);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -1082,6 +1084,7 @@ export default function DailyDashboard({
               <CoachCard
                 challengeDay={displayDay}
                 firstName={user?.user_metadata?.first_name}
+                onPress={() => setShowGoalsModal(true)}
               />
             )}
 
@@ -1521,6 +1524,12 @@ export default function DailyDashboard({
           userId={user.id}
         />
       ) : null}
+
+      <GoalsVisualizationModal
+        visible={showGoalsModal}
+        onClose={() => setShowGoalsModal(false)}
+        userId={user?.id}
+      />
     </View>
   );
 }
