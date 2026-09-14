@@ -1123,7 +1123,7 @@ export default function DailyDashboard({
 
             <View style={styles.utilityRow}>
               <TouchableOpacity
-                style={[styles.utilityCard, {
+                style={[styles.utilityCard, { flex: 44 }, {
                   backgroundColor: isDark ? '#1A1A1A' : colors.card,
                   borderColor: isDark ? 'rgba(255,255,255,0.08)' : colors.border,
                 }]}
@@ -1133,28 +1133,25 @@ export default function DailyDashboard({
                 }}
                 activeOpacity={0.7}
               >
-                <View style={styles.utilityCardTop}>
-                  <Eye size={18} color="#CCFF00" strokeWidth={2.5} />
-                  <Text style={styles.utilityCardCount}>
-                    {watcherCount}
-                  </Text>
-                  <Text style={styles.utilityCardLabel}>
-                    {watcherCount === 1 ? 'person' : 'people'}
-                  </Text>
-                </View>
-                <Text style={styles.utilityCardSubLabel}>watching</Text>
-                <ChevronRight size={16} color="rgba(255,255,255,0.3)" strokeWidth={2.5} style={styles.utilityCardChevron} />
+                <Eye size={16} color="#CCFF00" strokeWidth={2.5} />
+                <Text style={styles.utilityCardInline} numberOfLines={1}>
+                  <Text style={styles.utilityCardCount}>{watcherCount}</Text>
+                  <Text style={styles.utilityCardLabel}> {watcherCount === 1 ? 'person watching' : 'people watching'}</Text>
+                </Text>
+                <ChevronRight size={16} color="rgba(255,255,255,0.3)" strokeWidth={2.5} />
               </TouchableOpacity>
 
               {goal.compass_filter_question ? (
-                <CompassCard
-                  declaration={goal.compass_declaration ?? ''}
-                  filterQuestion={goal.compass_filter_question}
-                  onLockedInteraction={onLockedInteraction}
-                  compact
-                />
+                <View style={{ flex: 56 }}>
+                  <CompassCard
+                    declaration={goal.compass_declaration ?? ''}
+                    filterQuestion={goal.compass_filter_question}
+                    onLockedInteraction={onLockedInteraction}
+                    compact
+                  />
+                </View>
               ) : (
-                <View style={[styles.utilityCard, styles.utilityCardPlaceholder, {
+                <View style={[styles.utilityCard, styles.utilityCardPlaceholder, { flex: 56 }, {
                   backgroundColor: isDark ? '#1A1A1A' : colors.card,
                   borderColor: isDark ? 'rgba(255,255,255,0.08)' : colors.border,
                 }]} />
@@ -1617,37 +1614,28 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   utilityCard: {
-    flex: 1,
     borderRadius: 16,
     borderWidth: 1,
-    padding: 14,
-    position: 'relative',
-  },
-  utilityCardTop: {
+    paddingHorizontal: 12,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+    minHeight: 96,
+  },
+  utilityCardInline: {
+    flex: 1,
+    flexWrap: 'nowrap',
   },
   utilityCardCount: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '900',
     color: '#FFFFFF',
   },
   utilityCardLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.5)',
-  },
-  utilityCardSubLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.35)',
-    marginTop: 4,
-  },
-  utilityCardChevron: {
-    position: 'absolute',
-    top: 14,
-    right: 12,
   },
   utilityCardPlaceholder: {
     opacity: 0.3,

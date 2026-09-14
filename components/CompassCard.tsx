@@ -70,9 +70,9 @@ export default function CompassCard({ declaration, filterQuestion, onLockedInter
           }]}>
             <Compass size={compact ? 16 : 20} color={isDark ? colors.primary : '#ccff00'} strokeWidth={2.5} />
           </View>
-          <View style={styles.textContent}>
-            <Text style={[styles.cardLabel, { color: isDark ? colors.primary : '#808080' }]}>MY COMPASS</Text>
-            <Text style={[styles.filterText, { color: colors.text }]} numberOfLines={compact ? 2 : 1}>
+          <View style={[styles.textContent, compact && styles.compactTextContent]}>
+            <Text style={[styles.cardLabel, { color: isDark ? colors.primary : '#808080' }]} numberOfLines={1}>MY COMPASS</Text>
+            <Text style={[styles.filterText, { color: colors.text }]} numberOfLines={compact ? 2 : 1} ellipsizeMode="tail">
               {filterQuestion}
             </Text>
           </View>
@@ -170,16 +170,22 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 16,
     borderWidth: 1,
-    padding: 14,
-    marginBottom: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    marginBottom: 0,
+    minHeight: 96,
   },
   compactCardContent: {
-    gap: 10,
+    gap: 8,
+    alignItems: 'center',
   },
   compactIconContainer: {
     width: 32,
     height: 32,
     borderRadius: 10,
+  },
+  compactTextContent: {
+    flex: 1,
   },
   cardContent: {
     flexDirection: 'row',
@@ -200,12 +206,13 @@ const styles = StyleSheet.create({
   cardLabel: {
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 1.5,
+    letterSpacing: 1,
   },
   filterText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
     fontStyle: 'italic',
+    lineHeight: 18,
   },
   modalOverlay: {
     flex: 1,
