@@ -576,10 +576,10 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: 'rgba(190,190,190,0.35)',
   },
-  // Bottom metrics — safe area + equal columns
+  // Bottom metrics — narrow centered safe container
   metricSafeArea: {
-    marginHorizontal: 6,
-    alignSelf: 'stretch',
+    width: '87%',
+    alignSelf: 'center',
   },
   metricRow: {
     flexDirection: 'row',
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   metricLabel: {
-    alignSelf: 'stretch',
+    width: '100%',
     fontSize: 8,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.35)',
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   metricValue: {
-    alignSelf: 'stretch',
+    width: '100%',
     fontSize: 14,
     fontWeight: '900',
     color: '#FFFFFF',
@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   metricSub: {
-    alignSelf: 'stretch',
+    width: '100%',
     fontSize: 9,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.25)',
