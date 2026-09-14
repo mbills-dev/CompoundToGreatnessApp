@@ -14,6 +14,7 @@ export interface Dimension {
   actionNoun?: string;
   ratio?: number;
   isStandard?: boolean;
+  doneLooksText?: string;
 }
 
 export interface RefineSuggestion {

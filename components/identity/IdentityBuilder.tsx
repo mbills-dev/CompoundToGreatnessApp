@@ -144,6 +144,7 @@ function buildDimensions(
       if (lock.winNoun !== undefined) dim.winNoun = lock.winNoun;
       if (lock.actionNoun !== undefined) dim.actionNoun = lock.actionNoun;
       if (lock.ratio !== undefined) dim.ratio = lock.ratio;
+      if (lock.doneLooksText?.trim()) dim.doneLooksText = lock.doneLooksText.trim();
     }
     return dim;
   });

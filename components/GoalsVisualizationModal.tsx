@@ -24,9 +24,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const CINEMATIC_BG: ImageSourcePropType = require('@/assets/images/CleanCinematicMountainSunrise.png');
 
 interface GoalItem {
-  id: string;
-  title: string;
-  compass_vision: string | null;
+  label: string;
+  doneLooksText?: string;
 }
 
 interface GoalsVisualizationModalProps {
@@ -58,15 +57,16 @@ export default function GoalsVisualizationModal({ visible, onClose, userId }: Go
     setLoading(true);
     supabase
       .from('goals')
-      .select('id, title, compass_vision')
+      .select('identity_dimensions')
       .eq('user_id', userId)
-      .order('created_at', { ascending: true })
+      .maybeSingle()
       .then(({ data, error }) => {
         if (error) {
           console.error('Error fetching goals for visualization:', error);
           setGoals([]);
         } else {
-          setGoals(data ?? []);
+          const dims = (data?.identity_dimensions ?? []) as Array<{ label: string; doneLooksText?: string }>;
+          setGoals(dims.map(d => ({ label: d.label, doneLooksText: d.doneLooksText })));
         }
         setLoading(false);
       });
@@ -117,18 +117,18 @@ export default function GoalsVisualizationModal({ visible, onClose, userId }: Go
             ) : goals.length > 0 ? (
               <View style={styles.goalsContainer}>
                 {goals.map((goal, index) => (
-                  <View key={goal.id}>
+                  <View key={index}>
                     <View style={styles.goalRow}>
                       <Text style={styles.goalNumber}>
                         {String(index + 1).padStart(2, '0')}
                       </Text>
                       <View style={styles.goalTextBlock}>
                         <Text style={styles.goalTitle}>
-                          {goal.title.toUpperCase()}
+                          {goal.label.toUpperCase()}
                         </Text>
-                        {goal.compass_vision ? (
+                        {goal.doneLooksText ? (
                           <Text style={styles.goalVision}>
-                            {goal.compass_vision}
+                            {goal.doneLooksText}
                           </Text>
                         ) : null}
                       </View>
