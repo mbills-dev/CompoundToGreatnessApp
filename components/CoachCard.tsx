@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, ImageBackground, ImageSourcePropType } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { MILESTONE_DATA, getNextMilestone, getMilestoneProgress, isMilestoneDay } from '@/constants/milestones';
 import { useTheme } from '@/contexts/ThemeContext';
 
-const COACHING_BG: ImageSourcePropType | undefined = undefined;
+const COACHING_BG: ImageSourcePropType = require('@/assets/images/CleanCinematicMountainSunrise.png');
 
 type QuoteEntry = {
   type: 'quote';
@@ -175,7 +176,13 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
         style={StyleSheet.absoluteFillObject}
         imageStyle={{ resizeMode: 'cover' }}
       >
-        <View style={styles.imageOverlay} />
+        <LinearGradient
+          colors={['rgba(5,5,5,0.62)', 'rgba(5,5,5,0.28)', 'rgba(5,5,5,0.04)']}
+          locations={[0, 0.5, 1]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={StyleSheet.absoluteFillObject}
+        />
       </ImageBackground>
       <View style={styles.quoteContent}>
         {greeting && (
@@ -204,10 +211,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 16,
     overflow: 'hidden',
-  },
-  imageOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(5,5,5,0.18)',
   },
   quoteContent: {
     padding: 16,
