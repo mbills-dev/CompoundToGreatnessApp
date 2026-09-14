@@ -7,10 +7,21 @@ import {
   ScrollView,
   Modal,
   ImageBackground,
+  Platform,
+  AccessibilityInfo,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Check } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  Easing,
+  runOnJS,
+} from 'react-native-reanimated';
 import { Goal, DailyActivity } from '@/types/database';
 import { toLocalDateString, getDayNumberFromChallengeStart } from '@/lib/dateHelpers';
 
@@ -18,6 +29,11 @@ const LIME = '#CCFF00';
 const TOTAL_CHALLENGE_DAYS = 77;
 const ROW_HEIGHT = 64;
 const TOP_PADDING = 16;
+
+// Layout column widths (must match styles below)
+const TIME_COL_W = 68;
+const RAIL_COL_W = 28;
+const RAIL_CENTER_X = TIME_COL_W + RAIL_COL_W / 2; // 82
 
 interface ScheduleInfo {
   hour: number;
@@ -89,22 +105,100 @@ export default function DayView({
   onToggle,
 }: DayViewProps) {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const [nowTick, setNowTick] = useState(new Date());
-  const nowYRef = useRef<number | null>(null);
   const hasScrolledRef = useRef(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
 
+  // Animation values
+  const backdropOpacity = useSharedValue(0);
+  const sheetOpacity = useSharedValue(0);
+  const sheetTranslateY = useSharedValue(28);
+  const heroOpacity = useSharedValue(1);
+
+  // Reduced motion
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => sub.remove();
+  }, []);
+
+  // NOW tick — updates every 30s while visible
   useEffect(() => {
     if (!visible) {
       hasScrolledRef.current = false;
-      nowYRef.current = null;
       return;
     }
     const interval = setInterval(() => setNowTick(new Date()), 30000);
     return () => clearInterval(interval);
   }, [visible]);
 
+  // Enter / reset animation
+  useEffect(() => {
+    if (!visible) {
+      setIsClosing(false);
+      hasScrolledRef.current = false;
+      if (reduceMotion) {
+        backdropOpacity.value = 0;
+        sheetOpacity.value = 0;
+        sheetTranslateY.value = 0;
+        heroOpacity.value = 1;
+      } else {
+        backdropOpacity.value = 0;
+        sheetOpacity.value = 0;
+        sheetTranslateY.value = 28;
+        heroOpacity.value = 0.8;
+      }
+      return;
+    }
+
+    const easing = Easing.out(Easing.cubic);
+
+    if (reduceMotion) {
+      backdropOpacity.value = withTiming(0.5, { duration: 200 });
+      sheetOpacity.value = withTiming(1, { duration: 200 });
+      sheetTranslateY.value = 0;
+      heroOpacity.value = 1;
+    } else {
+      backdropOpacity.value = withTiming(0.5, { duration: 250, easing });
+      sheetOpacity.value = withTiming(1, { duration: 350, easing });
+      sheetTranslateY.value = withTiming(0, { duration: 350, easing });
+      heroOpacity.value = withDelay(60, withTiming(1, { duration: 300, easing }));
+    }
+  }, [visible, reduceMotion]);
+
+  // Close handler — plays exit animation, then calls onClose
+  const handleCloseComplete = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
+  const handleClose = useCallback(() => {
+    if (isClosing) return;
+    setIsClosing(true);
+
+    const easing = Easing.in(Easing.cubic);
+
+    if (reduceMotion) {
+      backdropOpacity.value = withTiming(0, { duration: 200 });
+      sheetOpacity.value = withTiming(0, { duration: 200 }, (finished) => {
+        if (finished) runOnJS(handleCloseComplete)();
+      });
+    } else {
+      backdropOpacity.value = withTiming(0, { duration: 240, easing });
+      sheetTranslateY.value = withTiming(22, { duration: 240, easing });
+      sheetOpacity.value = withTiming(0, { duration: 240, easing }, (finished) => {
+        if (finished) runOnJS(handleCloseComplete)();
+      });
+      heroOpacity.value = withTiming(0.8, { duration: 200, easing });
+    }
+  }, [isClosing, reduceMotion, handleCloseComplete]);
+
+  // Derived data
   const today = toLocalDateString(new Date());
+  const isToday = today === toLocalDateString(new Date());
   const displayDay = goal.challenge_start_date
     ? getDayNumberFromChallengeStart(goal.challenge_start_date, today)
     : 1;
@@ -127,8 +221,9 @@ export default function DayView({
 
   const nowMinutes = nowTick.getHours() * 60 + nowTick.getMinutes();
 
+  // NOW position: proportional between first and last activity row centers
   const nowOffset = useMemo(() => {
-    if (timedActivities.length === 0) return null;
+    if (timedActivities.length < 2) return null;
     const firstMin = scheduleToMinutes(timedActivities[0].schedule!);
     const lastMin = scheduleToMinutes(timedActivities[timedActivities.length - 1].schedule!);
     if (lastMin === firstMin) return null;
@@ -137,184 +232,248 @@ export default function DayView({
     return ratio;
   }, [timedActivities, nowMinutes]);
 
-  const timelineHeight = timedActivities.length * ROW_HEIGHT;
+  // Exact Y pixel for the NOW dot on the timeline
+  const nowY = useMemo(() => {
+    if (nowOffset === null) return null;
+    const firstRowCenter = TOP_PADDING + ROW_HEIGHT / 2;
+    const lastRowCenter = TOP_PADDING + (timedActivities.length - 1) * ROW_HEIGHT + ROW_HEIGHT / 2;
+    return firstRowCenter + nowOffset * (lastRowCenter - firstRowCenter);
+  }, [nowOffset, timedActivities.length]);
 
-  const handleLayout = useCallback(() => {
-    if (hasScrolledRef.current || nowOffset === null || !scrollRef.current) return;
-    const targetY = TOP_PADDING + nowOffset * timelineHeight;
-    const viewportHeight = 500;
-    const scrollTo = Math.max(0, targetY - viewportHeight * 0.4);
-    scrollRef.current.scrollTo({ y: scrollTo, animated: false });
-    hasScrolledRef.current = true;
-  }, [nowOffset, timelineHeight]);
+  // Collision avoidance: if NOW dot is too close to an activity row center,
+  // offset the NOW text label up or down while keeping the dot at its true position
+  const nowLabelOffset = useMemo(() => {
+    if (nowY === null) return 0;
+    for (let i = 0; i < timedActivities.length; i++) {
+      const rowCenter = TOP_PADDING + i * ROW_HEIGHT + ROW_HEIGHT / 2;
+      const dist = Math.abs(nowY - rowCenter);
+      if (dist < 18) {
+        return nowY > rowCenter ? 22 : -22;
+      }
+    }
+    return 0;
+  }, [nowY, timedActivities.length]);
+
+  // Auto-scroll: position NOW roughly in the upper-middle of the viewport
+  useEffect(() => {
+    if (!visible || nowY === null) return;
+    const timer = setTimeout(() => {
+      if (!scrollRef.current || hasScrolledRef.current) return;
+      const viewportH = windowHeight - insets.top - insets.bottom;
+      const scrollTo = Math.max(0, nowY - viewportH * 0.38);
+      scrollRef.current.scrollTo({ y: scrollTo, animated: false });
+      hasScrolledRef.current = true;
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [visible, nowY, windowHeight, insets.top, insets.bottom]);
+
+  // Animated styles
+  const backdropAnimStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
+  const sheetAnimStyle = useAnimatedStyle(() => ({
+    opacity: sheetOpacity.value,
+    transform: [{ translateY: sheetTranslateY.value }],
+  }));
+  const heroAnimStyle = useAnimatedStyle(() => ({
+    opacity: heroOpacity.value,
+  }));
+
+  const showNow = nowY !== null && isToday;
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
-      <View style={styles.container}>
-        <ScrollView
-          ref={scrollRef}
-          style={styles.scroll}
-          contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top }]}
-          showsVerticalScrollIndicator={false}
-          onLayout={handleLayout}
-        >
-          {/* HERO */}
-          <ImageBackground source={COACHING_BG} style={styles.heroBg} resizeMode="cover">
-            <LinearGradient colors={['rgba(5,5,5,0.55)', 'rgba(5,5,5,0.85)']} style={styles.heroOverlay}>
-              <View style={[styles.heroContent, { paddingTop: 60 }]}>
-                <Text style={styles.heroDay}>DAY {displayDay}</Text>
-                <Text style={styles.heroPct}>{challengePct}% THROUGH THE CHALLENGE</Text>
-                <Text style={styles.heroDate}>{formatDateAbbrev(new Date())}</Text>
-                <View style={styles.philoContainer}>
-                  <Text style={styles.philoLine}>Discipline today</Text>
-                  <Text style={styles.philoLine}>compounds tomorrow.</Text>
-                  <Text style={styles.philoAttribution}>— COMPOUND TO GREATNESS</Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </ImageBackground>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      presentationStyle="overFullScreen"
+      onRequestClose={handleClose}
+      statusBarTranslucent
+    >
+      <View style={styles.overlay}>
+        {/* Backdrop — dims the Today screen underneath */}
+        <Animated.View style={[styles.backdrop, backdropAnimStyle]} />
 
-          {/* YOUR DAY section */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>YOUR DAY</Text>
-            <Text style={styles.sectionDate}>{formatDateAbbrev(new Date())}</Text>
-          </View>
-
-          {/* TIMELINE */}
-          {timedActivities.length > 0 && (
-            <View style={styles.timelineContainer}>
-              {timedActivities.map((item, index) => {
-                const isCompleted = completedActivities.includes(item.activity.id);
-                const timeLabel = formatTime(item.schedule!.hour, item.schedule!.minute, item.schedule!.period);
-                const isPast = scheduleToMinutes(item.schedule!) < nowMinutes;
-                const showConnector = index < timedActivities.length - 1;
-
-                return (
-                  <View key={item.activity.id} style={styles.timelineRow}>
-                    {/* Time column */}
-                    <View style={styles.timeColumn}>
-                      <Text style={[styles.timeLabel, isCompleted && styles.timeLabelCompleted, isPast && !isCompleted && styles.timeLabelPast]}>
-                        {timeLabel}
-                      </Text>
-                    </View>
-
-                    {/* Rail column */}
-                    <View style={styles.railColumn}>
-                      <View style={[styles.railNode, isCompleted && styles.railNodeCompleted, !isCompleted && isPast && styles.railNodePast, !isCompleted && !isPast && styles.railNodeFuture]} />
-                      {showConnector && (
-                        <View style={[styles.railConnector, isCompleted && styles.railConnectorCompleted]} />
-                      )}
-                    </View>
-
-                    {/* Activity card */}
-                    <TouchableOpacity
-                      style={styles.activityCard}
-                      onPress={() => onToggle(item.activity.id)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.activityCardContent}>
-                        {isCompleted ? (
-                          <View style={styles.completedCheck}>
-                            <Check size={14} color="#050505" strokeWidth={3} />
-                          </View>
-                        ) : (
-                          <View style={styles.incompleteCircle} />
-                        )}
-                        <Text
-                          style={[styles.activityTitle, isCompleted && styles.activityTitleCompleted]}
-                          numberOfLines={2}
-                        >
-                          {item.activity.activity_name}
-                        </Text>
+        {/* Sheet — the Day View content */}
+        <Animated.View style={[styles.sheet, sheetAnimStyle]}>
+          <View style={styles.container}>
+            <ScrollView
+              ref={scrollRef}
+              style={styles.scroll}
+              contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top }]}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* HERO with subtle secondary fade */}
+              <Animated.View style={heroAnimStyle}>
+                <ImageBackground source={COACHING_BG} style={styles.heroBg} resizeMode="cover">
+                  <LinearGradient colors={['rgba(5,5,5,0.55)', 'rgba(5,5,5,0.85)']} style={styles.heroOverlay}>
+                    <View style={[styles.heroContent, { paddingTop: 60 }]}>
+                      <Text style={styles.heroDay}>DAY {displayDay}</Text>
+                      <Text style={styles.heroPct}>{challengePct}% THROUGH THE CHALLENGE</Text>
+                      <Text style={styles.heroDate}>{formatDateAbbrev(new Date())}</Text>
+                      <View style={styles.philoContainer}>
+                        <Text style={styles.philoLine}>Discipline today</Text>
+                        <Text style={styles.philoLine}>compounds tomorrow.</Text>
+                        <Text style={styles.philoAttribution}>— COMPOUND TO GREATNESS</Text>
                       </View>
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
+                    </View>
+                  </LinearGradient>
+                </ImageBackground>
+              </Animated.View>
 
-              {/* NOW indicator */}
-              {nowOffset !== null && (
-                <View
-                  style={[
-                    styles.nowIndicator,
-                    {
-                      top: TOP_PADDING + nowOffset * timelineHeight,
-                    },
-                  ]}
-                  pointerEvents="none"
-                >
-                  <Text style={[styles.timeLabel, styles.nowTimeLabel]}>
-                    NOW · {formatCurrentTime(nowTick)}
-                  </Text>
-                  <View style={styles.nowDotContainer}>
-                    <View style={styles.nowDotOuter} />
-                    <View style={styles.nowDot} />
-                  </View>
-                  <View style={styles.nowLine} />
-                  <Text style={styles.nowActivityLabel}>
-                    {nowMinutes < scheduleToMinutes(timedActivities[0].schedule!) ? 'Day hasn\'t started' :
-                     nowMinutes > scheduleToMinutes(timedActivities[timedActivities.length - 1].schedule!) ? 'Day is done' :
-                     'In progress'}
-                  </Text>
+              {/* YOUR DAY section */}
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>YOUR DAY</Text>
+                <Text style={styles.sectionDate}>{formatDateAbbrev(new Date())}</Text>
+              </View>
+
+              {/* TIMELINE */}
+              {timedActivities.length > 0 && (
+                <View style={styles.timelineContainer}>
+                  {timedActivities.map((item, index) => {
+                    const isCompleted = completedActivities.includes(item.activity.id);
+                    const timeLabel = formatTime(item.schedule!.hour, item.schedule!.minute, item.schedule!.period);
+                    const isPast = scheduleToMinutes(item.schedule!) < nowMinutes;
+                    const showConnector = index < timedActivities.length - 1;
+
+                    return (
+                      <View key={item.activity.id} style={styles.timelineRow}>
+                        {/* Time column */}
+                        <View style={styles.timeColumn}>
+                          <Text style={[styles.timeLabel, isCompleted && styles.timeLabelCompleted, isPast && !isCompleted && styles.timeLabelPast]}>
+                            {timeLabel}
+                          </Text>
+                        </View>
+
+                        {/* Rail column */}
+                        <View style={styles.railColumn}>
+                          <View style={[styles.railNode, isCompleted && styles.railNodeCompleted, !isCompleted && isPast && styles.railNodePast, !isCompleted && !isPast && styles.railNodeFuture]} />
+                          {showConnector && (
+                            <View style={[styles.railConnector, isCompleted && styles.railConnectorCompleted]} />
+                          )}
+                        </View>
+
+                        {/* Activity card */}
+                        <TouchableOpacity
+                          style={styles.activityCard}
+                          onPress={() => onToggle(item.activity.id)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.activityCardContent}>
+                            {isCompleted ? (
+                              <View style={styles.completedCheck}>
+                                <Check size={14} color="#050505" strokeWidth={3} />
+                              </View>
+                            ) : (
+                              <View style={styles.incompleteCircle} />
+                            )}
+                            <Text
+                              style={[styles.activityTitle, isCompleted && styles.activityTitleCompleted]}
+                              numberOfLines={2}
+                            >
+                              {item.activity.activity_name}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+
+                  {/* NOW indicator — positioned at the exact proportional Y */}
+                  {showNow && nowY !== null && (
+                    <View
+                      style={[styles.nowIndicator, { top: nowY }]}
+                      pointerEvents="none"
+                    >
+                      {/* NOW time label — offset vertically if colliding with an activity */}
+                      <Text
+                        style={[styles.nowTimeText, { top: nowLabelOffset - 7 }]}
+                        numberOfLines={1}
+                      >
+                        NOW · {formatCurrentTime(nowTick)}
+                      </Text>
+
+                      {/* Glowing dot centered on the rail */}
+                      <View style={styles.nowDotContainer}>
+                        <View style={styles.nowDotOuter} />
+                        <View style={styles.nowDot} />
+                      </View>
+
+                      {/* Short lime horizontal line extending right */}
+                      <View style={styles.nowLine} />
+                    </View>
+                  )}
                 </View>
               )}
-            </View>
-          )}
 
-          {/* ANYTIME TODAY */}
-          {anytimeActivities.length > 0 && (
-            <View style={styles.anytimeSection}>
-              <Text style={styles.anytimeTitle}>ANYTIME TODAY</Text>
-              <View style={styles.anytimeList}>
-                {anytimeActivities.map(activity => {
-                  const isCompleted = completedActivities.includes(activity.id);
-                  return (
-                    <TouchableOpacity
-                      key={activity.id}
-                      style={styles.anytimeRow}
-                      onPress={() => onToggle(activity.id)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.activityCardContent}>
-                        {isCompleted ? (
-                          <View style={styles.completedCheck}>
-                            <Check size={14} color="#050505" strokeWidth={3} />
-                          </View>
-                        ) : (
-                          <View style={styles.incompleteCircle} />
-                        )}
-                        <Text
-                          style={[styles.activityTitle, isCompleted && styles.activityTitleCompleted]}
-                          numberOfLines={2}
+              {/* ANYTIME TODAY */}
+              {anytimeActivities.length > 0 && (
+                <View style={styles.anytimeSection}>
+                  <Text style={styles.anytimeTitle}>ANYTIME TODAY</Text>
+                  <View style={styles.anytimeList}>
+                    {anytimeActivities.map(activity => {
+                      const isCompleted = completedActivities.includes(activity.id);
+                      return (
+                        <TouchableOpacity
+                          key={activity.id}
+                          style={styles.anytimeRow}
+                          onPress={() => onToggle(activity.id)}
+                          activeOpacity={0.7}
                         >
-                          {activity.activity_name}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          )}
+                          <View style={styles.activityCardContent}>
+                            {isCompleted ? (
+                              <View style={styles.completedCheck}>
+                                <Check size={14} color="#050505" strokeWidth={3} />
+                              </View>
+                            ) : (
+                              <View style={styles.incompleteCircle} />
+                            )}
+                            <Text
+                              style={[styles.activityTitle, isCompleted && styles.activityTitleCompleted]}
+                              numberOfLines={2}
+                            >
+                              {activity.activity_name}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
 
-          <View style={{ height: insets.bottom + 40 }} />
-        </ScrollView>
+              <View style={{ height: insets.bottom + 40 }} />
+            </ScrollView>
 
-        {/* Close button */}
-        <TouchableOpacity
-          style={[styles.closeButton, { top: insets.top + 12 }]}
-          onPress={onClose}
-          activeOpacity={0.7}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <X size={22} color="#FFFFFF" strokeWidth={2.5} />
-        </TouchableOpacity>
+            {/* Close button */}
+            <TouchableOpacity
+              style={[styles.closeButton, { top: insets.top + 12 }]}
+              onPress={handleClose}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <X size={22} color="#FFFFFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  // Animation containers
+  overlay: {
+    flex: 1,
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000000',
+  },
+  sheet: {
+    flex: 1,
+    backgroundColor: '#050505',
+  },
   container: {
     flex: 1,
     backgroundColor: '#050505',
@@ -406,7 +565,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   timeColumn: {
-    width: 68,
+    width: TIME_COL_W,
     justifyContent: 'center',
   },
   timeLabel: {
@@ -420,12 +579,8 @@ const styles = StyleSheet.create({
   timeLabelPast: {
     color: 'rgba(141,141,141,0.5)',
   },
-  nowTimeLabel: {
-    color: LIME,
-    fontWeight: '800',
-  },
   railColumn: {
-    width: 28,
+    width: RAIL_COL_W,
     alignItems: 'center',
     height: '100%',
     justifyContent: 'center',
@@ -509,13 +664,20 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
+  },
+  nowTimeText: {
+    position: 'absolute',
+    left: 0,
+    width: TIME_COL_W - 2,
+    fontSize: 10,
+    fontWeight: '800',
+    color: LIME,
+    letterSpacing: 0.3,
   },
   nowDotContainer: {
     position: 'absolute',
-    left: 68 + 9,
-    top: -7,
+    left: RAIL_CENTER_X - 10,
+    top: -10,
     width: 20,
     height: 20,
     justifyContent: 'center',
@@ -536,20 +698,12 @@ const styles = StyleSheet.create({
   },
   nowLine: {
     position: 'absolute',
-    left: 68 + 24,
-    right: 0,
-    top: 0,
+    left: RAIL_CENTER_X + 8,
+    right: 4,
+    top: -1,
     height: 2,
     backgroundColor: LIME,
-    opacity: 0.6,
-  },
-  nowActivityLabel: {
-    position: 'absolute',
-    left: 68 + 32,
-    top: -16,
-    fontSize: 10,
-    fontWeight: '700',
-    color: LIME,
+    opacity: 0.5,
   },
   // Anytime
   anytimeSection: {
