@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, ImageBackground, ImageSourcePropType } from 'react-native';
+import { View, Text, StyleSheet, ImageBackground, ImageSourcePropType } from 'react-native';
 import { MILESTONE_DATA, getNextMilestone, getMilestoneProgress, isMilestoneDay } from '@/constants/milestones';
 import { useTheme } from '@/contexts/ThemeContext';
 
-const COACHING_BG: ImageSourcePropType = require('@/assets/images/CleanCinematicMountainSunrise.png');
+const COACHING_BG: ImageSourcePropType = require('@/assets/images/CleanCinematicMountainSunriseCard.png');
 
 type QuoteEntry = {
   type: 'quote';
@@ -174,9 +174,7 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
         source={bgSource}
         style={StyleSheet.absoluteFillObject}
         imageStyle={{ resizeMode: 'cover' }}
-      >
-        <View style={styles.imageOverlay} />
-      </ImageBackground>
+      />
       <View style={styles.quoteContent}>
         {greeting && (
           <Text style={styles.eyebrow}>{greeting}</Text>
@@ -204,10 +202,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 16,
     overflow: 'hidden',
-  },
-  imageOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   quoteContent: {
     padding: 16,
