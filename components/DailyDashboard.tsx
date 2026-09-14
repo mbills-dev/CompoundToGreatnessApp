@@ -1123,7 +1123,7 @@ export default function DailyDashboard({
 
             <View style={styles.utilityRow}>
               <TouchableOpacity
-                style={[styles.utilityCard, { flex: 44 }, {
+                style={[styles.utilityCard, { flex: 46 }, {
                   backgroundColor: isDark ? '#1A1A1A' : colors.card,
                   borderColor: isDark ? 'rgba(255,255,255,0.08)' : colors.border,
                 }]}
@@ -1142,7 +1142,7 @@ export default function DailyDashboard({
               </TouchableOpacity>
 
               {goal.compass_filter_question ? (
-                <View style={{ flex: 56 }}>
+                <View style={{ flex: 54 }}>
                   <CompassCard
                     declaration={goal.compass_declaration ?? ''}
                     filterQuestion={goal.compass_filter_question}
@@ -1151,7 +1151,7 @@ export default function DailyDashboard({
                   />
                 </View>
               ) : (
-                <View style={[styles.utilityCard, styles.utilityCardPlaceholder, { flex: 56 }, {
+                <View style={[styles.utilityCard, styles.utilityCardPlaceholder, { flex: 54 }, {
                   backgroundColor: isDark ? '#1A1A1A' : colors.card,
                   borderColor: isDark ? 'rgba(255,255,255,0.08)' : colors.border,
                 }]} />
@@ -1610,30 +1610,30 @@ const styles = StyleSheet.create({
   },
   utilityRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     marginBottom: 24,
   },
   utilityCard: {
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    height: 72,
+    gap: 5,
+    height: 58,
   },
   utilityCardInline: {
     flex: 1,
     flexWrap: 'nowrap',
   },
   utilityCardCount: {
-    fontSize: 14,
+    fontSize: 17,
     fontWeight: '900',
     color: '#FFFFFF',
   },
   utilityCardLabel: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.5)',
   },

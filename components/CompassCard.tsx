@@ -72,7 +72,7 @@ export default function CompassCard({ declaration, filterQuestion, onLockedInter
           </View>
           <View style={[styles.textContent, compact && styles.compactTextContent]}>
             <Text style={[styles.cardLabel, { color: isDark ? colors.primary : '#808080' }]} numberOfLines={1}>MY COMPASS</Text>
-            <Text style={[styles.filterText, { color: colors.text }]} numberOfLines={compact ? 2 : 1} ellipsizeMode="tail">
+            <Text style={[styles.filterText, { color: colors.text }]} numberOfLines={compact ? 1 : 1} ellipsizeMode="tail">
               {filterQuestion}
             </Text>
           </View>
@@ -168,25 +168,25 @@ const styles = StyleSheet.create({
   },
   compactCard: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 0,
     marginBottom: 0,
-    height: 72,
+    height: 58,
   },
   compactCardContent: {
-    gap: 8,
+    gap: 6,
     alignItems: 'center',
   },
   compactIconContainer: {
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
     borderRadius: 10,
   },
   compactTextContent: {
     flex: 1,
-    gap: 1,
+    gap: 0,
   },
   cardContent: {
     flexDirection: 'row',
@@ -205,15 +205,15 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   cardLabel: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
   },
   filterText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     fontStyle: 'italic',
-    lineHeight: 15,
+    lineHeight: 16,
   },
   modalOverlay: {
     flex: 1,
