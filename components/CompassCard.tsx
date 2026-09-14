@@ -14,7 +14,7 @@ import Animated, {
   withDelay,
   Easing,
 } from 'react-native-reanimated';
-import { Compass, X, ChevronRight } from 'lucide-react-native';
+import { Compass, X, ChevronRight, Check, Minus, Star } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface CompassCardProps {
@@ -89,68 +89,75 @@ export default function CompassCard({ declaration, filterQuestion, onLockedInter
         <View style={styles.modalOverlay}>
           <Animated.View style={[styles.modalContent, modalContentStyle]}>
             <View style={[styles.modalInner, {
-              backgroundColor: isDark ? colors.backgroundTertiary : '#FFFFFF',
-              borderColor: isDark ? colors.border : '#E5E5E5',
+              backgroundColor: isDark ? '#121212' : '#1A1A1A',
+              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.08)',
             }]}>
-              <View style={styles.modalHeader}>
-                <LinearGradient
-                  colors={[colors.primary, colors.primaryDark]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.modalIcon}
-                >
-                  <Compass size={28} color="#000000" strokeWidth={2.5} />
-                </LinearGradient>
-                <TouchableOpacity
-                  style={[styles.closeButton, {
-                    backgroundColor: isDark ? colors.backgroundSecondary : '#F0F0F0',
-                  }]}
-                  onPress={closeModal}
-                >
-                  <X size={20} color={colors.textSecondary} strokeWidth={2.5} />
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={closeModal}
+                activeOpacity={0.7}
+              >
+                <X size={18} color="rgba(255,255,255,0.4)" strokeWidth={2.5} />
+              </TouchableOpacity>
 
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Your Compass</Text>
-
-              {!!declaration && (
-                <View style={[styles.declarationBox, {
-                  borderColor: isDark ? colors.primary : '#1A1A1A',
-                  backgroundColor: isDark ? 'transparent' : '#1A1A1A',
-                }]}>
-                  <Text style={[styles.boxLabel, { color: isDark ? colors.primary : '#ccff00' }]}>MY DECLARATION</Text>
-                  <Text style={[styles.declarationText, { color: isDark ? colors.text : '#FFFFFF' }]}>{declaration}</Text>
+              <View style={styles.modalTopArea}>
+                <View style={styles.modalIconWrap}>
+                  <Compass size={28} color="#CCFF00" strokeWidth={2.5} />
                 </View>
-              )}
-
-              <View style={[styles.filterBox, {
-                backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
-                borderColor: isDark ? '#2A2A2A' : '#E0E0E0',
-              }]}>
-                <Text style={[styles.boxLabel, { color: colors.textTertiary }]}>MY FILTER</Text>
-                <Text style={[styles.filterQuestion, { color: isDark ? colors.primary : '#000000' }]}>
-                  "{filterQuestion}"
-                </Text>
+                <Text style={styles.modalEyebrow}>MY COMPASS</Text>
               </View>
 
-              <Text style={[styles.reminder, { color: colors.textTertiary }]}>
-                When you're unsure, come back here.
+              <Text style={styles.heroQuestion}>
+                {filterQuestion}
               </Text>
 
-              <TouchableOpacity
-                style={styles.doneButton}
-                onPress={closeModal}
-                activeOpacity={0.9}
-              >
-                <LinearGradient
-                  colors={[colors.primary, colors.primaryDark]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.doneButtonGradient}
-                >
-                  <Text style={styles.doneButtonText}>Got It</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+              <View style={styles.rulesContainer}>
+                <View style={styles.ruleRow}>
+                  <View style={styles.ruleIcon}>
+                    <Check size={14} color="#000000" strokeWidth={3} />
+                  </View>
+                  <View style={styles.ruleTextBlock}>
+                    <Text style={styles.rulePrimary}>
+                      When the answer is YES
+                    </Text>
+                    <Text style={styles.ruleSecondary}>
+                      {'\u2192'} <Text style={styles.ruleAccent}>Move.</Text>
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.ruleRow}>
+                  <View style={styles.ruleIcon}>
+                    <Minus size={14} color="#000000" strokeWidth={3} />
+                  </View>
+                  <View style={styles.ruleTextBlock}>
+                    <Text style={styles.rulePrimary}>
+                      When the answer is NO
+                    </Text>
+                    <Text style={styles.ruleSecondary}>
+                      {'\u2192'} <Text style={styles.ruleAccent}>Let it go.</Text>
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.ruleRow}>
+                  <View style={styles.ruleIcon}>
+                    <Star size={14} color="#000000" strokeWidth={2.5} />
+                  </View>
+                  <View style={styles.ruleTextBlock}>
+                    <Text style={styles.rulePrimary}>
+                      Protect your attention.
+                    </Text>
+                    <Text style={styles.ruleSecondary}>
+                      Focus on what compounds.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <Text style={styles.signature}>
+                Better Inputs.{'\n'}A Greater You.
+              </Text>
             </View>
           </Animated.View>
         </View>
@@ -230,78 +237,95 @@ const styles = StyleSheet.create({
   modalInner: {
     borderRadius: 24,
     borderWidth: 1,
-    padding: 32,
-    gap: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  modalIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 28,
+    paddingTop: 16,
+    paddingBottom: 28,
+    position: 'relative',
   },
   closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  modalTopArea: {
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  modalIconWrap: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modalTitle: {
-    fontSize: 32,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  declarationBox: {
-    borderRadius: 16,
-    borderWidth: 1.5,
-    padding: 20,
-    gap: 8,
-  },
-  boxLabel: {
+  modalEyebrow: {
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 1.5,
+    letterSpacing: 2,
+    color: '#CCFF00',
+    textTransform: 'uppercase',
   },
-  declarationText: {
-    fontSize: 17,
-    fontWeight: '700',
-    lineHeight: 26,
-  },
-  filterBox: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 20,
-    gap: 8,
-  },
-  filterQuestion: {
-    fontSize: 19,
-    fontWeight: '800',
-    lineHeight: 28,
-    fontStyle: 'italic',
-  },
-  reminder: {
-    fontSize: 14,
-    fontWeight: '500',
+  heroQuestion: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#FFFFFF',
     textAlign: 'center',
+    lineHeight: 32,
+    letterSpacing: -0.5,
+    marginBottom: 24,
   },
-  doneButton: {
+  rulesContainer: {
+    gap: 10,
+    marginBottom: 24,
+  },
+  ruleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#0A0A0A',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  ruleIcon: {
+    width: 28,
+    height: 28,
     borderRadius: 14,
-    overflow: 'hidden',
-  },
-  doneButtonGradient: {
-    paddingVertical: 16,
+    backgroundColor: '#CCFF00',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
-  doneButtonText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#000000',
+  ruleTextBlock: {
+    flex: 1,
+    gap: 1,
+  },
+  rulePrimary: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  ruleSecondary: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.45)',
+  },
+  ruleAccent: {
+    color: '#CCFF00',
+    fontWeight: '700',
+  },
+  signature: {
+    fontSize: 20,
+    fontFamily: 'Yellowtail',
+    color: '#CCFF00',
+    textAlign: 'center',
+    lineHeight: 28,
   },
 });
