@@ -169,13 +169,16 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
   const bgSource = backgroundImage ?? COACHING_BG;
 
   return (
-    <View style={[styles.quoteCard, { backgroundColor: cardBg }]}>
+    <View style={[styles.quoteCard, { backgroundColor: '#FF00FF' }]}>
       <Image
         source={bgSource}
         style={StyleSheet.absoluteFillObject}
         resizeMode="stretch"
       />
       <View style={styles.quoteContent}>
+        <Text style={{ position: 'absolute', top: 8, right: 12, fontSize: 18, fontWeight: '900', color: '#00FFFF', zIndex: 999 }}>
+          DIAGNOSTIC 123
+        </Text>
         {greeting && (
           <Text style={styles.eyebrow}>{greeting}</Text>
         )}
