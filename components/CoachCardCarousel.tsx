@@ -10,20 +10,24 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
   TouchableOpacity,
+  LayoutChangeEvent,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  withDelay,
+  withSequence,
   Easing,
 } from 'react-native-reanimated';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
-import { getNextMilestone, getMilestoneProgress } from '@/constants/milestones';
+import { getMilestoneProgress } from '@/constants/milestones';
 import { supabase } from '@/lib/supabase';
 import CoachCard from './CoachCard';
 
 const LIME = '#CCFF00';
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const TOTAL_CURVE_DAYS = 77;
 
 const COACHING_BG: ImageSourcePropType = require('@/assets/images/CleanCinematicMountainSunriseCard.png');
 
@@ -53,6 +57,7 @@ export default function CoachCardCarousel({
   const [activePanel, setActivePanel] = useState(0);
   const [hasAnimatedScore, setHasAnimatedScore] = useState(false);
   const [executionPct, setExecutionPct] = useState<number | null>(null);
+  const [cardHeight, setCardHeight] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
   const score = computeScore(streak);
@@ -62,7 +67,6 @@ export default function CoachCardCarousel({
     ? Math.round((perfectDays / totalChallengeDays) * 100)
     : 0;
 
-  // Fetch per-activity execution rate from daily_completions.activities_completed
   useEffect(() => {
     if (totalChallengeDays === 0 || activitiesCount === 0) {
       setExecutionPct(null);
@@ -91,14 +95,14 @@ export default function CoachCardCarousel({
     return () => { cancelled = true; };
   }, [goalId, activitiesCount, totalChallengeDays]);
 
-  // Score count-up animation
+  // --- Animation shared values ---
   const scoreAnim = useSharedValue(0);
-
-  // Curve draw animation
-  const curveProgress = useSharedValue(0);
-
-  // Milestone progress animation
+  const curveClipWidth = useSharedValue(0);
+  const endpointOpacity = useSharedValue(0);
+  const endpointScale = useSharedValue(0);
+  const endpointGlowOpacity = useSharedValue(0);
   const milestoneFill = useSharedValue(0);
+
   const milestoneProgress = getMilestoneProgress(challengeDay);
 
   useEffect(() => {
@@ -114,15 +118,27 @@ export default function CoachCardCarousel({
 
     scoreAnim.value = 0;
     scoreAnim.value = withTiming(score, {
-      duration: 800,
+      duration: 900,
       easing: Easing.out(Easing.cubic),
     });
 
-    curveProgress.value = 0;
-    curveProgress.value = withTiming(1, {
-      duration: 800,
+    // Curve draws left to right
+    curveClipWidth.value = 0;
+    curveClipWidth.value = withTiming(1, {
+      duration: 900,
       easing: Easing.out(Easing.cubic),
     });
+
+    // Endpoint arrives after curve, then one subtle pulse
+    endpointOpacity.value = withDelay(700, withTiming(1, { duration: 200 }));
+    endpointScale.value = withDelay(700, withSequence(
+      withTiming(1.4, { duration: 120 }),
+      withTiming(1, { duration: 200 }),
+    ));
+    endpointGlowOpacity.value = withDelay(700, withSequence(
+      withTiming(0.4, { duration: 120 }),
+      withTiming(0.15, { duration: 400 }),
+    ));
   };
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -152,7 +168,7 @@ export default function CoachCardCarousel({
       const stopTimer = setTimeout(() => {
         if (interval) clearInterval(interval);
         setScoreText(String(Math.round(score)));
-      }, 850);
+      }, 950);
       return () => {
         clearTimeout(stopTimer);
         if (interval) clearInterval(interval);
@@ -162,36 +178,53 @@ export default function CoachCardCarousel({
     }
   }, [hasAnimatedScore, score]);
 
-  // Compound curve path
-  const W = SCREEN_WIDTH * 0.45;
-  const H = 100;
-  const PAD_LEFT = 8;
-  const PAD_RIGHT = 8;
-  const PAD_TOP = 10;
-  const PAD_BOT = 10;
-  const plotW = W - PAD_LEFT - PAD_RIGHT;
-  const plotH = H - PAD_TOP - PAD_BOT;
+  // --- Compound curve geometry ---
+  const curveW = SCREEN_WIDTH * 0.42;
+  const curveH = 92;
+  const PAD_L = 6;
+  const PAD_R = 6;
+  const PAD_T = 8;
+  const PAD_B = 8;
+  const plotW = curveW - PAD_L - PAD_R;
+  const plotH = curveH - PAD_T - PAD_B;
+  const maxCurveScore = computeScore(TOTAL_CURVE_DAYS);
 
-  const days = Math.max(streak, 2);
-  const maxScore = computeScore(days);
-
-  const allPoints: { x: number; y: number }[] = [];
-  for (let d = 1; d <= days; d++) {
+  const curvePoints: { x: number; y: number }[] = [];
+  for (let d = 1; d <= TOTAL_CURVE_DAYS; d++) {
     const s = computeScore(d);
-    const x = PAD_LEFT + ((d - 1) / (days - 1)) * plotW;
-    const y = PAD_TOP + plotH - (s / maxScore) * plotH;
-    allPoints.push({ x, y });
+    const x = PAD_L + ((d - 1) / (TOTAL_CURVE_DAYS - 1)) * plotW;
+    const y = PAD_T + plotH - (s / maxCurveScore) * plotH;
+    curvePoints.push({ x, y });
   }
 
-  const endPt = allPoints[allPoints.length - 1] ?? { x: PAD_LEFT + plotW, y: PAD_TOP + plotH };
+  const streakClamped = Math.min(Math.max(streak, 1), TOTAL_CURVE_DAYS);
+  const endpointIdx = streakClamped - 1;
+  const endPt = curvePoints[endpointIdx] ?? curvePoints[0];
 
-  const fullPathD =
-    allPoints.length > 1
-      ? allPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
-      : `M ${PAD_LEFT} ${PAD_TOP + plotH} L ${PAD_LEFT + plotW} ${PAD_TOP + plotH}`;
+  // Split path: achieved (1 → streak) and projected (streak → 77)
+  const achievedPts = curvePoints.slice(0, endpointIdx + 1);
+  const projectedPts = curvePoints.slice(endpointIdx);
 
-  const curveAnimStyle = useAnimatedStyle(() => ({
-    opacity: curveProgress.value,
+  const pathFromPts = (pts: { x: number; y: number }[]) =>
+    pts.length > 1
+      ? pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
+      : '';
+
+  const achievedPath = pathFromPts(achievedPts);
+  const projectedPath = pathFromPts(projectedPts);
+
+  // --- Animated styles ---
+  const curveClipStyle = useAnimatedStyle(() => ({
+    width: `${curveClipWidth.value * 100}%`,
+  }));
+
+  const endpointStyle = useAnimatedStyle(() => ({
+    opacity: endpointOpacity.value,
+    transform: [{ scale: endpointScale.value }],
+  }));
+
+  const endpointGlowStyle = useAnimatedStyle(() => ({
+    opacity: endpointGlowOpacity.value,
   }));
 
   const dot1Style = useAnimatedStyle(() => ({
@@ -200,6 +233,17 @@ export default function CoachCardCarousel({
   const dot2Style = useAnimatedStyle(() => ({
     backgroundColor: activePanel === 1 ? LIME : 'rgba(255,255,255,0.2)',
   }));
+
+  const onCardLayout = (e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0 && Math.abs(h - cardHeight) > 1) {
+      setCardHeight(h);
+    }
+  };
+
+  // Minimum height for score panel content
+  const MIN_SCORE_HEIGHT = 210;
+  const sharedHeight = Math.max(cardHeight, MIN_SCORE_HEIGHT);
 
   return (
     <View style={styles.container}>
@@ -214,29 +258,33 @@ export default function CoachCardCarousel({
         style={styles.scroll}
       >
         {/* PANEL 1 — COACHING */}
-        <View style={styles.panel}>
-          <CoachCard
-            challengeDay={challengeDay}
-            firstName={firstName}
-            backgroundImage={COACHING_BG}
-            animatedMilestoneProgress={milestoneFill}
-          />
+        <View style={[styles.panel, { height: sharedHeight }]} onLayout={onCardLayout}>
+          <View style={styles.cardClip}>
+            <CoachCard
+              challengeDay={challengeDay}
+              firstName={firstName}
+              backgroundImage={COACHING_BG}
+              animatedMilestoneProgress={milestoneFill}
+            />
+          </View>
         </View>
 
         {/* PANEL 2 — COMPOUND SCORE */}
-        <View style={styles.panel}>
+        <View style={[styles.panel, { height: sharedHeight }]}>
           <View style={styles.scoreCard}>
             <Image
               source={COACHING_BG}
               style={styles.scoreBg}
-              resizeMode="stretch"
+              resizeMode="cover"
             />
             <View style={styles.scoreOverlay} />
 
             <View style={styles.scoreContent}>
+              {/* Eyebrow */}
               <Text style={styles.eyebrow}>YOUR</Text>
               <Text style={styles.eyebrowAccent}>COMPOUND SCORE</Text>
 
+              {/* Hero row: score on left, curve on right */}
               <View style={styles.heroRow}>
                 <View style={styles.heroLeft}>
                   <View style={styles.scoreRow}>
@@ -255,32 +303,76 @@ export default function CoachCardCarousel({
                   </Text>
                 </View>
 
-                <View style={styles.curveContainer}>
-                  <Animated.View style={[{ flex: 1 }, curveAnimStyle]}>
-                    <Svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
-                      {[0.2, 0.4, 0.6, 0.8].map((ratio, i) => {
-                        const lx = PAD_LEFT + ratio * plotW;
+                {/* Compound curve with clip draw-in */}
+                <View style={styles.curveOuter}>
+                  <Animated.View style={[styles.curveClip, curveClipStyle]}>
+                    <Svg width={curveW} height={curveH} viewBox={`0 0 ${curveW} ${curveH}`}>
+                      {[0.25, 0.5, 0.75].map((ratio, i) => {
+                        const lx = PAD_L + ratio * plotW;
                         return (
                           <Line
                             key={i}
                             x1={lx}
-                            y1={PAD_TOP}
+                            y1={PAD_T}
                             x2={lx}
-                            y2={PAD_TOP + plotH}
-                            stroke="rgba(204,255,0,0.06)"
+                            y2={PAD_T + plotH}
+                            stroke="rgba(204,255,0,0.05)"
                             strokeWidth={0.5}
                           />
                         );
                       })}
-                      <Path d={fullPathD} stroke={LIME} strokeWidth={1.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                      <Circle cx={endPt.x} cy={endPt.y} r={4} fill={LIME} />
-                      <Circle cx={endPt.x} cy={endPt.y} r={8} fill={LIME} opacity={0.15} />
+                      {projectedPath ? (
+                        <Path
+                          d={projectedPath}
+                          stroke="rgba(204,255,0,0.12)"
+                          strokeWidth={1}
+                          fill="none"
+                          strokeLinecap="round"
+                          strokeDasharray="3 3"
+                        />
+                      ) : null}
+                      {achievedPath ? (
+                        <Path
+                          d={achievedPath}
+                          stroke={LIME}
+                          strokeWidth={4}
+                          fill="none"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          opacity={0.15}
+                        />
+                      ) : null}
+                      {achievedPath ? (
+                        <Path
+                          d={achievedPath}
+                          stroke={LIME}
+                          strokeWidth={2}
+                          fill="none"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      ) : null}
                     </Svg>
                   </Animated.View>
+                  {/* Endpoint glow + dot overlaid using computed coords */}
+                  <Animated.View
+                    style={[
+                      styles.endpointGlow,
+                      { left: endPt.x - 10, top: endPt.y - 10 },
+                      endpointGlowStyle,
+                    ]}
+                  />
+                  <Animated.View
+                    style={[
+                      styles.endpointDot,
+                      { left: endPt.x - 4, top: endPt.y - 4 },
+                      endpointStyle,
+                    ]}
+                  />
                 </View>
               </View>
 
-              {/* Bottom metrics — only show metrics with real, distinct data */}
+              {/* Bottom metrics strip */}
               <View style={styles.metricsRow}>
                 <View style={styles.metricItem}>
                   <Text style={styles.metricLabel}>CONSISTENCY</Text>
@@ -309,12 +401,12 @@ export default function CoachCardCarousel({
         </View>
       </ScrollView>
 
-      {/* Pagination dots — tappable */}
+      {/* Pagination dots — tappable, tight below card */}
       <View style={styles.dotsContainer}>
-        <TouchableOpacity onPress={() => scrollToPanel(0)} activeOpacity={0.7} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => scrollToPanel(0)} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Animated.View style={[styles.dot, dot1Style]} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => scrollToPanel(1)} activeOpacity={0.7} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => scrollToPanel(1)} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Animated.View style={[styles.dot, dot2Style]} />
         </TouchableOpacity>
       </View>
@@ -331,8 +423,15 @@ const styles = StyleSheet.create({
   },
   panel: {
     width: SCREEN_WIDTH,
+    overflow: 'hidden',
   },
+  cardClip: {
+    overflow: 'hidden',
+    borderRadius: 16,
+  },
+  // Score panel
   scoreCard: {
+    flex: 1,
     borderRadius: 16,
     overflow: 'hidden',
   },
@@ -349,11 +448,13 @@ const styles = StyleSheet.create({
     left: 0,
     width: '100%',
     height: '100%',
-    backgroundColor: 'rgba(8,8,8,0.93)',
+    backgroundColor: 'rgba(6,6,6,0.72)',
   },
   scoreContent: {
+    flex: 1,
     padding: 16,
-    paddingBottom: 14,
+    paddingBottom: 12,
+    justifyContent: 'space-between',
   },
   eyebrow: {
     fontSize: 9,
@@ -368,69 +469,92 @@ const styles = StyleSheet.create({
     color: LIME,
     letterSpacing: 2,
     textTransform: 'uppercase',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   heroRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    flex: 1,
   },
   heroLeft: {
     flex: 1,
-    marginRight: 8,
+    marginRight: 6,
   },
   scoreRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
   },
   scoreNumber: {
-    fontSize: 52,
+    fontSize: 64,
     fontWeight: '900',
     color: LIME,
-    lineHeight: 56,
-    letterSpacing: -1.5,
+    lineHeight: 66,
+    letterSpacing: -2,
   },
   scorePct: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '900',
     color: LIME,
-    lineHeight: 56,
+    lineHeight: 66,
     marginBottom: 2,
   },
   deltaPill: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(204,255,0,0.15)',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginTop: 4,
-    marginBottom: 8,
+    backgroundColor: 'rgba(204,255,0,0.12)',
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    marginTop: 2,
+    marginBottom: 6,
   },
   deltaText: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '800',
     color: LIME,
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
   },
   supportingCopy: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.4)',
-    lineHeight: 17,
+    color: 'rgba(255,255,255,0.38)',
+    lineHeight: 15,
   },
-  curveContainer: {
-    width: SCREEN_WIDTH * 0.45,
-    height: 100,
+  // Curve
+  curveOuter: {
+    width: SCREEN_WIDTH * 0.42,
+    height: 92,
+    overflow: 'hidden',
   },
+  curveClip: {
+    height: 92,
+    overflow: 'hidden',
+  },
+  endpointGlow: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: LIME,
+  },
+  endpointDot: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: LIME,
+  },
+  // Bottom metrics
   metricsRow: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
-    paddingTop: 12,
+    borderTopColor: 'rgba(255,255,255,0.07)',
+    paddingTop: 10,
+    marginTop: 6,
   },
   metricItem: {
     flex: 1,
     alignItems: 'center',
+    paddingHorizontal: 2,
   },
   metricLabel: {
     fontSize: 8,
@@ -438,7 +562,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.35)',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   metricValue: {
     fontSize: 15,
@@ -451,18 +575,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: 'rgba(255,255,255,0.25)',
     textAlign: 'center',
-    lineHeight: 11,
+    lineHeight: 10,
   },
   metricDivider: {
     width: 1,
     backgroundColor: 'rgba(255,255,255,0.06)',
+    marginVertical: 2,
   },
+  // Dots
   dotsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
-    marginTop: 8,
+    marginTop: 10,
   },
   dot: {
     width: 5,
