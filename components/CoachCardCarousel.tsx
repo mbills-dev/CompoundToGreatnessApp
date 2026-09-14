@@ -194,7 +194,7 @@ export default function CoachCardCarousel({
   const cubicPoint = (t: number): { x: number; y: number } => {
     const start = { x: PAD_L, y: PAD_T + plotH };
     const control1 = { x: PAD_L + plotW * 0.42, y: PAD_T + plotH * 0.98 };
-    const control2 = { x: PAD_L + plotW * 0.78, y: PAD_T + plotH * 0.62 };
+    const control2 = { x: PAD_L + plotW * 0.88, y: PAD_T + plotH * 0.42 };
     const end = { x: PAD_L + plotW, y: PAD_T };
     const inverse = 1 - t;
     return {
