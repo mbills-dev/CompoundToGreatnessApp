@@ -179,8 +179,8 @@ export default function CoachCardCarousel({
   }, [hasAnimatedScore, score]);
 
   // --- Compound curve geometry ---
-  const curveW = SCREEN_WIDTH * 0.42;
-  const curveH = 110;
+  const curveW = SCREEN_WIDTH * 0.68;
+  const curveH = 126;
   const PAD_L = 10;
   const PAD_R = 10;
   const PAD_T = 10;
@@ -189,45 +189,43 @@ export default function CoachCardCarousel({
   const plotH = curveH - PAD_T - PAD_B;
   const maxCurveScore = computeScore(TOTAL_CURVE_DAYS);
 
-  const curvePoints: { x: number; y: number }[] = [];
-  const pathFromPts = (pts: { x: number; y: number }[]) =>
-    pts.length > 1
-      ? pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
-      : '';
-  for (let d = 1; d <= TOTAL_CURVE_DAYS; d++) {
-    const s = computeScore(d);
-    const x = PAD_L + ((d - 1) / (TOTAL_CURVE_DAYS - 1)) * plotW;
-    const y = PAD_T + plotH - (s / maxCurveScore) * plotH;
-    curvePoints.push({ x, y });
-  }
+  const cubicPoint = (t: number): { x: number; y: number } => {
+    const start = { x: PAD_L, y: PAD_T + plotH };
+    const control1 = { x: PAD_L + plotW * 0.42, y: PAD_T + plotH * 0.98 };
+    const control2 = { x: PAD_L + plotW * 0.78, y: PAD_T + plotH * 0.62 };
+    const end = { x: PAD_L + plotW, y: PAD_T };
+    const inverse = 1 - t;
+    return {
+      x: inverse ** 3 * start.x + 3 * inverse ** 2 * t * control1.x + 3 * inverse * t ** 2 * control2.x + t ** 3 * end.x,
+      y: inverse ** 3 * start.y + 3 * inverse ** 2 * t * control1.y + 3 * inverse * t ** 2 * control2.y + t ** 3 * end.y,
+    };
+  };
+
+  const pathFromCubic = (): string => {
+    const start = cubicPoint(0);
+    const control1 = cubicPoint(0.42);
+    const control2 = cubicPoint(0.78);
+    const end = cubicPoint(1);
+    return `M ${start.x.toFixed(1)} ${start.y.toFixed(1)} C ${control1.x.toFixed(1)} ${control1.y.toFixed(1)}, ${control2.x.toFixed(1)} ${control2.y.toFixed(1)}, ${end.x.toFixed(1)} ${end.y.toFixed(1)}`;
+  };
 
   const streakClamped = Math.min(Math.max(streak, 1), TOTAL_CURVE_DAYS);
-  const endpointIdx = streakClamped - 1;
-  const endPt = curvePoints[endpointIdx] ?? curvePoints[0];
-
-  // Full curve path (always visible, muted)
-  const fullPath = pathFromPts(curvePoints);
-  // Achieved portion (animated lime overlay)
-  const achievedPts = curvePoints.slice(0, endpointIdx + 1);
-  const achievedPath = pathFromPts(achievedPts);
-  // Projected portion (muted, from current position to end)
-  const projectedPts = curvePoints.slice(endpointIdx);
-  const projectedPath = pathFromPts(projectedPts);
-
-  // Animated progress fraction (0..1) for the dot position along the full curve
   const progressFraction = streakClamped / TOTAL_CURVE_DAYS;
-  const animDotX = useSharedValue(PAD_L);
-  const animDotY = useSharedValue(curveH - PAD_B);
+  const endPt = cubicPoint(progressFraction);
+  const fullPath = pathFromCubic();
+  const guideRatios = [0.14, 0.24, 0.34, 0.44, 0.54, 0.64, 0.74, 0.84, 0.94];
+  const animDotX = useSharedValue(cubicPoint(0).x);
+  const animDotY = useSharedValue(cubicPoint(0).y);
 
   useEffect(() => {
     if (hasAnimatedScore) {
-      animDotX.value = curvePoints[0].x;
-      animDotY.value = curvePoints[0].y;
+      animDotX.value = cubicPoint(0).x;
+      animDotY.value = cubicPoint(0).y;
       animDotX.value = withTiming(endPt.x, { duration: 900, easing: Easing.out(Easing.cubic) });
       animDotY.value = withTiming(endPt.y, { duration: 900, easing: Easing.out(Easing.cubic) });
     } else {
-      animDotX.value = endPt.x;
-      animDotY.value = endPt.y;
+      animDotX.value = cubicPoint(0).x;
+      animDotY.value = cubicPoint(0).y;
     }
   }, [hasAnimatedScore]);
 
@@ -243,7 +241,7 @@ export default function CoachCardCarousel({
 
   // --- Animated styles ---
   const curveClipStyle = useAnimatedStyle(() => ({
-    width: `${curveClipWidth.value * progressFraction * 100}%`,
+    width: `${Math.max(curveClipWidth.value * progressFraction * 100, 2)}%`,
   }));
 
   const endpointStyle = useAnimatedStyle(() => ({
@@ -322,69 +320,59 @@ export default function CoachCardCarousel({
 
                   {/* Compound curve — full muted track always visible, lime portion animated */}
                   <View style={styles.curveOuter}>
-                    {/* Full muted curve + guide bars — always visible, outside clip */}
                     <Svg width={curveW} height={curveH} viewBox={`0 0 ${curveW} ${curveH}`} style={styles.curveBaseSvg}>
-                      {[0.2, 0.4, 0.6, 0.8].map((ratio, i) => {
-                        const lx = PAD_L + ratio * plotW;
-                        const dayAtRatio = Math.round(ratio * (TOTAL_CURVE_DAYS - 1)) + 1;
-                        const scoreAtRatio = computeScore(dayAtRatio);
-                        const barTopY = PAD_T + plotH - (scoreAtRatio / maxCurveScore) * plotH;
+                      {guideRatios.map((ratio) => {
+                        const point = cubicPoint(ratio);
                         return (
                           <Line
-                            key={i}
-                            x1={lx}
+                            key={ratio}
+                            x1={point.x}
                             y1={PAD_T + plotH}
-                            x2={lx}
-                            y2={barTopY}
-                            stroke="rgba(204,255,0,0.04)"
-                            strokeWidth={0.5}
+                            x2={point.x}
+                            y2={point.y}
+                            stroke={ratio <= progressFraction ? 'rgba(204,255,0,0.13)' : 'rgba(120,120,120,0.18)'}
+                            strokeWidth={0.8}
                           />
                         );
                       })}
-                      {fullPath ? (
-                        <Path
-                          d={fullPath}
-                          stroke="rgba(180,180,180,0.25)"
-                          strokeWidth={1.5}
-                          fill="none"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      ) : null}
+                      <Path
+                        d={fullPath}
+                        stroke="rgba(190,190,190,0.52)"
+                        strokeWidth={2}
+                        fill="none"
+                        strokeLinecap="round"
+                      />
+                      <Path
+                        d={fullPath}
+                        stroke="rgba(190,190,190,0.18)"
+                        strokeWidth={5}
+                        fill="none"
+                        strokeLinecap="round"
+                      />
                     </Svg>
-                    {/* Achieved lime curve — clipped by animated width */}
                     <Animated.View style={[styles.curveClip, curveClipStyle]} pointerEvents="none">
                       <Svg width={curveW} height={curveH} viewBox={`0 0 ${curveW} ${curveH}`}>
-                        {achievedPath ? (
-                          <Path
-                            d={achievedPath}
-                            stroke={LIME}
-                            strokeWidth={4}
-                            fill="none"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            opacity={0.15}
-                          />
-                        ) : null}
-                        {achievedPath ? (
-                          <Path
-                            d={achievedPath}
-                            stroke={LIME}
-                            strokeWidth={2.5}
-                            fill="none"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        ) : null}
+                        <Path
+                          d={fullPath}
+                          stroke={LIME}
+                          strokeWidth={6}
+                          fill="none"
+                          strokeLinecap="round"
+                          opacity={0.18}
+                        />
+                        <Path
+                          d={fullPath}
+                          stroke={LIME}
+                          strokeWidth={2.5}
+                          fill="none"
+                          strokeLinecap="round"
+                        />
                       </Svg>
                     </Animated.View>
                     {/* Current-position glowing dot — travels with animation */}
-                    <Animated.View
-                      style={[styles.endpointGlow, animGlowStyle, endpointGlowStyle]}
-                    />
-                    <Animated.View
-                      style={[styles.endpointDot, animDotStyle, endpointStyle]}
-                    />
+                    <Animated.View style={[styles.endpointGlow, animGlowStyle, endpointGlowStyle]} />
+                    <Animated.View style={[styles.endpointDot, animDotStyle, endpointStyle]} />
+                    <View style={[styles.futureEndpoint, { left: PAD_L + plotW - 4, top: PAD_T - 4 }]} />
                   </View>
                 </View>
 
@@ -508,8 +496,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroLeft: {
-    flex: 1,
-    marginRight: 8,
+    width: '38%',
+    marginRight: 4,
   },
   scoreRow: {
     flexDirection: 'row',
@@ -552,8 +540,8 @@ const styles = StyleSheet.create({
   },
   // Curve
   curveOuter: {
-    width: SCREEN_WIDTH * 0.42,
-    height: 110,
+    width: '62%',
+    height: 126,
     overflow: 'hidden',
   },
   curveBaseSvg: {
@@ -562,15 +550,15 @@ const styles = StyleSheet.create({
     left: 0,
   },
   curveClip: {
-    height: 110,
+    height: 126,
     overflow: 'hidden',
   },
   endpointGlow: {
     position: 'absolute',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: LIME,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(204,255,0,0.22)',
   },
   endpointDot: {
     position: 'absolute',
@@ -578,6 +566,15 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: LIME,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  futureEndpoint: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(190,190,190,0.35)',
   },
   // Bottom metrics
   metricsRow: {
@@ -590,7 +587,8 @@ const styles = StyleSheet.create({
   metricItem: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 2,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
   },
   metricLabel: {
     fontSize: 8,
@@ -614,6 +612,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.25)',
     textAlign: 'center',
     lineHeight: 10,
+    paddingHorizontal: 2,
   },
   metricDivider: {
     width: 1,
