@@ -1133,7 +1133,7 @@ export default function DailyDashboard({
                 }}
                 activeOpacity={0.7}
               >
-                <Eye size={16} color="#CCFF00" strokeWidth={2.5} />
+                <Eye size={20} color="#CCFF00" strokeWidth={2.5} />
                 <Text style={styles.utilityCardInline} numberOfLines={1}>
                   <Text style={styles.utilityCardCount}>{watcherCount}</Text>
                   <Text style={styles.utilityCardLabel}> {watcherCount === 1 ? 'person watching' : 'people watching'}</Text>
@@ -1617,11 +1617,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 12,
-    paddingVertical: 14,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    minHeight: 96,
+    gap: 6,
+    height: 72,
   },
   utilityCardInline: {
     flex: 1,
