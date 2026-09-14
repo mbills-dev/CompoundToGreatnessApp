@@ -170,11 +170,13 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
 
   return (
     <View style={[styles.quoteCard, { backgroundColor: cardBg }]}>
-      <Image
+      <ImageBackground
         source={bgSource}
-        resizeMode="contain"
         style={StyleSheet.absoluteFillObject}
-      />
+        imageStyle={{ resizeMode: 'cover' }}
+      >
+        <View style={styles.imageOverlay} />
+      </ImageBackground>
       <View style={styles.quoteContent}>
         {greeting && (
           <Text style={styles.eyebrow}>{greeting}</Text>
@@ -202,6 +204,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 16,
     overflow: 'hidden',
+  },
+  imageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   quoteContent: {
     padding: 16,
