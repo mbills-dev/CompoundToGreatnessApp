@@ -169,7 +169,8 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
   const bgSource = backgroundImage ?? COACHING_BG;
 
   return (
-    <View style={[styles.quoteCard, { backgroundColor: '#FF00FF' }]}>
+    <>
+      <View style={[styles.quoteCard, { backgroundColor: '#FF00FF' }]}>
       <Image
         source={bgSource}
         style={StyleSheet.absoluteFillObject}
@@ -197,6 +198,12 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
         </View>
       </View>
     </View>
+    <Image
+      source={require('@/assets/images/CleanCinematicMountainSunriseCard.png')}
+      style={{ width: '100%', aspectRatio: 2.012, marginTop: 12, borderWidth: 3, borderColor: '#00FFFF' }}
+      resizeMode="stretch"
+    />
+    </>
   );
 }
 
