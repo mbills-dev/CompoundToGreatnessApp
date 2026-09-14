@@ -181,7 +181,7 @@ export default function CoachCardCarousel({
   }, [hasAnimatedScore, score]);
 
   // --- Compound curve geometry ---
-  const curveW = SCREEN_WIDTH * 0.72;
+  const curveW = (SCREEN_WIDTH - 36) * 0.5;
   const curveH = 126;
   const PAD_L = 10;
   const PAD_R = 10;
@@ -339,7 +339,7 @@ export default function CoachCardCarousel({
                   </View>
 
                   {/* Compound curve — full muted track always visible, lime portion animated */}
-                  <View style={styles.curveOuter} pointerEvents="none">
+                  <View style={[styles.curveOuter, { width: curveW }]} pointerEvents="none">
                     <Svg width={curveW} height={curveH} viewBox={`0 0 ${curveW} ${curveH}`}>
                       {guideRatios.map((ratio) => {
                         const point = cubicPoint(ratio);
@@ -560,7 +560,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
-    width: '72%',
     height: 126,
     overflow: 'visible',
   },
