@@ -177,7 +177,12 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
         imageStyle={{ resizeMode: 'cover' }}
       >
         <LinearGradient
-          colors={['rgba(5,5,5,0.82)', 'rgba(5,5,5,0.62)', 'rgba(5,5,5,0.28)']}
+          colors={[
+            'rgba(5,5,5,0.62)',
+            'rgba(5,5,5,0.32)',
+            'rgba(5,5,5,0.08)',
+          ]}
+          locations={[0, 0.48, 1]}
           start={{ x: 0, y: 0.5 }}
           end={{ x: 1, y: 0.5 }}
           style={StyleSheet.absoluteFillObject}
