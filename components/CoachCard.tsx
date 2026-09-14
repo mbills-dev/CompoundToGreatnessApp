@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ImageBackground, ImageSourcePropType } from 're
 import { MILESTONE_DATA, getNextMilestone, getMilestoneProgress, isMilestoneDay } from '@/constants/milestones';
 import { useTheme } from '@/contexts/ThemeContext';
 
+const COACHING_BG: ImageSourcePropType = require('@/assets/images/CleanCinematicMountainSunrise.png');
+
 type QuoteEntry = {
   type: 'quote';
   l1: string;
@@ -164,26 +166,24 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
   const nextMilestone = getNextMilestone(day);
   const progress = getMilestoneProgress(day);
 
-  const hasImage = !!backgroundImage;
+  const bgSource = backgroundImage ?? COACHING_BG;
 
   return (
     <View style={[styles.quoteCard, { backgroundColor: cardBg }]}>
-      {hasImage && (
-        <ImageBackground
-          source={backgroundImage!}
-          style={StyleSheet.absoluteFillObject}
-          imageStyle={{ resizeMode: 'cover' }}
-        >
-          <View style={styles.imageOverlay} />
-        </ImageBackground>
-      )}
+      <ImageBackground
+        source={bgSource}
+        style={StyleSheet.absoluteFillObject}
+        imageStyle={{ resizeMode: 'cover' }}
+      >
+        <View style={styles.imageOverlay} />
+      </ImageBackground>
       <View style={styles.quoteContent}>
         {greeting && (
           <Text style={styles.eyebrow}>{greeting}</Text>
         )}
-        <Text style={[styles.quoteLine1, { color: textPrimary }]}>{quoteEntry.l1}</Text>
-        <Text style={styles.quoteLine2}>{quoteEntry.l2}</Text>
-        <Text style={[styles.quoteLine3, { color: textPrimary }]}>{quoteEntry.l3}</Text>
+        <Text style={[styles.quoteLine1, { color: textPrimary }]} numberOfLines={1}>{quoteEntry.l1}</Text>
+        <Text style={styles.quoteLine2} numberOfLines={1}>{quoteEntry.l2}</Text>
+        <Text style={[styles.quoteLine3, { color: textPrimary }]} numberOfLines={1}>{quoteEntry.l3}</Text>
         <Text style={[styles.quoteAttr, { color: textAttr }]}>— {quoteEntry.attr}</Text>
       </View>
       <View style={[styles.quoteFooter, { borderTopColor: footerBorderColor }]}>
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   },
   imageOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10,10,10,0.82)',
+    backgroundColor: 'rgba(8,8,8,0.72)',
   },
   quoteContent: {
     padding: 16,
@@ -227,6 +227,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     lineHeight: 25,
     letterSpacing: -0.25,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   quoteLine2: {
     fontSize: 25,
@@ -234,6 +237,9 @@ const styles = StyleSheet.create({
     color: '#CCFF00',
     lineHeight: 25,
     letterSpacing: -0.25,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   quoteLine3: {
     fontSize: 25,
@@ -242,13 +248,19 @@ const styles = StyleSheet.create({
     lineHeight: 25,
     letterSpacing: -0.25,
     marginBottom: 8,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   quoteAttr: {
     fontSize: 9,
-    color: 'rgba(255,255,255,0.45)',
+    color: 'rgba(255,255,255,0.55)',
     textTransform: 'uppercase',
     letterSpacing: 1,
     fontWeight: '600',
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   quoteFooter: {
     flexDirection: 'row',
@@ -258,6 +270,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.08)',
     gap: 8,
+    backgroundColor: 'rgba(10,10,10,0.92)',
   },
   quoteNextLabel: {
     fontSize: 8,
