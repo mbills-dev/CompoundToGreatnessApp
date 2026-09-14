@@ -173,7 +173,7 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
       <View style={[styles.quoteCard, { backgroundColor: '#FF00FF' }]}>
       <Image
         source={bgSource}
-        style={StyleSheet.absoluteFillObject}
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
         resizeMode="stretch"
       />
       <View style={styles.quoteContent}>
@@ -200,7 +200,7 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
     </View>
     <Image
       source={require('@/assets/images/CleanCinematicMountainSunriseCard.png')}
-      style={{ width: '100%', aspectRatio: 2.012, marginTop: 12, borderWidth: 3, borderColor: '#00FFFF' }}
+      style={{ width: 320, height: 159, marginTop: 12, borderWidth: 3, borderColor: '#00FFFF' }}
       resizeMode="stretch"
     />
     </>
