@@ -169,17 +169,13 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
   const bgSource = backgroundImage ?? COACHING_BG;
 
   return (
-    <>
-      <View style={[styles.quoteCard, { backgroundColor: '#FF00FF' }]}>
+    <View style={[styles.quoteCard, { backgroundColor: cardBg }]}>
       <Image
         source={bgSource}
         style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
         resizeMode="stretch"
       />
       <View style={styles.quoteContent}>
-        <Text style={{ position: 'absolute', top: 8, right: 12, fontSize: 18, fontWeight: '900', color: '#00FFFF', zIndex: 999 }}>
-          DIAGNOSTIC 123
-        </Text>
         {greeting && (
           <Text style={styles.eyebrow}>{greeting}</Text>
         )}
@@ -198,12 +194,6 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
         </View>
       </View>
     </View>
-    <Image
-      source={require('@/assets/images/CleanCinematicMountainSunriseCard.png')}
-      style={{ width: 320, height: 159, marginTop: 12, borderWidth: 3, borderColor: '#00FFFF' }}
-      resizeMode="stretch"
-    />
-    </>
   );
 }
 
