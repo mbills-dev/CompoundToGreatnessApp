@@ -55,6 +55,7 @@ import { checkForNewReactions, markReactionsRead, ReactionGroup } from '@/lib/re
 import ReactionBurst from './ReactionBurst';
 import EncouragementToast from './EncouragementToast';
 import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
+import DayView from './DayView';
 
 let Haptics: any = null;
 if (Platform.OS !== 'web') {
@@ -246,6 +247,7 @@ export default function DailyDashboard({
   const [gracePeriodMode, setGracePeriodMode] = useState<'grace' | 'reset'>('grace');
   const [realtimeGen, setRealtimeGen] = useState(0);
   const [showIdentityModal, setShowIdentityModal] = useState(false);
+  const [showDayView, setShowDayView] = useState(false);
 
   const [showWatcherSheet, setShowWatcherSheet] = useState(false);
   const [watcherProfiles, setWatcherProfiles] = useState<{ id: string; display_name: string; username: string; photo_url: string | null; created_at: string }[]>([]);
@@ -1056,14 +1058,18 @@ export default function DailyDashboard({
                 </View>
               </View>
             ) : (
-              <View style={styles.dateContainer}>
+              <TouchableOpacity
+                style={styles.dateContainer}
+                onPress={() => setShowDayView(true)}
+                activeOpacity={0.7}
+              >
                 <Text style={[styles.date, { color: colors.text }]}>
                   DAY {displayDay}
                 </Text>
                 <Text style={[styles.dateLabel, { color: colors.textTertiary }]}>
                   77-DAY CHALLENGE
                 </Text>
-              </View>
+              </TouchableOpacity>
             )}
 
             {isKeepGoing ? (
@@ -1513,6 +1519,15 @@ export default function DailyDashboard({
           userId={user.id}
         />
       ) : null}
+
+      <DayView
+        visible={showDayView}
+        onClose={() => setShowDayView(false)}
+        goal={goal}
+        activities={localActivities}
+        completedActivities={completedActivities}
+        onToggle={handleToggleActivity}
+      />
 
     </View>
   );
