@@ -180,16 +180,20 @@ export default function CoachCardCarousel({
 
   // --- Compound curve geometry ---
   const curveW = SCREEN_WIDTH * 0.42;
-  const curveH = 100;
-  const PAD_L = 6;
-  const PAD_R = 6;
-  const PAD_T = 8;
-  const PAD_B = 8;
+  const curveH = 110;
+  const PAD_L = 10;
+  const PAD_R = 10;
+  const PAD_T = 10;
+  const PAD_B = 14;
   const plotW = curveW - PAD_L - PAD_R;
   const plotH = curveH - PAD_T - PAD_B;
   const maxCurveScore = computeScore(TOTAL_CURVE_DAYS);
 
   const curvePoints: { x: number; y: number }[] = [];
+  const pathFromPts = (pts: { x: number; y: number }[]) =>
+    pts.length > 1
+      ? pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
+      : '';
   for (let d = 1; d <= TOTAL_CURVE_DAYS; d++) {
     const s = computeScore(d);
     const x = PAD_L + ((d - 1) / (TOTAL_CURVE_DAYS - 1)) * plotW;
@@ -201,20 +205,45 @@ export default function CoachCardCarousel({
   const endpointIdx = streakClamped - 1;
   const endPt = curvePoints[endpointIdx] ?? curvePoints[0];
 
+  // Full curve path (always visible, muted)
+  const fullPath = pathFromPts(curvePoints);
+  // Achieved portion (animated lime overlay)
   const achievedPts = curvePoints.slice(0, endpointIdx + 1);
-  const projectedPts = curvePoints.slice(endpointIdx);
-
-  const pathFromPts = (pts: { x: number; y: number }[]) =>
-    pts.length > 1
-      ? pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
-      : '';
-
   const achievedPath = pathFromPts(achievedPts);
+  // Projected portion (muted, from current position to end)
+  const projectedPts = curvePoints.slice(endpointIdx);
   const projectedPath = pathFromPts(projectedPts);
+
+  // Animated progress fraction (0..1) for the dot position along the full curve
+  const progressFraction = streakClamped / TOTAL_CURVE_DAYS;
+  const animDotX = useSharedValue(PAD_L);
+  const animDotY = useSharedValue(curveH - PAD_B);
+
+  useEffect(() => {
+    if (hasAnimatedScore) {
+      animDotX.value = curvePoints[0].x;
+      animDotY.value = curvePoints[0].y;
+      animDotX.value = withTiming(endPt.x, { duration: 900, easing: Easing.out(Easing.cubic) });
+      animDotY.value = withTiming(endPt.y, { duration: 900, easing: Easing.out(Easing.cubic) });
+    } else {
+      animDotX.value = endPt.x;
+      animDotY.value = endPt.y;
+    }
+  }, [hasAnimatedScore]);
+
+  const animDotStyle = useAnimatedStyle(() => ({
+    left: animDotX.value - 4,
+    top: animDotY.value - 4,
+  }));
+
+  const animGlowStyle = useAnimatedStyle(() => ({
+    left: animDotX.value - 10,
+    top: animDotY.value - 10,
+  }));
 
   // --- Animated styles ---
   const curveClipStyle = useAnimatedStyle(() => ({
-    width: `${curveClipWidth.value * 100}%`,
+    width: `${curveClipWidth.value * progressFraction * 100}%`,
   }));
 
   const endpointStyle = useAnimatedStyle(() => ({
@@ -291,34 +320,41 @@ export default function CoachCardCarousel({
                     </Text>
                   </View>
 
-                  {/* Compound curve with clip draw-in */}
+                  {/* Compound curve — full muted track always visible, lime portion animated */}
                   <View style={styles.curveOuter}>
-                    <Animated.View style={[styles.curveClip, curveClipStyle]}>
-                      <Svg width={curveW} height={curveH} viewBox={`0 0 ${curveW} ${curveH}`}>
-                        {[0.25, 0.5, 0.75].map((ratio, i) => {
-                          const lx = PAD_L + ratio * plotW;
-                          return (
-                            <Line
-                              key={i}
-                              x1={lx}
-                              y1={PAD_T}
-                              x2={lx}
-                              y2={PAD_T + plotH}
-                              stroke="rgba(204,255,0,0.05)"
-                              strokeWidth={0.5}
-                            />
-                          );
-                        })}
-                        {projectedPath ? (
-                          <Path
-                            d={projectedPath}
-                            stroke="rgba(204,255,0,0.12)"
-                            strokeWidth={1}
-                            fill="none"
-                            strokeLinecap="round"
-                            strokeDasharray="3 3"
+                    {/* Full muted curve + guide bars — always visible, outside clip */}
+                    <Svg width={curveW} height={curveH} viewBox={`0 0 ${curveW} ${curveH}`} style={styles.curveBaseSvg}>
+                      {[0.2, 0.4, 0.6, 0.8].map((ratio, i) => {
+                        const lx = PAD_L + ratio * plotW;
+                        const dayAtRatio = Math.round(ratio * (TOTAL_CURVE_DAYS - 1)) + 1;
+                        const scoreAtRatio = computeScore(dayAtRatio);
+                        const barTopY = PAD_T + plotH - (scoreAtRatio / maxCurveScore) * plotH;
+                        return (
+                          <Line
+                            key={i}
+                            x1={lx}
+                            y1={PAD_T + plotH}
+                            x2={lx}
+                            y2={barTopY}
+                            stroke="rgba(204,255,0,0.04)"
+                            strokeWidth={0.5}
                           />
-                        ) : null}
+                        );
+                      })}
+                      {fullPath ? (
+                        <Path
+                          d={fullPath}
+                          stroke="rgba(180,180,180,0.25)"
+                          strokeWidth={1.5}
+                          fill="none"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      ) : null}
+                    </Svg>
+                    {/* Achieved lime curve — clipped by animated width */}
+                    <Animated.View style={[styles.curveClip, curveClipStyle]} pointerEvents="none">
+                      <Svg width={curveW} height={curveH} viewBox={`0 0 ${curveW} ${curveH}`}>
                         {achievedPath ? (
                           <Path
                             d={achievedPath}
@@ -334,7 +370,7 @@ export default function CoachCardCarousel({
                           <Path
                             d={achievedPath}
                             stroke={LIME}
-                            strokeWidth={2}
+                            strokeWidth={2.5}
                             fill="none"
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -342,20 +378,12 @@ export default function CoachCardCarousel({
                         ) : null}
                       </Svg>
                     </Animated.View>
-                    {/* Endpoint glow + dot overlaid using computed coords */}
+                    {/* Current-position glowing dot — travels with animation */}
                     <Animated.View
-                      style={[
-                        styles.endpointGlow,
-                        { left: endPt.x - 10, top: endPt.y - 10 },
-                        endpointGlowStyle,
-                      ]}
+                      style={[styles.endpointGlow, animGlowStyle, endpointGlowStyle]}
                     />
                     <Animated.View
-                      style={[
-                        styles.endpointDot,
-                        { left: endPt.x - 4, top: endPt.y - 4 },
-                        endpointStyle,
-                      ]}
+                      style={[styles.endpointDot, animDotStyle, endpointStyle]}
                     />
                   </View>
                 </View>
@@ -525,11 +553,16 @@ const styles = StyleSheet.create({
   // Curve
   curveOuter: {
     width: SCREEN_WIDTH * 0.42,
-    height: 100,
+    height: 110,
     overflow: 'hidden',
   },
+  curveBaseSvg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
   curveClip: {
-    height: 100,
+    height: 110,
     overflow: 'hidden',
   },
   endpointGlow: {
