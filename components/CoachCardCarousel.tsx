@@ -386,9 +386,8 @@ export default function CoachCardCarousel({
                   </View>
                 </View>
 
-                {/* Bottom metrics strip — 3 equal centered columns inside safe area */}
-                <View style={styles.metricSafeArea}>
-                  <View style={styles.metricRow}>
+                {/* Bottom metrics strip — direct child of scoreContent, symmetric margins */}
+                <View style={styles.metricRow}>
                     <View style={styles.metricItem}>
                       <Text style={styles.metricLabel}>CONSISTENCY</Text>
                       <Text style={styles.metricValue}>{consistencyPct}</Text>
@@ -407,7 +406,6 @@ export default function CoachCardCarousel({
                       <Text style={styles.metricSub}>Turn intentions{`\n`}into action.</Text>
                     </View>
                   </View>
-                </View>
               </View>
             </View>
           </View>
@@ -576,11 +574,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: 'rgba(190,190,190,0.35)',
   },
-  // Bottom metrics — narrow centered safe container
-  metricSafeArea: {
-    width: '87%',
-    alignSelf: 'center',
-  },
+  // Bottom metrics — direct child of scoreContent, symmetric margins
   metricRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
@@ -588,6 +582,7 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.07)',
     paddingTop: 10,
     marginTop: 6,
+    marginHorizontal: 24,
     position: 'relative',
   },
   metricItem: {
