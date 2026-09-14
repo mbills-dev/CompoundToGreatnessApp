@@ -1123,7 +1123,7 @@ export default function DailyDashboard({
 
             <View style={styles.utilityRow}>
               <TouchableOpacity
-                style={[styles.utilityCard, { flex: 46 }, {
+                style={[styles.utilityCard, { flex: 43 }, {
                   backgroundColor: isDark ? '#1A1A1A' : colors.card,
                   borderColor: isDark ? 'rgba(255,255,255,0.08)' : colors.border,
                 }]}
@@ -1136,13 +1136,13 @@ export default function DailyDashboard({
                 <Eye size={20} color="#CCFF00" strokeWidth={2.5} />
                 <Text style={styles.utilityCardInline} numberOfLines={1}>
                   <Text style={styles.utilityCardCount}>{watcherCount}</Text>
-                  <Text style={styles.utilityCardLabel}> {watcherCount === 1 ? 'person watching' : 'people watching'}</Text>
+                  <Text style={styles.utilityCardLabel}> watching</Text>
                 </Text>
                 <ChevronRight size={16} color="rgba(255,255,255,0.3)" strokeWidth={2.5} />
               </TouchableOpacity>
 
               {goal.compass_filter_question ? (
-                <View style={{ flex: 54 }}>
+                <View style={{ flex: 57 }}>
                   <CompassCard
                     declaration={goal.compass_declaration ?? ''}
                     filterQuestion={goal.compass_filter_question}
@@ -1151,7 +1151,7 @@ export default function DailyDashboard({
                   />
                 </View>
               ) : (
-                <View style={[styles.utilityCard, styles.utilityCardPlaceholder, { flex: 54 }, {
+                <View style={[styles.utilityCard, styles.utilityCardPlaceholder, { flex: 57 }, {
                   backgroundColor: isDark ? '#1A1A1A' : colors.card,
                   borderColor: isDark ? 'rgba(255,255,255,0.08)' : colors.border,
                 }]} />

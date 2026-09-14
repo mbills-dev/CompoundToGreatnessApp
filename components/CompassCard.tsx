@@ -72,8 +72,8 @@ export default function CompassCard({ declaration, filterQuestion, onLockedInter
           </View>
           <View style={[styles.textContent, compact && styles.compactTextContent]}>
             <Text style={[styles.cardLabel, { color: isDark ? colors.primary : '#808080' }]} numberOfLines={1}>MY COMPASS</Text>
-            <Text style={[styles.filterText, { color: colors.text }]} numberOfLines={compact ? 1 : 1} ellipsizeMode="tail">
-              {filterQuestion}
+            <Text style={[styles.filterText, { color: colors.text }]} numberOfLines={1} ellipsizeMode="tail">
+              {filterQuestion.length > 14 ? filterQuestion.slice(0, 14) + '...' : filterQuestion}
             </Text>
           </View>
           {compact && <ChevronRight size={16} color="rgba(255,255,255,0.3)" strokeWidth={2.5} />}
