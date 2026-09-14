@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet, ImageBackground, ImageSourcePropType } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { MILESTONE_DATA, getNextMilestone, getMilestoneProgress, isMilestoneDay } from '@/constants/milestones';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -175,15 +174,7 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage }: 
         source={bgSource}
         style={StyleSheet.absoluteFillObject}
         imageStyle={{ resizeMode: 'cover' }}
-      >
-        <LinearGradient
-          colors={['rgba(5,5,5,0.62)', 'rgba(5,5,5,0.28)', 'rgba(5,5,5,0.04)']}
-          locations={[0, 0.5, 1]}
-          start={{ x: 0, y: 0.5 }}
-          end={{ x: 1, y: 0.5 }}
-          style={StyleSheet.absoluteFillObject}
-        />
-      </ImageBackground>
+      />
       <View style={styles.quoteContent}>
         {greeting && (
           <Text style={styles.eyebrow}>{greeting}</Text>
