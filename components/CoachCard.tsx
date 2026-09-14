@@ -113,6 +113,7 @@ interface CoachCardProps {
   backgroundImage?: ImageSourcePropType;
   onPress?: () => void;
   animatedMilestoneProgress?: SharedValue<number>;
+  cardHeight?: number;
 }
 
 function getGreeting(): string {
@@ -122,7 +123,7 @@ function getGreeting(): string {
   return 'GOOD EVENING';
 }
 
-export default function CoachCard({ challengeDay, firstName, backgroundImage, onPress, animatedMilestoneProgress }: CoachCardProps) {
+export default function CoachCard({ challengeDay, firstName, backgroundImage, onPress, animatedMilestoneProgress, cardHeight }: CoachCardProps) {
   const { colors, isDark } = useTheme();
   const cardBg = '#1A1A1A';
   const textPrimary = '#FFFFFF';
@@ -142,8 +143,8 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage, on
     const isLastMilestone = MILESTONE_DATA[day]?.nextMilestone === null;
     const nextDay = MILESTONE_DATA[day]?.nextMilestone;
     return (
-      <TouchableOpacity style={styles.milestoneCard} onPress={onPress} activeOpacity={0.85} disabled={!onPress}>
-        <View style={styles.milestoneContent}>
+      <TouchableOpacity style={[styles.milestoneCard, cardHeight ? { height: cardHeight } : null]} onPress={onPress} activeOpacity={0.85} disabled={!onPress}>
+        <View style={[styles.milestoneContent, { flex: 1 }]}>
           <Text style={styles.milestoneTag}>{entry.tag}</Text>
           <Text style={styles.milestoneH1}>{entry.h1}</Text>
           <Text style={styles.milestoneH2}>{entry.h2}</Text>
@@ -176,19 +177,21 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage, on
   const bgSource = backgroundImage ?? COACHING_BG;
 
   return (
-    <TouchableOpacity style={[styles.quoteCard, { backgroundColor: cardBg }]} onPress={onPress} activeOpacity={0.85} disabled={!onPress}>
+    <TouchableOpacity style={[styles.quoteCard, { backgroundColor: cardBg }, cardHeight ? { height: cardHeight } : null]} onPress={onPress} activeOpacity={0.85} disabled={!onPress}>
       <Image
         source={bgSource}
         style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
         resizeMode="stretch"
       />
-      <View style={styles.quoteContent}>
+      <View style={[styles.quoteContent, { flex: 1 }]}>
         {greeting && (
           <Text style={styles.eyebrow}>{greeting}</Text>
         )}
-        <Text style={[styles.quoteLine1, { color: textPrimary }]} numberOfLines={1}>{quoteEntry.l1}</Text>
-        <Text style={styles.quoteLine2} numberOfLines={1}>{quoteEntry.l2}</Text>
-        <Text style={[styles.quoteLine3, { color: textPrimary }]} numberOfLines={1}>{quoteEntry.l3}</Text>
+        <View style={styles.quoteLines}>
+          <Text style={[styles.quoteLine1, { color: textPrimary }]} numberOfLines={1}>{quoteEntry.l1}</Text>
+          <Text style={styles.quoteLine2} numberOfLines={1}>{quoteEntry.l2}</Text>
+          <Text style={[styles.quoteLine3, { color: textPrimary }]} numberOfLines={1}>{quoteEntry.l3}</Text>
+        </View>
         <Text style={[styles.quoteAttr, { color: textAttr }]}>— {quoteEntry.attr}</Text>
       </View>
       <View style={[styles.quoteFooter, { borderTopColor: footerBorderColor }]}>
@@ -211,54 +214,57 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage, on
 const styles = StyleSheet.create({
   quoteCard: {
     borderRadius: 16,
-    marginBottom: 16,
     overflow: 'hidden',
   },
   quoteContent: {
-    padding: 16,
-    paddingBottom: 12,
+    padding: 20,
+    paddingBottom: 14,
+  },
+  quoteLines: {
+    flex: 1,
+    justifyContent: 'center',
   },
   eyebrow: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '800',
     color: '#CCFF00',
     letterSpacing: 2,
     textTransform: 'uppercase',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   quoteLine1: {
-    fontSize: 25,
+    fontSize: 30,
     fontWeight: '900',
     color: '#FFFFFF',
-    lineHeight: 25,
-    letterSpacing: -0.25,
+    lineHeight: 32,
+    letterSpacing: -0.5,
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   quoteLine2: {
-    fontSize: 25,
+    fontSize: 30,
     fontWeight: '900',
     color: '#CCFF00',
-    lineHeight: 25,
-    letterSpacing: -0.25,
+    lineHeight: 32,
+    letterSpacing: -0.5,
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   quoteLine3: {
-    fontSize: 25,
+    fontSize: 30,
     fontWeight: '900',
     color: '#FFFFFF',
-    lineHeight: 25,
-    letterSpacing: -0.25,
+    lineHeight: 32,
+    letterSpacing: -0.5,
     marginBottom: 8,
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   quoteAttr: {
-    fontSize: 9,
+    fontSize: 10,
     color: 'rgba(255,255,255,0.55)',
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -270,15 +276,15 @@ const styles = StyleSheet.create({
   quoteFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.08)',
     gap: 8,
     backgroundColor: 'rgba(10,10,10,0.92)',
   },
   quoteNextLabel: {
-    fontSize: 8,
+    fontSize: 9,
     color: 'rgba(255,255,255,0.4)',
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -287,11 +293,11 @@ const styles = StyleSheet.create({
   quotePill: {
     backgroundColor: '#CCFF00',
     borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   quotePillText: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: '800',
     color: '#000000',
     textTransform: 'uppercase',
@@ -312,12 +318,11 @@ const styles = StyleSheet.create({
   milestoneCard: {
     backgroundColor: '#CCFF00',
     borderRadius: 16,
-    marginBottom: 16,
     overflow: 'hidden',
   },
   milestoneContent: {
-    padding: 16,
-    paddingBottom: 14,
+    padding: 20,
+    paddingBottom: 16,
   },
   milestoneTag: {
     fontSize: 9,
@@ -353,8 +358,8 @@ const styles = StyleSheet.create({
   milestoneFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.12)',
     gap: 8,

@@ -1091,41 +1091,27 @@ export default function DailyDashboard({
               />
             )}
 
-            {goal.identity_statement && (() => {
-              const identityStatements = (goal.identity_statement || '')
-                .split('\n')
-                .map((line) => line.trim())
-                .filter(Boolean);
-              const totalStatements = identityStatements.length;
-              const previewStatements = identityStatements.slice(0, 2);
-              return (
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => setShowIdentityModal(true)}
-                  style={[styles.identityChip, {
-                    backgroundColor: isDark ? colors.backgroundSecondary : '#1A1A1A',
-                    borderColor: isDark ? colors.border : '#1A1A1A',
-                  }]}
-                >
-                  <Text style={styles.identityChipLabel}>MY IDENTITY</Text>
-                  <Text style={styles.identityChipHeadline}>
-                    THIS IS WHO I AM <Text style={styles.identityChipHeadlineAccent}>BECOMING.</Text>
-                  </Text>
-                  <View style={styles.identityChipStatements}>
-                    {previewStatements.map((stmt, i) => (
-                      <Text key={i} style={styles.identityChipText} numberOfLines={1}>
-                        {stmt}
-                      </Text>
-                    ))}
-                  </View>
-                  <View style={styles.identityChipFooter}>
-                    <Text style={styles.identityChipViewAll}>
-                      VIEW ALL {totalStatements} →
+            {goal.identity_statement && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setShowIdentityModal(true)}
+                style={[styles.identityChip, {
+                  backgroundColor: isDark ? colors.backgroundSecondary : '#1A1A1A',
+                  borderColor: isDark ? colors.border : '#1A1A1A',
+                }]}
+              >
+                <View style={styles.identityChipRow}>
+                  <View style={styles.identityChipTextCol}>
+                    <Text style={styles.identityChipLabel}>MY IDENTITY</Text>
+                    <Text style={styles.identityChipHeadline}>
+                      THIS IS WHO I AM <Text style={styles.identityChipHeadlineAccent}>BECOMING.</Text>
                     </Text>
+                    <Text style={styles.identityChipSubtext}>Read it. Believe it. Become it.</Text>
                   </View>
-                </TouchableOpacity>
-              );
-            })()}
+                  <ChevronRight size={18} color="rgba(255,255,255,0.3)" strokeWidth={2.5} />
+                </View>
+              </TouchableOpacity>
+            )}
 
             <View style={styles.utilityRow}>
               <TouchableOpacity
@@ -2029,9 +2015,18 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1.5,
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: 12,
     marginBottom: 16,
-    gap: 3,
+  },
+  identityChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  identityChipTextCol: {
+    flex: 1,
+    marginRight: 8,
   },
   identityChipLabel: {
     fontSize: 10,
@@ -2045,32 +2040,16 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Black',
     color: '#FFFFFF',
     lineHeight: 26,
-    marginBottom: 8,
+    marginTop: 2,
   },
   identityChipHeadlineAccent: {
     color: '#ccff00',
   },
-  identityChipStatements: {
-    gap: 2,
-  },
-  identityChipText: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Inter-Bold',
-    color: 'rgba(255,255,255,0.7)',
-    lineHeight: 19,
-  },
-  identityChipFooter: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 6,
-  },
-  identityChipViewAll: {
+  identityChipSubtext: {
     fontSize: 11,
-    fontWeight: '800',
-    fontFamily: 'Inter-Bold',
-    letterSpacing: 1,
-    color: '#ccff00',
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.4)',
+    marginTop: 4,
   },
   identityModalOverlay: {
     flex: 1,

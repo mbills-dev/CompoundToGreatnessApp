@@ -10,7 +10,6 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
   TouchableOpacity,
-  LayoutChangeEvent,
   Platform,
 } from 'react-native';
 import Animated, {
@@ -29,6 +28,9 @@ import CoachCard from './CoachCard';
 const LIME = '#CCFF00';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const TOTAL_CURVE_DAYS = 77;
+
+// Canonical carousel height — both panels share this exact footprint
+const CARD_HEIGHT = 280;
 
 const COACHING_BG: ImageSourcePropType = require('@/assets/images/CleanCinematicMountainSunriseCard.png');
 
@@ -58,7 +60,6 @@ export default function CoachCardCarousel({
   const [activePanel, setActivePanel] = useState(0);
   const [hasAnimatedScore, setHasAnimatedScore] = useState(false);
   const [executionPct, setExecutionPct] = useState<number | null>(null);
-  const [cardHeight, setCardHeight] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
   const score = computeScore(streak);
@@ -179,11 +180,11 @@ export default function CoachCardCarousel({
 
   // --- Compound curve geometry ---
   const curveW = SCREEN_WIDTH * 0.42;
-  const curveH = 80;
+  const curveH = 100;
   const PAD_L = 6;
   const PAD_R = 6;
-  const PAD_T = 6;
-  const PAD_B = 6;
+  const PAD_T = 8;
+  const PAD_B = 8;
   const plotW = curveW - PAD_L - PAD_R;
   const plotH = curveH - PAD_T - PAD_B;
   const maxCurveScore = computeScore(TOTAL_CURVE_DAYS);
@@ -232,206 +233,182 @@ export default function CoachCardCarousel({
     backgroundColor: activePanel === 1 ? LIME : 'rgba(255,255,255,0.2)',
   }));
 
-  // Measure Coaching Card height to use as canonical carousel height
-  const onMeasureLayout = (e: LayoutChangeEvent) => {
-    const h = e.nativeEvent.layout.height;
-    if (h > 0 && Math.abs(h - cardHeight) > 1) {
-      setCardHeight(h);
-    }
-  };
-
-  // Use measured height for both panels; fall back to auto (undefined) before measure
-  const panelHeight = cardHeight > 0 ? { height: cardHeight } : undefined;
-
   return (
     <View style={styles.container}>
-      {/* Hidden measuring view — renders CoachCard to capture its natural height */}
-      {cardHeight === 0 && (
-        <View style={styles.measureLayer} onLayout={onMeasureLayout} pointerEvents="none">
-          <CoachCard
-            challengeDay={challengeDay}
-            firstName={firstName}
-            backgroundImage={COACHING_BG}
-            animatedMilestoneProgress={milestoneFill}
-          />
-        </View>
-      )}
+      <View style={styles.cardFrame}>
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={handleScroll}
+          scrollEnabled
+          style={styles.scroll}
+        >
+          {/* PANEL 1 — COACHING */}
+          <View style={styles.panel}>
+            <CoachCard
+              challengeDay={challengeDay}
+              firstName={firstName}
+              backgroundImage={COACHING_BG}
+              animatedMilestoneProgress={milestoneFill}
+              cardHeight={CARD_HEIGHT}
+            />
+          </View>
 
-      {cardHeight > 0 && (
-        <View style={styles.cardFrame}>
-          <ScrollView
-            ref={scrollRef}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            scrollEventThrottle={16}
-            onScroll={handleScroll}
-            scrollEnabled
-            style={[styles.scroll, { height: cardHeight }]}
-          >
-            {/* PANEL 1 — COACHING */}
-            <View style={[styles.panel, panelHeight]}>
-              <CoachCard
-                challengeDay={challengeDay}
-                firstName={firstName}
-                backgroundImage={COACHING_BG}
-                animatedMilestoneProgress={milestoneFill}
+          {/* PANEL 2 — COMPOUND SCORE */}
+          <View style={styles.panel}>
+            <View style={styles.scoreCard}>
+              <Image
+                source={COACHING_BG}
+                style={styles.scoreBg}
+                resizeMode="cover"
               />
-            </View>
+              <View style={styles.scoreOverlay} />
 
-            {/* PANEL 2 — COMPOUND SCORE */}
-            <View style={[styles.panel, panelHeight]}>
-              <View style={styles.scoreCard}>
-                <Image
-                  source={COACHING_BG}
-                  style={styles.scoreBg}
-                  resizeMode="cover"
-                />
-                <View style={styles.scoreOverlay} />
+              <View style={styles.scoreContent}>
+                {/* Eyebrow */}
+                <Text style={styles.eyebrow}>YOUR</Text>
+                <Text style={styles.eyebrowAccent}>COMPOUND SCORE</Text>
 
-                <View style={styles.scoreContent}>
-                  {/* Eyebrow */}
-                  <Text style={styles.eyebrow}>YOUR</Text>
-                  <Text style={styles.eyebrowAccent}>COMPOUND SCORE</Text>
-
-                  {/* Hero row: score on left, curve on right */}
-                  <View style={styles.heroRow}>
-                    <View style={styles.heroLeft}>
-                      <View style={styles.scoreRow}>
-                        <Text style={styles.scoreNumber}>{scoreText}</Text>
-                        <Text style={styles.scorePct}>%</Text>
+                {/* Hero row: score on left, curve on right */}
+                <View style={styles.heroRow}>
+                  <View style={styles.heroLeft}>
+                    <View style={styles.scoreRow}>
+                      <Text style={styles.scoreNumber}>{scoreText}</Text>
+                      <Text style={styles.scorePct}>%</Text>
+                    </View>
+                    {todayDelta > 0 && (
+                      <View style={styles.deltaPill}>
+                        <Text style={styles.deltaText}>
+                          +{Math.round(todayDelta)} TODAY ↑
+                        </Text>
                       </View>
-                      {todayDelta > 0 && (
-                        <View style={styles.deltaPill}>
-                          <Text style={styles.deltaText}>
-                            +{Math.round(todayDelta)} TODAY ↑
-                          </Text>
-                        </View>
-                      )}
-                      <Text style={styles.supportingCopy}>
-                        Your consistency{'\n'}is compounding.
-                      </Text>
-                    </View>
-
-                    {/* Compound curve with clip draw-in */}
-                    <View style={styles.curveOuter}>
-                      <Animated.View style={[styles.curveClip, curveClipStyle]}>
-                        <Svg width={curveW} height={curveH} viewBox={`0 0 ${curveW} ${curveH}`}>
-                          {[0.25, 0.5, 0.75].map((ratio, i) => {
-                            const lx = PAD_L + ratio * plotW;
-                            return (
-                              <Line
-                                key={i}
-                                x1={lx}
-                                y1={PAD_T}
-                                x2={lx}
-                                y2={PAD_T + plotH}
-                                stroke="rgba(204,255,0,0.05)"
-                                strokeWidth={0.5}
-                              />
-                            );
-                          })}
-                          {projectedPath ? (
-                            <Path
-                              d={projectedPath}
-                              stroke="rgba(204,255,0,0.12)"
-                              strokeWidth={1}
-                              fill="none"
-                              strokeLinecap="round"
-                              strokeDasharray="3 3"
-                            />
-                          ) : null}
-                          {achievedPath ? (
-                            <Path
-                              d={achievedPath}
-                              stroke={LIME}
-                              strokeWidth={4}
-                              fill="none"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              opacity={0.15}
-                            />
-                          ) : null}
-                          {achievedPath ? (
-                            <Path
-                              d={achievedPath}
-                              stroke={LIME}
-                              strokeWidth={2}
-                              fill="none"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          ) : null}
-                        </Svg>
-                      </Animated.View>
-                      {/* Endpoint glow + dot overlaid using computed coords */}
-                      <Animated.View
-                        style={[
-                          styles.endpointGlow,
-                          { left: endPt.x - 10, top: endPt.y - 10 },
-                          endpointGlowStyle,
-                        ]}
-                      />
-                      <Animated.View
-                        style={[
-                          styles.endpointDot,
-                          { left: endPt.x - 4, top: endPt.y - 4 },
-                          endpointStyle,
-                        ]}
-                      />
-                    </View>
-                  </View>
-
-                  {/* Bottom metrics strip */}
-                  <View style={styles.metricsRow}>
-                    <View style={styles.metricItem}>
-                      <Text style={styles.metricLabel}>CONSISTENCY</Text>
-                      <Text style={styles.metricValue}>{consistencyPct}</Text>
-                      <Text style={styles.metricSub} numberOfLines={1}>Show up over time.</Text>
-                    </View>
-                    <View style={styles.metricDivider} />
-                    <View style={styles.metricItem}>
-                      <Text style={styles.metricLabel}>STREAK</Text>
-                      <Text style={styles.metricValue}>{streak} DAYS</Text>
-                      <Text style={styles.metricSub} numberOfLines={1}>Keep the chain alive.</Text>
-                    </View>
-                    {executionPct !== null && (
-                      <>
-                        <View style={styles.metricDivider} />
-                        <View style={styles.metricItem}>
-                          <Text style={styles.metricLabel}>EXECUTION</Text>
-                          <Text style={styles.metricValue}>{executionPct}%</Text>
-                          <Text style={styles.metricSub} numberOfLines={1}>Turn intentions into action.</Text>
-                        </View>
-                      </>
                     )}
+                    <Text style={styles.supportingCopy}>
+                      Your consistency{'\n'}is compounding.
+                    </Text>
                   </View>
+
+                  {/* Compound curve with clip draw-in */}
+                  <View style={styles.curveOuter}>
+                    <Animated.View style={[styles.curveClip, curveClipStyle]}>
+                      <Svg width={curveW} height={curveH} viewBox={`0 0 ${curveW} ${curveH}`}>
+                        {[0.25, 0.5, 0.75].map((ratio, i) => {
+                          const lx = PAD_L + ratio * plotW;
+                          return (
+                            <Line
+                              key={i}
+                              x1={lx}
+                              y1={PAD_T}
+                              x2={lx}
+                              y2={PAD_T + plotH}
+                              stroke="rgba(204,255,0,0.05)"
+                              strokeWidth={0.5}
+                            />
+                          );
+                        })}
+                        {projectedPath ? (
+                          <Path
+                            d={projectedPath}
+                            stroke="rgba(204,255,0,0.12)"
+                            strokeWidth={1}
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeDasharray="3 3"
+                          />
+                        ) : null}
+                        {achievedPath ? (
+                          <Path
+                            d={achievedPath}
+                            stroke={LIME}
+                            strokeWidth={4}
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            opacity={0.15}
+                          />
+                        ) : null}
+                        {achievedPath ? (
+                          <Path
+                            d={achievedPath}
+                            stroke={LIME}
+                            strokeWidth={2}
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        ) : null}
+                      </Svg>
+                    </Animated.View>
+                    {/* Endpoint glow + dot overlaid using computed coords */}
+                    <Animated.View
+                      style={[
+                        styles.endpointGlow,
+                        { left: endPt.x - 10, top: endPt.y - 10 },
+                        endpointGlowStyle,
+                      ]}
+                    />
+                    <Animated.View
+                      style={[
+                        styles.endpointDot,
+                        { left: endPt.x - 4, top: endPt.y - 4 },
+                        endpointStyle,
+                      ]}
+                    />
+                  </View>
+                </View>
+
+                {/* Bottom metrics strip — 3 equal centered columns */}
+                <View style={styles.metricsRow}>
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricLabel}>CONSISTENCY</Text>
+                    <Text style={styles.metricValue}>{consistencyPct}</Text>
+                    <Text style={styles.metricSub} numberOfLines={1}>Show up over time.</Text>
+                  </View>
+                  <View style={styles.metricDivider} />
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricLabel}>STREAK</Text>
+                    <Text style={styles.metricValue}>{streak} DAYS</Text>
+                    <Text style={styles.metricSub} numberOfLines={1}>Keep the chain alive.</Text>
+                  </View>
+                  {executionPct !== null && (
+                    <>
+                      <View style={styles.metricDivider} />
+                      <View style={styles.metricItem}>
+                        <Text style={styles.metricLabel}>EXECUTION</Text>
+                        <Text style={styles.metricValue}>{executionPct}%</Text>
+                        <Text style={styles.metricSub} numberOfLines={1}>Turn intentions into action.</Text>
+                      </View>
+                    </>
+                  )}
                 </View>
               </View>
             </View>
-          </ScrollView>
-
-          {/* Pagination dots — overlaid INSIDE the card footprint */}
-          <View style={styles.dotsOverlay} pointerEvents="box-none">
-            <TouchableOpacity
-              onPress={() => scrollToPanel(0)}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={styles.dotWrapper}
-            >
-              <Animated.View style={[styles.dot, dot1Style]} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => scrollToPanel(1)}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={styles.dotWrapper}
-            >
-              <Animated.View style={[styles.dot, dot2Style]} />
-            </TouchableOpacity>
           </View>
+        </ScrollView>
+
+        {/* Pagination dots — overlaid INSIDE the card footprint */}
+        <View style={styles.dotsOverlay} pointerEvents="box-none">
+          <TouchableOpacity
+            onPress={() => scrollToPanel(0)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={styles.dotWrapper}
+          >
+            <Animated.View style={[styles.dot, dot1Style]} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => scrollToPanel(1)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={styles.dotWrapper}
+          >
+            <Animated.View style={[styles.dot, dot2Style]} />
+          </TouchableOpacity>
         </View>
-      )}
+      </View>
     </View>
   );
 }
@@ -440,25 +417,19 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
   },
-  // Hidden measuring layer — renders card offscreen to capture its height
-  measureLayer: {
-    position: 'absolute',
-    top: -9999,
-    left: 0,
-    right: 0,
-    opacity: 0,
-  },
-  // Card frame holds the ScrollView + dot overlay
   cardFrame: {
     position: 'relative',
+    height: CARD_HEIGHT,
     borderRadius: 16,
     overflow: 'hidden',
   },
   scroll: {
     flexDirection: 'row',
+    height: CARD_HEIGHT,
   },
   panel: {
     width: SCREEN_WIDTH,
+    height: CARD_HEIGHT,
     overflow: 'hidden',
   },
   // Score panel
@@ -484,8 +455,8 @@ const styles = StyleSheet.create({
   },
   scoreContent: {
     flex: 1,
-    padding: 16,
-    paddingBottom: 10,
+    padding: 18,
+    paddingBottom: 28,
     justifyContent: 'space-between',
   },
   eyebrow: {
@@ -501,7 +472,7 @@ const styles = StyleSheet.create({
     color: LIME,
     letterSpacing: 2,
     textTransform: 'uppercase',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   heroRow: {
     flexDirection: 'row',
@@ -510,55 +481,55 @@ const styles = StyleSheet.create({
   },
   heroLeft: {
     flex: 1,
-    marginRight: 6,
+    marginRight: 8,
   },
   scoreRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
   },
   scoreNumber: {
-    fontSize: 48,
+    fontSize: 58,
     fontWeight: '900',
     color: LIME,
-    lineHeight: 50,
-    letterSpacing: -1.5,
+    lineHeight: 60,
+    letterSpacing: -2,
   },
   scorePct: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '900',
     color: LIME,
-    lineHeight: 50,
+    lineHeight: 60,
     marginBottom: 2,
   },
   deltaPill: {
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(204,255,0,0.12)',
     borderRadius: 10,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    marginTop: 2,
-    marginBottom: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginTop: 4,
+    marginBottom: 8,
   },
   deltaText: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: '800',
     color: LIME,
     letterSpacing: 0.6,
   },
   supportingCopy: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.38)',
-    lineHeight: 14,
+    lineHeight: 15,
   },
   // Curve
   curveOuter: {
     width: SCREEN_WIDTH * 0.42,
-    height: 80,
+    height: 100,
     overflow: 'hidden',
   },
   curveClip: {
-    height: 80,
+    height: 100,
     overflow: 'hidden',
   },
   endpointGlow: {
@@ -580,8 +551,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.07)',
-    paddingTop: 8,
-    marginTop: 4,
+    paddingTop: 10,
+    marginTop: 6,
   },
   metricItem: {
     flex: 1,
@@ -589,32 +560,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   metricLabel: {
-    fontSize: 7,
+    fontSize: 8,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.35)',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    marginBottom: 2,
+    marginBottom: 3,
+    textAlign: 'center',
   },
   metricValue: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '900',
     color: '#FFFFFF',
-    marginBottom: 1,
+    marginBottom: 2,
+    textAlign: 'center',
   },
   metricSub: {
-    fontSize: 7,
+    fontSize: 8,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.25)',
     textAlign: 'center',
-    lineHeight: 9,
+    lineHeight: 10,
   },
   metricDivider: {
     width: 1,
     backgroundColor: 'rgba(255,255,255,0.06)',
     marginVertical: 2,
   },
-  // Dots overlay — INSIDE the card
+  // Dots overlay — INSIDE the card, 12px from bottom
   dotsOverlay: {
     position: 'absolute',
     bottom: 12,
