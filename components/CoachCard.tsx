@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, ImageSourcePropType, TouchableOpacity } from 'react-native';
+import Animated, { useAnimatedStyle, SharedValue } from 'react-native-reanimated';
 import { MILESTONE_DATA, getNextMilestone, getMilestoneProgress, isMilestoneDay } from '@/constants/milestones';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -111,6 +112,7 @@ interface CoachCardProps {
   firstName?: string;
   backgroundImage?: ImageSourcePropType;
   onPress?: () => void;
+  animatedMilestoneProgress?: SharedValue<number>;
 }
 
 function getGreeting(): string {
@@ -120,7 +122,7 @@ function getGreeting(): string {
   return 'GOOD EVENING';
 }
 
-export default function CoachCard({ challengeDay, firstName, backgroundImage, onPress }: CoachCardProps) {
+export default function CoachCard({ challengeDay, firstName, backgroundImage, onPress, animatedMilestoneProgress }: CoachCardProps) {
   const { colors, isDark } = useTheme();
   const cardBg = '#1A1A1A';
   const textPrimary = '#FFFFFF';
@@ -167,6 +169,10 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage, on
   const nextMilestone = getNextMilestone(day);
   const progress = getMilestoneProgress(day);
 
+  const milestoneFillStyle = useAnimatedStyle(() => ({
+    width: `${animatedMilestoneProgress?.value ?? progress}%`,
+  }));
+
   const bgSource = backgroundImage ?? COACHING_BG;
 
   return (
@@ -191,7 +197,11 @@ export default function CoachCard({ challengeDay, firstName, backgroundImage, on
           <Text style={styles.quotePillText}>{nextMilestone ? `Day ${nextMilestone}` : quoteEntry.next}</Text>
         </View>
         <View style={[styles.progressTrack, { backgroundColor: progressTrackBg }]}>
-          <View style={[styles.progressFill, { width: `${progress}%` }]} />
+          {animatedMilestoneProgress ? (
+            <Animated.View style={[styles.progressFill, milestoneFillStyle]} />
+          ) : (
+            <View style={[styles.progressFill, { width: `${progress}%` }]} />
+          )}
         </View>
       </View>
     </TouchableOpacity>
