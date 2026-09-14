@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ImageBackground, ImageSourcePropType } from 're
 import { MILESTONE_DATA, getNextMilestone, getMilestoneProgress, isMilestoneDay } from '@/constants/milestones';
 import { useTheme } from '@/contexts/ThemeContext';
 
-const COACHING_BG: ImageSourcePropType = require('@/assets/images/CleanCinematicMountainSunrise.png');
+const COACHING_BG: ImageSourcePropType | undefined = undefined;
 
 type QuoteEntry = {
   type: 'quote';
