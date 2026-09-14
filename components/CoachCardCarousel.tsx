@@ -18,7 +18,6 @@ import Animated, {
   useAnimatedProps,
   withTiming,
   withDelay,
-  withSequence,
   Easing,
 } from 'react-native-reanimated';
 import Svg, { Path, Line } from 'react-native-svg';
@@ -103,7 +102,6 @@ export default function CoachCardCarousel({
   const scoreAnim = useSharedValue(0);
   const curveProgress = useSharedValue(0);
   const endpointOpacity = useSharedValue(0);
-  const endpointScale = useSharedValue(0);
   const endpointGlowOpacity = useSharedValue(0);
   const milestoneFill = useSharedValue(0);
 
@@ -132,15 +130,10 @@ export default function CoachCardCarousel({
       easing: Easing.out(Easing.cubic),
     });
 
-    endpointOpacity.value = withDelay(700, withTiming(1, { duration: 200 }));
-    endpointScale.value = withDelay(700, withSequence(
-      withTiming(1.4, { duration: 120 }),
-      withTiming(1, { duration: 200 }),
-    ));
-    endpointGlowOpacity.value = withDelay(700, withSequence(
-      withTiming(0.4, { duration: 120 }),
-      withTiming(0.15, { duration: 400 }),
-    ));
+    endpointOpacity.value = 0;
+    endpointOpacity.value = withDelay(700, withTiming(1, { duration: 300 }));
+    endpointGlowOpacity.value = 0;
+    endpointGlowOpacity.value = withDelay(700, withTiming(0.22, { duration: 300 }));
   };
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -181,7 +174,7 @@ export default function CoachCardCarousel({
   }, [hasAnimatedScore, score]);
 
   // --- Compound curve geometry ---
-  const curveW = (SCREEN_WIDTH - 36) * 0.5;
+  const curveW = (SCREEN_WIDTH - 36) * 0.66;
   const curveH = 126;
   const PAD_L = 10;
   const PAD_R = 10;
@@ -189,75 +182,71 @@ export default function CoachCardCarousel({
   const PAD_B = 14;
   const plotW = curveW - PAD_L - PAD_R;
   const plotH = curveH - PAD_T - PAD_B;
-  const maxCurveScore = computeScore(TOTAL_CURVE_DAYS);
 
-  const cubicPoint = (t: number): { x: number; y: number } => {
-    const start = { x: PAD_L, y: PAD_T + plotH };
-    const control1 = { x: PAD_L + plotW * 0.42, y: PAD_T + plotH * 0.98 };
-    const control2 = { x: PAD_L + plotW * 0.88, y: PAD_T + plotH * 0.42 };
-    const end = { x: PAD_L + plotW, y: PAD_T };
-    const inverse = 1 - t;
-    return {
-      x: inverse ** 3 * start.x + 3 * inverse ** 2 * t * control1.x + 3 * inverse * t ** 2 * control2.x + t ** 3 * end.x,
-      y: inverse ** 3 * start.y + 3 * inverse ** 2 * t * control1.y + 3 * inverse * t ** 2 * control2.y + t ** 3 * end.y,
-    };
-  };
+  // True exponential "hockey stick": y = (e^(kx) - 1) / (e^k - 1)
+  const K = 4.0;
+  const expNormY = (x: number): number => (Math.exp(K * x) - 1) / (Math.exp(K) - 1);
 
-  const pathFromCubic = (): string => {
-    const start = cubicPoint(0);
-    const control1 = cubicPoint(0.42);
-    const control2 = cubicPoint(0.78);
-    const end = cubicPoint(1);
-    return `M ${start.x.toFixed(1)} ${start.y.toFixed(1)} C ${control1.x.toFixed(1)} ${control1.y.toFixed(1)}, ${control2.x.toFixed(1)} ${control2.y.toFixed(1)}, ${end.x.toFixed(1)} ${end.y.toFixed(1)}`;
-  };
+  const curvePoint = (normX: number): { x: number; y: number } => ({
+    x: PAD_L + normX * plotW,
+    y: PAD_T + plotH - expNormY(normX) * plotH,
+  });
 
   const streakClamped = Math.min(Math.max(streak, 1), TOTAL_CURVE_DAYS);
   const progressFraction = streakClamped / TOTAL_CURVE_DAYS;
-  const fullPath = pathFromCubic();
-  const guideRatios = [0.14, 0.24, 0.34, 0.44, 0.54, 0.64, 0.74, 0.84, 0.94];
-  const pathSamples: { x: number; y: number; length: number }[] = [];
+
+  // Sample the exponential into a polyline path — the same samples drive
+  // the dot position so it can never detach from the rendered curve.
+  const NUM_SAMPLES = 80;
+  const samples: { x: number; y: number }[] = [];
+  for (let i = 0; i <= NUM_SAMPLES; i++) {
+    samples.push(curvePoint(i / NUM_SAMPLES));
+  }
+  const fullPath = samples
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
+    .join(' ');
+
+  const cumLengths: number[] = [0];
   let pathLength = 0;
-  for (let i = 0; i <= 400; i++) {
-    const point = cubicPoint(i / 400);
-    if (i > 0) {
-      const previous = pathSamples[i - 1];
-      pathLength += Math.hypot(point.x - previous.x, point.y - previous.y);
-    }
-    pathSamples.push({ ...point, length: pathLength });
+  for (let i = 1; i < samples.length; i++) {
+    pathLength += Math.hypot(samples[i].x - samples[i - 1].x, samples[i].y - samples[i - 1].y);
+    cumLengths.push(pathLength);
   }
 
-  const pointAtPathFraction = (fraction: number): { x: number; y: number } => {
-    const targetLength = pathLength * fraction;
-    const point = pathSamples.find((sample) => sample.length >= targetLength) ?? pathSamples[pathSamples.length - 1];
-    return { x: point.x, y: point.y };
-  };
+  const futureEnd = curvePoint(1);
+  const guideRatios = [0.14, 0.24, 0.34, 0.44, 0.54, 0.64, 0.74, 0.84, 0.94];
 
-  const endPt = pointAtPathFraction(progressFraction);
-  const startPt = pointAtPathFraction(0);
-  const animDotX = useSharedValue(startPt.x);
-  const animDotY = useSharedValue(startPt.y);
-
-  useEffect(() => {
-    if (hasAnimatedScore) {
-      animDotX.value = startPt.x;
-      animDotY.value = startPt.y;
-      animDotX.value = withTiming(endPt.x, { duration: 900, easing: Easing.out(Easing.cubic) });
-      animDotY.value = withTiming(endPt.y, { duration: 900, easing: Easing.out(Easing.cubic) });
-    } else {
-      animDotX.value = startPt.x;
-      animDotY.value = startPt.y;
+  // Dot position is derived from curveProgress — the SAME value that drives
+  // the lime path's strokeDashoffset — so the dot stays on the curve.
+  const animDotStyle = useAnimatedStyle(() => {
+    const target = pathLength * curveProgress.value;
+    let i = 1;
+    while (i < cumLengths.length && cumLengths[i] < target) i++;
+    if (i >= cumLengths.length) {
+      return { left: samples[samples.length - 1].x - 4, top: samples[samples.length - 1].y - 4 };
     }
-  }, [hasAnimatedScore]);
+    const segLen = cumLengths[i] - cumLengths[i - 1];
+    const t = segLen > 0 ? (target - cumLengths[i - 1]) / segLen : 0;
+    return {
+      left: samples[i - 1].x + (samples[i].x - samples[i - 1].x) * t - 4,
+      top: samples[i - 1].y + (samples[i].y - samples[i - 1].y) * t - 4,
+    };
+  });
 
-  const animDotStyle = useAnimatedStyle(() => ({
-    left: animDotX.value - 4,
-    top: animDotY.value - 4,
-  }));
-
-  const animGlowStyle = useAnimatedStyle(() => ({
-    left: animDotX.value - 10,
-    top: animDotY.value - 10,
-  }));
+  const animGlowStyle = useAnimatedStyle(() => {
+    const target = pathLength * curveProgress.value;
+    let i = 1;
+    while (i < cumLengths.length && cumLengths[i] < target) i++;
+    if (i >= cumLengths.length) {
+      return { left: samples[samples.length - 1].x - 9, top: samples[samples.length - 1].y - 9 };
+    }
+    const segLen = cumLengths[i] - cumLengths[i - 1];
+    const t = segLen > 0 ? (target - cumLengths[i - 1]) / segLen : 0;
+    return {
+      left: samples[i - 1].x + (samples[i].x - samples[i - 1].x) * t - 9,
+      top: samples[i - 1].y + (samples[i].y - samples[i - 1].y) * t - 9,
+    };
+  });
 
   // --- Animated styles ---
   const progressPathProps = useAnimatedProps(() => ({
@@ -266,7 +255,6 @@ export default function CoachCardCarousel({
 
   const endpointStyle = useAnimatedStyle(() => ({
     opacity: endpointOpacity.value,
-    transform: [{ scale: endpointScale.value }],
   }));
 
   const endpointGlowStyle = useAnimatedStyle(() => ({
@@ -342,7 +330,7 @@ export default function CoachCardCarousel({
                   <View style={[styles.curveOuter, { width: curveW }]} pointerEvents="none">
                     <Svg width={curveW} height={curveH} viewBox={`0 0 ${curveW} ${curveH}`}>
                       {guideRatios.map((ratio) => {
-                        const point = cubicPoint(ratio);
+                        const point = curvePoint(ratio);
                         return (
                           <Line
                             key={ratio}
@@ -394,7 +382,7 @@ export default function CoachCardCarousel({
                     {/* Current-position glowing dot — travels with animation */}
                     <Animated.View style={[styles.endpointGlow, animGlowStyle, endpointGlowStyle]} />
                     <Animated.View style={[styles.endpointDot, animDotStyle, endpointStyle]} />
-                    <View style={[styles.futureEndpoint, { left: PAD_L + plotW - 4, top: PAD_T - 4 }]} />
+                    <View style={[styles.futureEndpoint, { left: futureEnd.x - 3, top: futureEnd.y - 3 }]} />
                   </View>
                 </View>
 
@@ -559,7 +547,7 @@ const styles = StyleSheet.create({
   curveOuter: {
     position: 'absolute',
     top: 0,
-    right: 0,
+    left: '30%',
     height: 126,
     overflow: 'visible',
   },
