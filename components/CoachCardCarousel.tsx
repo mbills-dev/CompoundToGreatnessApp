@@ -174,12 +174,12 @@ export default function CoachCardCarousel({
   }, [hasAnimatedScore, score]);
 
   // --- Compound curve geometry ---
-  const curveW = (SCREEN_WIDTH - 36) * 0.66;
+  const curveW = (SCREEN_WIDTH - 36) * 0.70 - 6;
   const curveH = 126;
-  const PAD_L = 10;
-  const PAD_R = 10;
-  const PAD_T = 10;
-  const PAD_B = 14;
+  const PAD_L = curveW * 0.04;
+  const PAD_R = curveW * 0.12;
+  const PAD_T = curveH * 0.16;
+  const PAD_B = curveH * 0.12;
   const plotW = curveW - PAD_L - PAD_R;
   const plotH = curveH - PAD_T - PAD_B;
 
@@ -386,24 +386,26 @@ export default function CoachCardCarousel({
                   </View>
                 </View>
 
-                {/* Bottom metrics strip — 3 equal centered columns */}
-                <View style={styles.metricsRow}>
-                  <View style={styles.metricItem}>
-                    <Text style={styles.metricLabel}>CONSISTENCY</Text>
-                    <Text style={styles.metricValue}>{consistencyPct}</Text>
-                    <Text style={styles.metricSub}>Show up over time.</Text>
-                  </View>
-                  <View style={[styles.metricDivider, { left: '33.333%' }]} />
-                  <View style={styles.metricItem}>
-                    <Text style={styles.metricLabel}>STREAK</Text>
-                    <Text style={styles.metricValue}>{streak} DAYS</Text>
-                    <Text style={styles.metricSub}>Keep the chain alive.</Text>
-                  </View>
-                  <View style={[styles.metricDivider, { left: '66.666%' }]} />
-                  <View style={styles.metricItem}>
-                    <Text style={styles.metricLabel}>EXECUTION</Text>
-                    <Text style={styles.metricValue}>{executionPct === null ? '—' : `${executionPct}%`}</Text>
-                    <Text style={styles.metricSub}>Turn intentions{`\n`}into action.</Text>
+                {/* Bottom metrics strip — 3 equal centered columns inside safe area */}
+                <View style={styles.metricSafeArea}>
+                  <View style={styles.metricRow}>
+                    <View style={styles.metricItem}>
+                      <Text style={styles.metricLabel}>CONSISTENCY</Text>
+                      <Text style={styles.metricValue}>{consistencyPct}</Text>
+                      <Text style={styles.metricSub}>Show up over time.</Text>
+                    </View>
+                    <View style={[styles.metricDivider, { left: '33.333%' }]} />
+                    <View style={styles.metricItem}>
+                      <Text style={styles.metricLabel}>STREAK</Text>
+                      <Text style={styles.metricValue}>{streak} DAYS</Text>
+                      <Text style={styles.metricSub}>Keep the chain alive.</Text>
+                    </View>
+                    <View style={[styles.metricDivider, { left: '66.666%' }]} />
+                    <View style={styles.metricItem}>
+                      <Text style={styles.metricLabel}>EXECUTION</Text>
+                      <Text style={styles.metricValue}>{executionPct === null ? '—' : `${executionPct}%`}</Text>
+                      <Text style={styles.metricSub}>Turn intentions{`\n`}into action.</Text>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -546,8 +548,8 @@ const styles = StyleSheet.create({
   // Curve
   curveOuter: {
     position: 'absolute',
-    top: 0,
-    left: '30%',
+    top: 6,
+    right: 6,
     height: 126,
     overflow: 'visible',
   },
@@ -574,23 +576,28 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: 'rgba(190,190,190,0.35)',
   },
-  // Bottom metrics
-  metricsRow: {
+  // Bottom metrics — safe area + equal columns
+  metricSafeArea: {
+    marginHorizontal: 6,
+    alignSelf: 'stretch',
+  },
+  metricRow: {
     flexDirection: 'row',
+    alignItems: 'stretch',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.07)',
     paddingTop: 10,
     marginTop: 6,
+    position: 'relative',
   },
   metricItem: {
     flex: 1,
     minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
   },
   metricLabel: {
-    width: '100%',
+    alignSelf: 'stretch',
     fontSize: 8,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.35)',
@@ -600,7 +607,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   metricValue: {
-    width: '100%',
+    alignSelf: 'stretch',
     fontSize: 14,
     fontWeight: '900',
     color: '#FFFFFF',
@@ -608,13 +615,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   metricSub: {
-    width: '100%',
-    fontSize: 8,
+    alignSelf: 'stretch',
+    fontSize: 9,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.25)',
     textAlign: 'center',
-    lineHeight: 10,
-    paddingHorizontal: 2,
+    lineHeight: 12,
   },
   metricDivider: {
     position: 'absolute',
