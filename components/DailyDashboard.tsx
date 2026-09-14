@@ -1081,6 +1081,7 @@ export default function DailyDashboard({
               </View>
             ) : (
               <CoachCardCarousel
+                goalId={goal.id}
                 challengeDay={displayDay}
                 firstName={user?.user_metadata?.first_name}
                 streak={streak}

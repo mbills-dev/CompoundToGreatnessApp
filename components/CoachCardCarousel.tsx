@@ -9,17 +9,17 @@ import {
   Dimensions,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  Platform,
+  TouchableOpacity,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSequence,
   Easing,
 } from 'react-native-reanimated';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
-import { MILESTONE_DATA, getNextMilestone, getMilestoneProgress } from '@/constants/milestones';
+import { getNextMilestone, getMilestoneProgress } from '@/constants/milestones';
+import { supabase } from '@/lib/supabase';
 import CoachCard from './CoachCard';
 
 const LIME = '#CCFF00';
@@ -32,6 +32,7 @@ function computeScore(streak: number): number {
 }
 
 interface CoachCardCarouselProps {
+  goalId: string;
   challengeDay: number;
   firstName?: string;
   streak: number;
@@ -41,6 +42,7 @@ interface CoachCardCarouselProps {
 }
 
 export default function CoachCardCarousel({
+  goalId,
   challengeDay,
   firstName,
   streak,
@@ -50,6 +52,7 @@ export default function CoachCardCarousel({
 }: CoachCardCarouselProps) {
   const [activePanel, setActivePanel] = useState(0);
   const [hasAnimatedScore, setHasAnimatedScore] = useState(false);
+  const [executionPct, setExecutionPct] = useState<number | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   const score = computeScore(streak);
@@ -59,13 +62,37 @@ export default function CoachCardCarousel({
     ? Math.round((perfectDays / totalChallengeDays) * 100)
     : 0;
 
-  const executionPct = totalChallengeDays > 0 && activitiesCount > 0
-    ? Math.round((perfectDays * activitiesCount / (totalChallengeDays * activitiesCount)) * 100)
-    : 0;
+  // Fetch per-activity execution rate from daily_completions.activities_completed
+  useEffect(() => {
+    if (totalChallengeDays === 0 || activitiesCount === 0) {
+      setExecutionPct(null);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from('daily_completions')
+      .select('activities_completed, completed_at')
+      .eq('goal_id', goalId)
+      .not('completed_at', 'is', null)
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        let totalExecuted = 0;
+        for (const row of data) {
+          const arr = row.activities_completed;
+          if (Array.isArray(arr)) totalExecuted += arr.length;
+        }
+        const totalPossible = data.length * activitiesCount;
+        if (totalPossible > 0) {
+          setExecutionPct(Math.round((totalExecuted / totalPossible) * 100));
+        } else {
+          setExecutionPct(null);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [goalId, activitiesCount, totalChallengeDays]);
 
   // Score count-up animation
   const scoreAnim = useSharedValue(0);
-  const scoreDisplay = useSharedValue(0);
 
   // Curve draw animation
   const curveProgress = useSharedValue(0);
@@ -74,7 +101,6 @@ export default function CoachCardCarousel({
   const milestoneFill = useSharedValue(0);
   const milestoneProgress = getMilestoneProgress(challengeDay);
 
-  // Animate milestone fill on mount (fresh session)
   useEffect(() => {
     milestoneFill.value = withTiming(milestoneProgress, {
       duration: 800,
@@ -110,11 +136,14 @@ export default function CoachCardCarousel({
     }
   };
 
+  const scrollToPanel = (panel: number) => {
+    scrollRef.current?.scrollTo({ x: panel * SCREEN_WIDTH, animated: true });
+  };
+
   // Score display text
   const [scoreText, setScoreText] = useState('0');
 
   useEffect(() => {
-    // Sync scoreAnim to scoreText via runOnJS
     let interval: ReturnType<typeof setInterval> | null = null;
     if (hasAnimatedScore) {
       interval = setInterval(() => {
@@ -161,12 +190,10 @@ export default function CoachCardCarousel({
       ? allPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
       : `M ${PAD_LEFT} ${PAD_TOP + plotH} L ${PAD_LEFT + plotW} ${PAD_TOP + plotH}`;
 
-  // Animated path: use strokeDasharray trick via a clip
   const curveAnimStyle = useAnimatedStyle(() => ({
     opacity: curveProgress.value,
   }));
 
-  // Pagination dots
   const dot1Style = useAnimatedStyle(() => ({
     backgroundColor: activePanel === 0 ? LIME : 'rgba(255,255,255,0.2)',
   }));
@@ -207,11 +234,9 @@ export default function CoachCardCarousel({
             <View style={styles.scoreOverlay} />
 
             <View style={styles.scoreContent}>
-              {/* Eyebrow */}
               <Text style={styles.eyebrow}>YOUR</Text>
               <Text style={styles.eyebrowAccent}>COMPOUND SCORE</Text>
 
-              {/* Hero number + curve */}
               <View style={styles.heroRow}>
                 <View style={styles.heroLeft}>
                   <View style={styles.scoreRow}>
@@ -230,7 +255,6 @@ export default function CoachCardCarousel({
                   </Text>
                 </View>
 
-                {/* Compound curve */}
                 <View style={styles.curveContainer}>
                   <Animated.View style={[{ flex: 1 }, curveAnimStyle]}>
                     <Svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
@@ -256,7 +280,7 @@ export default function CoachCardCarousel({
                 </View>
               </View>
 
-              {/* Bottom metrics */}
+              {/* Bottom metrics — only show metrics with real, distinct data */}
               <View style={styles.metricsRow}>
                 <View style={styles.metricItem}>
                   <Text style={styles.metricLabel}>CONSISTENCY</Text>
@@ -269,22 +293,30 @@ export default function CoachCardCarousel({
                   <Text style={styles.metricValue}>{streak} DAYS</Text>
                   <Text style={styles.metricSub}>Keep the chain alive.</Text>
                 </View>
-                <View style={styles.metricDivider} />
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>EXECUTION</Text>
-                  <Text style={styles.metricValue}>{executionPct}%</Text>
-                  <Text style={styles.metricSub}>Turn intentions into action.</Text>
-                </View>
+                {executionPct !== null && (
+                  <>
+                    <View style={styles.metricDivider} />
+                    <View style={styles.metricItem}>
+                      <Text style={styles.metricLabel}>EXECUTION</Text>
+                      <Text style={styles.metricValue}>{executionPct}%</Text>
+                      <Text style={styles.metricSub}>Turn intentions into action.</Text>
+                    </View>
+                  </>
+                )}
               </View>
             </View>
           </View>
         </View>
       </ScrollView>
 
-      {/* Pagination dots */}
+      {/* Pagination dots — tappable */}
       <View style={styles.dotsContainer}>
-        <Animated.View style={[styles.dot, dot1Style]} />
-        <Animated.View style={[styles.dot, dot2Style]} />
+        <TouchableOpacity onPress={() => scrollToPanel(0)} activeOpacity={0.7} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Animated.View style={[styles.dot, dot1Style]} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => scrollToPanel(1)} activeOpacity={0.7} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Animated.View style={[styles.dot, dot2Style]} />
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -299,13 +331,10 @@ const styles = StyleSheet.create({
   },
   panel: {
     width: SCREEN_WIDTH,
-    paddingHorizontal: 0,
   },
-  // Score panel
   scoreCard: {
     borderRadius: 16,
     overflow: 'hidden',
-    marginHorizontal: 0,
   },
   scoreBg: {
     position: 'absolute',
@@ -325,7 +354,6 @@ const styles = StyleSheet.create({
   scoreContent: {
     padding: 16,
     paddingBottom: 14,
-    minHeight: 180,
   },
   eyebrow: {
     fontSize: 9,
@@ -394,7 +422,6 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH * 0.45,
     height: 100,
   },
-  // Bottom metrics
   metricsRow: {
     flexDirection: 'row',
     borderTopWidth: 1,
@@ -430,7 +457,6 @@ const styles = StyleSheet.create({
     width: 1,
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
-  // Dots
   dotsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
