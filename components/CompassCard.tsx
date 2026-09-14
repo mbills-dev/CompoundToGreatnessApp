@@ -14,16 +14,17 @@ import Animated, {
   withDelay,
   Easing,
 } from 'react-native-reanimated';
-import { Compass, X } from 'lucide-react-native';
+import { Compass, X, ChevronRight } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface CompassCardProps {
   declaration: string;
   filterQuestion: string;
   onLockedInteraction?: () => void;
+  compact?: boolean;
 }
 
-export default function CompassCard({ declaration, filterQuestion, onLockedInteraction }: CompassCardProps) {
+export default function CompassCard({ declaration, filterQuestion, onLockedInteraction, compact }: CompassCardProps) {
   const { colors, isDark } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
 
@@ -52,25 +53,30 @@ export default function CompassCard({ declaration, filterQuestion, onLockedInter
   return (
     <>
       <TouchableOpacity
-        style={[styles.card, {
-          borderColor: isDark ? colors.primary : colors.border,
-          backgroundColor: isDark ? '#1A1A1A' : '#FFFFFF',
-        }]}
+        style={[
+          styles.card,
+          compact && styles.compactCard,
+          {
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : colors.border,
+            backgroundColor: isDark ? '#1A1A1A' : '#FFFFFF',
+          }
+        ]}
         onPress={openModal}
         activeOpacity={0.8}
       >
-        <View style={styles.cardContent}>
-          <View style={[styles.iconContainer, {
+        <View style={[styles.cardContent, compact && styles.compactCardContent]}>
+          <View style={[styles.iconContainer, compact && styles.compactIconContainer, {
             backgroundColor: isDark ? colors.primary + '20' : '#000000',
           }]}>
-            <Compass size={20} color={isDark ? colors.primary : '#ccff00'} strokeWidth={2.5} />
+            <Compass size={compact ? 16 : 20} color={isDark ? colors.primary : '#ccff00'} strokeWidth={2.5} />
           </View>
           <View style={styles.textContent}>
             <Text style={[styles.cardLabel, { color: isDark ? colors.primary : '#808080' }]}>MY COMPASS</Text>
-            <Text style={[styles.filterText, { color: colors.text }]} numberOfLines={1}>
+            <Text style={[styles.filterText, { color: colors.text }]} numberOfLines={compact ? 2 : 1}>
               {filterQuestion}
             </Text>
           </View>
+          {compact && <ChevronRight size={16} color="rgba(255,255,255,0.3)" strokeWidth={2.5} />}
         </View>
       </TouchableOpacity>
 
@@ -159,6 +165,21 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     padding: 16,
     marginBottom: 24,
+  },
+  compactCard: {
+    flex: 1,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 24,
+  },
+  compactCardContent: {
+    gap: 10,
+  },
+  compactIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
   },
   cardContent: {
     flexDirection: 'row',

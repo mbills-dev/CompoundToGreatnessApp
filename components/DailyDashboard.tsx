@@ -15,6 +15,7 @@ import {
   Platform,
   AppState,
   ImageBackground,
+  Image,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -25,7 +26,7 @@ import Animated, {
   withSequence,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CircleCheck as CheckCircle, Circle, Flame, Award, TrendingUp, Check, Plus, Lock, Eye, X, Zap, Bell } from 'lucide-react-native';
+import { CircleCheck as CheckCircle, Circle, Flame, Award, TrendingUp, Check, Plus, Lock, Eye, X, Zap, Bell, ChevronRight, Compass } from 'lucide-react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -46,6 +47,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import CoachCard from './CoachCard';
 import { useRacingBorder } from '@/contexts/RacingBorderContext';
 import WhenPickerModal, { WhenPickerValue } from './identity/WhenPickerModal';
+import InviteWatcherModal from './InviteWatcherModal';
 import { resyncAllReminders } from '@/lib/notifications';
 import { focusState } from '@/lib/focusState';
 import { useCelebration } from '@/contexts/CelebrationContext';
@@ -244,6 +246,9 @@ export default function DailyDashboard({
   const [gracePeriodMode, setGracePeriodMode] = useState<'grace' | 'reset'>('grace');
   const [realtimeGen, setRealtimeGen] = useState(0);
   const [showIdentityModal, setShowIdentityModal] = useState(false);
+  const [showWatcherSheet, setShowWatcherSheet] = useState(false);
+  const [watcherProfiles, setWatcherProfiles] = useState<{ id: string; display_name: string; username: string; photo_url: string | null; created_at: string }[]>([]);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const prevAppStateRef = useRef<string>('active');
   const completionRef = useRef<DailyCompletion | null>(null);
   const refetchIfDayChangedRef = useRef<(() => void) | null>(null);
@@ -500,6 +505,40 @@ export default function DailyDashboard({
       setWatcherCount(count || 0);
     } catch (error) {
       console.error('Error loading watcher count:', error);
+    }
+  };
+
+  const loadWatcherProfiles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('watchers')
+        .select('watcher_id, created_at')
+        .eq('watched_id', goal.user_id || '');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        setWatcherProfiles([]);
+        return;
+      }
+      const watcherIds = data.map(w => w.watcher_id);
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, display_name, username, photo_url')
+        .in('id', watcherIds);
+      if (profileError) throw profileError;
+      const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+      setWatcherProfiles(data.map(w => {
+        const p = profileMap.get(w.watcher_id);
+        return {
+          id: w.watcher_id,
+          display_name: p?.display_name || 'Unknown',
+          username: p?.username || '',
+          photo_url: p?.photo_url || null,
+          created_at: w.created_at,
+        };
+      }));
+    } catch (error) {
+      console.error('Error loading watcher profiles:', error);
+      setWatcherProfiles([]);
     }
   };
 
@@ -1082,26 +1121,45 @@ export default function DailyDashboard({
               );
             })()}
 
-            <View style={[styles.watcherBadge, {
-              backgroundColor: isDark ? colors.backgroundSecondary : colors.card,
-              borderColor: isDark ? colors.border : colors.border,
-            }]}>
-              <Eye size={20} color={isDark ? colors.primary : '#000000'} strokeWidth={2.5} />
-              <Text style={[styles.watcherCount, { color: isDark ? colors.text : '#000000' }]}>
-                {watcherCount}
-              </Text>
-              <Text style={[styles.watcherLabel, { color: isDark ? colors.textSecondary : '#404040' }]}>
-                {watcherCount === 1 ? 'person watching' : 'people watching'}
-              </Text>
-            </View>
+            <View style={styles.utilityRow}>
+              <TouchableOpacity
+                style={[styles.utilityCard, {
+                  backgroundColor: isDark ? '#1A1A1A' : colors.card,
+                  borderColor: isDark ? 'rgba(255,255,255,0.08)' : colors.border,
+                }]}
+                onPress={() => {
+                  loadWatcherProfiles();
+                  setShowWatcherSheet(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.utilityCardTop}>
+                  <Eye size={18} color="#CCFF00" strokeWidth={2.5} />
+                  <Text style={styles.utilityCardCount}>
+                    {watcherCount}
+                  </Text>
+                  <Text style={styles.utilityCardLabel}>
+                    {watcherCount === 1 ? 'person' : 'people'}
+                  </Text>
+                </View>
+                <Text style={styles.utilityCardSubLabel}>watching</Text>
+                <ChevronRight size={16} color="rgba(255,255,255,0.3)" strokeWidth={2.5} style={styles.utilityCardChevron} />
+              </TouchableOpacity>
 
-            {goal.compass_filter_question && (
-              <CompassCard
-                declaration={goal.compass_declaration ?? ''}
-                filterQuestion={goal.compass_filter_question}
-                onLockedInteraction={onLockedInteraction}
-              />
-            )}
+              {goal.compass_filter_question ? (
+                <CompassCard
+                  declaration={goal.compass_declaration ?? ''}
+                  filterQuestion={goal.compass_filter_question}
+                  onLockedInteraction={onLockedInteraction}
+                  compact
+                />
+              ) : (
+                <View style={[styles.utilityCard, styles.utilityCardPlaceholder, {
+                  backgroundColor: isDark ? '#1A1A1A' : colors.card,
+                  borderColor: isDark ? 'rgba(255,255,255,0.08)' : colors.border,
+                }]} />
+              )}
+            </View>
 
             <View style={styles.progressSection}>
               <View style={[styles.progressBarContainer, { backgroundColor: colors.backgroundSecondary }]}>
@@ -1396,6 +1454,76 @@ export default function DailyDashboard({
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={showWatcherSheet}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowWatcherSheet(false)}
+      >
+        <View style={styles.watcherSheetOverlay}>
+          <View style={[styles.watcherSheet, { backgroundColor: isDark ? '#0A0A0A' : '#F5F5F0' }]}>
+            <View style={styles.watcherSheetDragHandle} />
+            <View style={styles.watcherSheetHeader}>
+              <Text style={[styles.watcherSheetTitle, { color: colors.text }]}>YOUR WATCHERS</Text>
+              <TouchableOpacity onPress={() => setShowWatcherSheet(false)} style={styles.watcherSheetCloseButton}>
+                <X size={20} color={colors.textTertiary} strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.watcherSheetSubtitle, { color: colors.textSecondary }]}>
+              {watcherCount === 1 ? '1 person is watching you show up.' : `${watcherCount} people are watching you show up.`}
+            </Text>
+            <View style={styles.watcherSheetList}>
+              {watcherProfiles.length === 0 ? (
+                <Text style={[styles.watcherSheetEmpty, { color: colors.textTertiary }]}>
+                  No one is watching yet. Invite someone to follow your journey.
+                </Text>
+              ) : watcherProfiles.map((w) => (
+                <View key={w.id} style={[styles.watcherSheetRow, { borderColor: isDark ? 'rgba(255,255,255,0.06)' : colors.border }]}>
+                  {w.photo_url ? (
+                    <Image source={{ uri: w.photo_url }} style={styles.watcherSheetAvatar} />
+                  ) : (
+                    <View style={[styles.watcherSheetAvatar, styles.watcherSheetAvatarPlaceholder, { backgroundColor: isDark ? '#1A1A1A' : '#E0E0E0' }]}>
+                      <Text style={styles.watcherSheetAvatarText}>
+                        {(w.display_name || w.username || '?').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.watcherSheetRowInfo}>
+                    <Text style={[styles.watcherSheetRowName, { color: colors.text }]} numberOfLines={1}>
+                      {w.display_name}
+                    </Text>
+                    {w.username ? (
+                      <Text style={[styles.watcherSheetRowUsername, { color: colors.textTertiary }]} numberOfLines={1}>
+                        @{w.username}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={styles.watcherSheetInviteButton}
+              onPress={() => {
+                setShowWatcherSheet(false);
+                setShowInviteModal(true);
+              }}
+              activeOpacity={0.8}
+            >
+              <Eye size={18} color="#000000" strokeWidth={2.5} />
+              <Text style={styles.watcherSheetInviteButtonText}>INVITE A WATCHER →</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {user ? (
+        <InviteWatcherModal
+          visible={showInviteModal}
+          onClose={() => setShowInviteModal(false)}
+          userId={user.id}
+        />
+      ) : null}
     </View>
   );
 }
@@ -1482,6 +1610,148 @@ const styles = StyleSheet.create({
   watcherLabel: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  utilityRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  utilityCard: {
+    flex: 1,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    position: 'relative',
+  },
+  utilityCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  utilityCardCount: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  utilityCardLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.5)',
+  },
+  utilityCardSubLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.35)',
+    marginTop: 4,
+  },
+  utilityCardChevron: {
+    position: 'absolute',
+    top: 14,
+    right: 12,
+  },
+  utilityCardPlaceholder: {
+    opacity: 0.3,
+  },
+  watcherSheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  watcherSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 28,
+    paddingBottom: 48,
+  },
+  watcherSheetDragHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#333',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 24,
+  },
+  watcherSheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  watcherSheetTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  watcherSheetCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(128,128,128,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  watcherSheetSubtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 24,
+  },
+  watcherSheetList: {
+    gap: 0,
+  },
+  watcherSheetEmpty: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    paddingVertical: 32,
+    lineHeight: 20,
+  },
+  watcherSheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  watcherSheetAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  watcherSheetAvatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  watcherSheetAvatarText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  watcherSheetRowInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  watcherSheetRowName: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  watcherSheetRowUsername: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  watcherSheetInviteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#CCFF00',
+    borderRadius: 14,
+    paddingVertical: 16,
+    marginTop: 24,
+  },
+  watcherSheetInviteButtonText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#000000',
+    letterSpacing: 0.5,
   },
   metricsGrid: {
     gap: 12,
