@@ -28,6 +28,7 @@ import { toLocalDateString, getDayNumberFromChallengeStart } from '@/lib/dateHel
 const LIME = '#CCFF00';
 const TOTAL_CHALLENGE_DAYS = 77;
 const ROW_HEIGHT = 64;
+const NOW_ROW_HEIGHT = 40;
 const TOP_PADDING = 16;
 
 // Layout column widths (must match styles below)
@@ -221,71 +222,44 @@ export default function DayView({
 
   const nowMinutes = nowTick.getHours() * 60 + nowTick.getMinutes();
 
-  // Time-proportional NOW position on the timeline.
-  // Y is derived from actual clock time so distance visually communicates elapsed time.
-  const extensionScale = ROW_HEIGHT / 60; // 1 row height per hour of real time
-
-  const nowPlacement = useMemo(() => {
-    if (timedActivities.length === 0) return null;
-    const firstMin = scheduleToMinutes(timedActivities[0].schedule!);
-    const lastMin = scheduleToMinutes(timedActivities[timedActivities.length - 1].schedule!);
-    const firstRowC = TOP_PADDING + ROW_HEIGHT / 2;
-    const lastRowC = TOP_PADDING + (timedActivities.length - 1) * ROW_HEIGHT + ROW_HEIGHT / 2;
-
-    // BEFORE all activities — place above the first row, proportional to time delta
-    if (nowMinutes < firstMin) {
-      const offset = Math.min((firstMin - nowMinutes) * extensionScale, 60);
-      return { y: firstRowC - offset, insertIndex: 0, isAfterLast: false };
-    }
-
-    // BETWEEN two activities — interpolate proportionally between their row positions,
-    // but never let NOW crowd within a fixed pixel margin of either row. Rows are always
-    // ROW_HEIGHT apart on screen regardless of how far apart they are in real time, so a
-    // large time gap (e.g. 7 hours) can otherwise push NOW visually on top of the next row
-    // long before it's actually due.
-    const MIN_ROW_MARGIN = 24;
-    for (let i = 0; i < timedActivities.length - 1; i++) {
-      const currentMin = scheduleToMinutes(timedActivities[i].schedule!);
-      const nextMin = scheduleToMinutes(timedActivities[i + 1].schedule!);
-      if (nowMinutes >= currentMin && nowMinutes < nextMin) {
-        const currentY = TOP_PADDING + i * ROW_HEIGHT + ROW_HEIGHT / 2;
-        const nextY = TOP_PADDING + (i + 1) * ROW_HEIGHT + ROW_HEIGHT / 2;
-        const progress = nextMin > currentMin ? (nowMinutes - currentMin) / (nextMin - currentMin) : 0;
-        const rawY = currentY + progress * (nextY - currentY);
-        const clampedY = Math.min(Math.max(rawY, currentY + MIN_ROW_MARGIN), nextY - MIN_ROW_MARGIN);
-        return { y: clampedY, insertIndex: i + 1, isAfterLast: false };
+  // Where NOW belongs — the index of the first activity that hasn't happened yet.
+  // NOW renders as a real row inserted at this index, so normal layout pushes
+  // everything else apart automatically. It can never overlap a scheduled activity.
+  const nowInsertIndex = useMemo(() => {
+    if (timedActivities.length === 0) return 0;
+    for (let i = 0; i < timedActivities.length; i++) {
+      if (scheduleToMinutes(timedActivities[i].schedule!) > nowMinutes) {
+        return i;
       }
     }
+    return timedActivities.length;
+  }, [timedActivities, nowMinutes]);
 
-    // AFTER all activities — proportional up to a point, then capped so NOW never
-    // drifts arbitrarily far below the last scheduled task.
-    const extension = Math.min(Math.max(32, (nowMinutes - lastMin) * extensionScale), 60);
-    return { y: lastRowC + extension, insertIndex: timedActivities.length, isAfterLast: true };
-  }, [timedActivities, nowMinutes, extensionScale]);
+  const showNow = isToday && timedActivities.length > 0;
 
-  const nowY = nowPlacement?.y ?? null;
-  const nowInsertIndex = nowPlacement?.insertIndex ?? 0;
-  const nowIsAfterLast = nowPlacement?.isAfterLast ?? false;
-
-  // Timeline geometry for continuous rail rendering
-  const firstRowCenter = TOP_PADDING + ROW_HEIGHT / 2;
-  const lastRowCenter = timedActivities.length > 0
-    ? TOP_PADDING + (timedActivities.length - 1) * ROW_HEIGHT + ROW_HEIGHT / 2
-    : 0;
-  const timelineBottom = TOP_PADDING + timedActivities.length * ROW_HEIGHT;
+  // Row-center Y helper for the decorative rail line only — accounts for the
+  // inserted NOW slot's height shifting everything after it down.
+  const rowCenterY = (index: number) => {
+    const slotOffset = index >= nowInsertIndex ? NOW_ROW_HEIGHT : 0;
+    return TOP_PADDING + index * ROW_HEIGHT + slotOffset + ROW_HEIGHT / 2;
+  };
+  const nowRowTop = TOP_PADDING + nowInsertIndex * ROW_HEIGHT;
+  const nowRowCenter = nowRowTop + NOW_ROW_HEIGHT / 2;
+  const firstRowCenter = timedActivities.length > 0 ? rowCenterY(0) : 0;
+  const lastRowCenter = timedActivities.length > 0 ? rowCenterY(timedActivities.length - 1) : 0;
 
   // Auto-scroll: position NOW roughly in the upper-middle of the viewport
   useEffect(() => {
-    if (!visible || nowY === null) return;
+    if (!visible || !showNow) return;
     const timer = setTimeout(() => {
       if (!scrollRef.current || hasScrolledRef.current) return;
       const viewportH = windowHeight - insets.top - insets.bottom;
-      const scrollTo = Math.max(0, nowY - viewportH * 0.38);
+      const scrollTo = Math.max(0, nowRowCenter - viewportH * 0.38);
       scrollRef.current.scrollTo({ y: scrollTo, animated: false });
       hasScrolledRef.current = true;
     }, 50);
     return () => clearTimeout(timer);
-  }, [visible, nowY, windowHeight, insets.top, insets.bottom]);
+  }, [visible, showNow, nowRowCenter, windowHeight, insets.top, insets.bottom]);
 
   // Animated styles
   const backdropAnimStyle = useAnimatedStyle(() => ({
@@ -298,8 +272,6 @@ export default function DayView({
   const heroAnimStyle = useAnimatedStyle(() => ({
     opacity: heroOpacity.value,
   }));
-
-  const showNow = nowY !== null && isToday && nowPlacement !== null;
 
   return (
     <Modal
@@ -351,39 +323,26 @@ export default function DayView({
               {timedActivities.length > 0 && (
                 <View style={styles.timelineContainer}>
                   {/* Continuous rail: past portion (lime tint, first task → NOW) */}
-                  {showNow && nowY !== null && nowY >= firstRowCenter && (
+                  {showNow && nowInsertIndex > 0 && (
                     <View
                       style={[
                         styles.continuousRail,
                         {
                           top: firstRowCenter,
-                          height: nowY - firstRowCenter,
+                          height: nowRowCenter - firstRowCenter,
                           backgroundColor: 'rgba(204,255,0,0.22)',
                         },
                       ]}
                     />
                   )}
                   {/* Continuous rail: future portion (dark gray, NOW → last task) */}
-                  {showNow && nowY !== null && nowY < lastRowCenter && nowY > firstRowCenter && (
+                  {showNow && nowInsertIndex < timedActivities.length && (
                     <View
                       style={[
                         styles.continuousRail,
                         {
-                          top: nowY,
-                          height: lastRowCenter - nowY,
-                          backgroundColor: 'rgba(58,58,58,0.6)',
-                        },
-                      ]}
-                    />
-                  )}
-                  {/* Continuous rail: NOW before first task (all future) */}
-                  {showNow && nowY !== null && nowY < firstRowCenter && (
-                    <View
-                      style={[
-                        styles.continuousRail,
-                        {
-                          top: nowY,
-                          height: lastRowCenter - nowY,
+                          top: nowRowCenter,
+                          height: lastRowCenter - nowRowCenter,
                           backgroundColor: 'rgba(58,58,58,0.6)',
                         },
                       ]}
@@ -403,82 +362,76 @@ export default function DayView({
                     />
                   )}
 
-                  {/* Task rows */}
-                  {timedActivities.map((item) => {
-                    const isCompleted = completedActivities.includes(item.activity.id);
-                    const timeLabel = formatTime(item.schedule!.hour, item.schedule!.minute, item.schedule!.period);
-                    const isPast = scheduleToMinutes(item.schedule!) < nowMinutes;
-
-                    return (
-                      <View key={item.activity.id} style={styles.timelineRow}>
-                        {/* Time column */}
-                        <View style={styles.timeColumn}>
-                          <Text style={[styles.timeLabel, isCompleted && styles.timeLabelCompleted, isPast && !isCompleted && styles.timeLabelPast]}>
-                            {timeLabel}
+                  {/* Task rows, with a real NOW row inserted at nowInsertIndex */}
+                  {(() => {
+                    const rows: React.ReactNode[] = [];
+                    const renderNowRow = () => (
+                      <View key="now-row" style={styles.nowRow}>
+                        <View style={styles.timeColumn} />
+                        <View style={styles.railColumn}>
+                          <View style={styles.nowDotWrap}>
+                            <View style={styles.nowDotOuterLocal} />
+                            <View style={styles.nowDotLocal} />
+                          </View>
+                        </View>
+                        <View style={styles.nowLabelRow}>
+                          <View style={styles.nowRuleLine} />
+                          <Text style={styles.nowTimeTextStatic} numberOfLines={1}>
+                            NOW · {formatCurrentTime(nowTick)}
                           </Text>
                         </View>
-
-                        {/* Rail column — node only, rail drawn separately */}
-                        <View style={styles.railColumn}>
-                          <View style={[styles.railNode, isCompleted && styles.railNodeCompleted, !isCompleted && isPast && styles.railNodePast, !isCompleted && !isPast && styles.railNodeFuture]} />
-                        </View>
-
-                        {/* Activity card */}
-                        <TouchableOpacity
-                          style={styles.activityCard}
-                          onPress={() => onToggle(item.activity.id)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.activityCardContent}>
-                            {isCompleted ? (
-                              <View style={styles.completedCheck}>
-                                <Check size={14} color="#050505" strokeWidth={3} />
-                              </View>
-                            ) : (
-                              <View style={styles.incompleteCircle} />
-                            )}
-                            <Text
-                              style={[styles.activityTitle, isCompleted && styles.activityTitleCompleted]}
-                              numberOfLines={2}
-                            >
-                              {item.activity.activity_name}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
                       </View>
                     );
-                  })}
 
-                  {/* NOW indicator — at time-proportional Y on the continuous rail */}
-                  {showNow && nowY !== null && (
-                    <View
-                      style={[styles.nowIndicator, { top: nowY }]}
-                      pointerEvents="none"
-                    >
-                      {/* Glowing dot centered on the rail */}
-                      <View style={styles.nowDotContainer}>
-                        <View style={styles.nowDotOuter} />
-                        <View style={styles.nowDot} />
-                      </View>
+                    timedActivities.forEach((item, index) => {
+                      if (showNow && index === nowInsertIndex) {
+                        rows.push(renderNowRow());
+                      }
+                      const isCompleted = completedActivities.includes(item.activity.id);
+                      const timeLabel = formatTime(item.schedule!.hour, item.schedule!.minute, item.schedule!.period);
+                      const isPast = scheduleToMinutes(item.schedule!) < nowMinutes;
+                      rows.push(
+                        <View key={item.activity.id} style={styles.timelineRow}>
+                          <View style={styles.timeColumn}>
+                            <Text style={[styles.timeLabel, isCompleted && styles.timeLabelCompleted, isPast && !isCompleted && styles.timeLabelPast]}>
+                              {timeLabel}
+                            </Text>
+                          </View>
+                          <View style={styles.railColumn}>
+                            <View style={[styles.railNode, isCompleted && styles.railNodeCompleted, !isCompleted && isPast && styles.railNodePast, !isCompleted && !isPast && styles.railNodeFuture]} />
+                          </View>
+                          <TouchableOpacity
+                            style={styles.activityCard}
+                            onPress={() => onToggle(item.activity.id)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={styles.activityCardContent}>
+                              {isCompleted ? (
+                                <View style={styles.completedCheck}>
+                                  <Check size={14} color="#050505" strokeWidth={3} />
+                                </View>
+                              ) : (
+                                <View style={styles.incompleteCircle} />
+                              )}
+                              <Text
+                                style={[styles.activityTitle, isCompleted && styles.activityTitleCompleted]}
+                                numberOfLines={2}
+                              >
+                                {item.activity.activity_name}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    });
 
-                      {/* Short lime horizontal connector */}
-                      <View style={styles.nowLine} />
+                    if (showNow && nowInsertIndex === timedActivities.length) {
+                      rows.push(renderNowRow());
+                    }
 
-                      {/* NOW label */}
-                      <Text
-                        style={styles.nowTimeText}
-                        numberOfLines={1}
-                      >
-                        NOW · {formatCurrentTime(nowTick)}
-                      </Text>
-                    </View>
-                  )}
+                    return rows;
+                  })()}
                 </View>
-              )}
-
-              {/* Spacer when NOW extends below the last task — keeps Anytime below NOW */}
-              {showNow && nowIsAfterLast && nowY !== null && (
-                <View style={{ height: Math.max(0, nowY - timelineBottom + 24) }} />
               )}
 
               {/* ANYTIME TODAY */}
@@ -726,7 +679,7 @@ const styles = StyleSheet.create({
   activityTitleCompleted: {
     color: LIME,
   },
-  // NOW indicator
+  // NOW indicator (legacy styles kept for reference — replaced by nowRow)
   nowIndicator: {
     position: 'absolute',
     left: 0,
@@ -774,6 +727,50 @@ const styles = StyleSheet.create({
     height: 2,
     backgroundColor: LIME,
     opacity: 0.6,
+  },
+  // NOW row — inserted as a real row in the timeline
+  nowRow: {
+    flexDirection: 'row',
+    height: NOW_ROW_HEIGHT,
+    alignItems: 'center',
+  },
+  nowDotWrap: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nowDotOuterLocal: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(204,255,0,0.25)',
+  },
+  nowDotLocal: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: LIME,
+  },
+  nowLabelRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  nowRuleLine: {
+    width: 20,
+    height: 2,
+    backgroundColor: LIME,
+    opacity: 0.6,
+    borderRadius: 1,
+  },
+  nowTimeTextStatic: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: LIME,
+    letterSpacing: 0.3,
   },
   // Anytime
   anytimeSection: {
