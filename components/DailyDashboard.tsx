@@ -771,8 +771,17 @@ export default function DailyDashboard({
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       setTimeout(() => {
+        try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+      }, 150);
+      setTimeout(() => {
+        try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+      }, 260);
+      setTimeout(() => {
         try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
-      }, 400);
+      }, 380);
+      setTimeout(() => {
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      }, 550);
     } catch {}
   };
 
@@ -889,9 +898,9 @@ export default function DailyDashboard({
 
         triggerHaptics();
         triggerRacingBorder(() => {
-          setConfettiCompleted(true);
+          scrollViewRef.current?.scrollToEnd({ animated: true });
           setTimeout(() => {
-            scrollViewRef.current?.scrollToEnd({ animated: true });
+            setConfettiCompleted(true);
           }, 600);
           const newDay = updates.current_challenge_day ?? goal.current_challenge_day;
           if (newDay >= 77 && !goal.celebration_seen && goal.challenge_phase === 'challenge') {
