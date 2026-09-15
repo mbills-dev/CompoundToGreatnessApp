@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
   },
   gradient: {
     minHeight: '100%',
-    paddingBottom: 80,
+    paddingBottom: 100,
   },
   header: {
     paddingTop: 0,

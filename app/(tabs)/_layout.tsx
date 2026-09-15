@@ -112,7 +112,7 @@ function TabLayoutInner() {
                 borderTopRightRadius: 22,
                 overflow: 'hidden',
                 backgroundColor: isDark
-                  ? 'rgba(8, 8, 8, 0.68)'
+                  ? 'rgba(8, 8, 8, 0.78)'
                   : 'rgba(245, 245, 240, 0.78)',
               }}
             />
