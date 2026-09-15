@@ -367,6 +367,7 @@ export default function ProgressSection({ goal, completions, activities }: Progr
         onClose={() => setComparisonModalVisible(false)}
         earliestPhoto={earliestPhoto as any}
         latestPhoto={latestPhoto as any}
+        goalId={goal.id}
       />
 
       {/* Full photo viewer for single photos */}
