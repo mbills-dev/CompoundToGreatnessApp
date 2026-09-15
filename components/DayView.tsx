@@ -238,7 +238,12 @@ export default function DayView({
       return { y: firstRowC - offset, insertIndex: 0, isAfterLast: false };
     }
 
-    // BETWEEN two activities — interpolate proportionally between their row positions
+    // BETWEEN two activities — interpolate proportionally between their row positions,
+    // but never let NOW crowd within a fixed pixel margin of either row. Rows are always
+    // ROW_HEIGHT apart on screen regardless of how far apart they are in real time, so a
+    // large time gap (e.g. 7 hours) can otherwise push NOW visually on top of the next row
+    // long before it's actually due.
+    const MIN_ROW_MARGIN = 24;
     for (let i = 0; i < timedActivities.length - 1; i++) {
       const currentMin = scheduleToMinutes(timedActivities[i].schedule!);
       const nextMin = scheduleToMinutes(timedActivities[i + 1].schedule!);
@@ -246,7 +251,9 @@ export default function DayView({
         const currentY = TOP_PADDING + i * ROW_HEIGHT + ROW_HEIGHT / 2;
         const nextY = TOP_PADDING + (i + 1) * ROW_HEIGHT + ROW_HEIGHT / 2;
         const progress = nextMin > currentMin ? (nowMinutes - currentMin) / (nextMin - currentMin) : 0;
-        return { y: currentY + progress * (nextY - currentY), insertIndex: i + 1, isAfterLast: false };
+        const rawY = currentY + progress * (nextY - currentY);
+        const clampedY = Math.min(Math.max(rawY, currentY + MIN_ROW_MARGIN), nextY - MIN_ROW_MARGIN);
+        return { y: clampedY, insertIndex: i + 1, isAfterLast: false };
       }
     }
 
