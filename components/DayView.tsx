@@ -221,43 +221,50 @@ export default function DayView({
 
   const nowMinutes = nowTick.getHours() * 60 + nowTick.getMinutes();
 
-  // Compressed event-based NOW position.
-  // Clock time determines WHERE in the event sequence NOW belongs.
-  // It does NOT create pixel-proportional gaps for elapsed time.
+  // Time-proportional NOW position on the timeline.
+  // Y is derived from actual clock time so distance visually communicates elapsed time.
+  const extensionScale = ROW_HEIGHT / 60; // 1 row height per hour of real time
+
   const nowPlacement = useMemo(() => {
     if (timedActivities.length === 0) return null;
     const firstMin = scheduleToMinutes(timedActivities[0].schedule!);
     const lastMin = scheduleToMinutes(timedActivities[timedActivities.length - 1].schedule!);
+    const firstRowC = TOP_PADDING + ROW_HEIGHT / 2;
+    const lastRowC = TOP_PADDING + (timedActivities.length - 1) * ROW_HEIGHT + ROW_HEIGHT / 2;
 
+    // BEFORE all activities — place above the first row, proportional to time delta
     if (nowMinutes < firstMin) {
-      // BEFORE all activities — place shortly above first row
-      const firstRowCenter = TOP_PADDING + ROW_HEIGHT / 2;
-      return { y: firstRowCenter - 40, insertIndex: 0, isAfterLast: false };
+      const offset = Math.min((firstMin - nowMinutes) * extensionScale, 60);
+      return { y: firstRowC - offset, insertIndex: 0, isAfterLast: false };
     }
 
-    if (nowMinutes >= lastMin) {
-      // AFTER all activities — place 64px below the last row
-      const lastRowCenter = TOP_PADDING + (timedActivities.length - 1) * ROW_HEIGHT + ROW_HEIGHT / 2;
-      return { y: lastRowCenter + 64, insertIndex: timedActivities.length, isAfterLast: true };
-    }
-
-    // BETWEEN two activities — find the gap it falls into
+    // BETWEEN two activities — interpolate proportionally between their row positions
     for (let i = 0; i < timedActivities.length - 1; i++) {
       const currentMin = scheduleToMinutes(timedActivities[i].schedule!);
       const nextMin = scheduleToMinutes(timedActivities[i + 1].schedule!);
       if (nowMinutes >= currentMin && nowMinutes < nextMin) {
-        const currentRowCenter = TOP_PADDING + i * ROW_HEIGHT + ROW_HEIGHT / 2;
-        const nextRowCenter = TOP_PADDING + (i + 1) * ROW_HEIGHT + ROW_HEIGHT / 2;
-        return { y: (currentRowCenter + nextRowCenter) / 2, insertIndex: i + 1, isAfterLast: false };
+        const currentY = TOP_PADDING + i * ROW_HEIGHT + ROW_HEIGHT / 2;
+        const nextY = TOP_PADDING + (i + 1) * ROW_HEIGHT + ROW_HEIGHT / 2;
+        const progress = nextMin > currentMin ? (nowMinutes - currentMin) / (nextMin - currentMin) : 0;
+        return { y: currentY + progress * (nextY - currentY), insertIndex: i + 1, isAfterLast: false };
       }
     }
 
-    return null;
-  }, [timedActivities, nowMinutes]);
+    // AFTER all activities — time-proportional extension below the last task
+    const extension = Math.max(32, (nowMinutes - lastMin) * extensionScale);
+    return { y: lastRowC + extension, insertIndex: timedActivities.length, isAfterLast: true };
+  }, [timedActivities, nowMinutes, extensionScale]);
 
   const nowY = nowPlacement?.y ?? null;
   const nowInsertIndex = nowPlacement?.insertIndex ?? 0;
   const nowIsAfterLast = nowPlacement?.isAfterLast ?? false;
+
+  // Timeline geometry for continuous rail rendering
+  const firstRowCenter = TOP_PADDING + ROW_HEIGHT / 2;
+  const lastRowCenter = timedActivities.length > 0
+    ? TOP_PADDING + (timedActivities.length - 1) * ROW_HEIGHT + ROW_HEIGHT / 2
+    : 0;
+  const timelineBottom = TOP_PADDING + timedActivities.length * ROW_HEIGHT;
 
   // Auto-scroll: position NOW roughly in the upper-middle of the viewport
   useEffect(() => {
@@ -332,14 +339,67 @@ export default function DayView({
                 <Text style={styles.sectionDate}>{formatDateAbbrev(new Date())}</Text>
               </View>
 
-              {/* TIMELINE */}
+              {/* TIMELINE — one continuous rail system */}
               {timedActivities.length > 0 && (
                 <View style={styles.timelineContainer}>
-                  {timedActivities.map((item, index) => {
+                  {/* Continuous rail: past portion (lime tint, first task → NOW) */}
+                  {showNow && nowY !== null && nowY >= firstRowCenter && (
+                    <View
+                      style={[
+                        styles.continuousRail,
+                        {
+                          top: firstRowCenter,
+                          height: nowY - firstRowCenter,
+                          backgroundColor: 'rgba(204,255,0,0.22)',
+                        },
+                      ]}
+                    />
+                  )}
+                  {/* Continuous rail: future portion (dark gray, NOW → last task) */}
+                  {showNow && nowY !== null && nowY < lastRowCenter && nowY > firstRowCenter && (
+                    <View
+                      style={[
+                        styles.continuousRail,
+                        {
+                          top: nowY,
+                          height: lastRowCenter - nowY,
+                          backgroundColor: 'rgba(58,58,58,0.6)',
+                        },
+                      ]}
+                    />
+                  )}
+                  {/* Continuous rail: NOW before first task (all future) */}
+                  {showNow && nowY !== null && nowY < firstRowCenter && (
+                    <View
+                      style={[
+                        styles.continuousRail,
+                        {
+                          top: nowY,
+                          height: lastRowCenter - nowY,
+                          backgroundColor: 'rgba(58,58,58,0.6)',
+                        },
+                      ]}
+                    />
+                  )}
+                  {/* Continuous rail: default when NOW is not shown */}
+                  {!showNow && (
+                    <View
+                      style={[
+                        styles.continuousRail,
+                        {
+                          top: firstRowCenter,
+                          height: lastRowCenter - firstRowCenter,
+                          backgroundColor: 'rgba(58,58,58,0.6)',
+                        },
+                      ]}
+                    />
+                  )}
+
+                  {/* Task rows */}
+                  {timedActivities.map((item) => {
                     const isCompleted = completedActivities.includes(item.activity.id);
                     const timeLabel = formatTime(item.schedule!.hour, item.schedule!.minute, item.schedule!.period);
                     const isPast = scheduleToMinutes(item.schedule!) < nowMinutes;
-                    const showConnector = index < timedActivities.length - 1;
 
                     return (
                       <View key={item.activity.id} style={styles.timelineRow}>
@@ -350,12 +410,9 @@ export default function DayView({
                           </Text>
                         </View>
 
-                        {/* Rail column */}
+                        {/* Rail column — node only, rail drawn separately */}
                         <View style={styles.railColumn}>
                           <View style={[styles.railNode, isCompleted && styles.railNodeCompleted, !isCompleted && isPast && styles.railNodePast, !isCompleted && !isPast && styles.railNodeFuture]} />
-                          {showConnector && (
-                            <View style={[styles.railConnector, isCompleted && styles.railConnectorCompleted]} />
-                          )}
                         </View>
 
                         {/* Activity card */}
@@ -384,20 +441,7 @@ export default function DayView({
                     );
                   })}
 
-                  {/* Short rail extension when NOW is after the last activity */}
-                  {showNow && nowIsAfterLast && nowY !== null && (
-                    <View 
-                      style={[
-                        styles.railExtension, 
-                        { 
-                          top: TOP_PADDING + (timedActivities.length - 1) * ROW_HEIGHT + ROW_HEIGHT / 2,
-                          height: nowY - (TOP_PADDING + (timedActivities.length - 1) * ROW_HEIGHT + ROW_HEIGHT / 2),
-                        }
-                      ]} 
-                    />
-                  )}
-
-                  {/* NOW indicator — positioned at compressed event Y */}
+                  {/* NOW indicator — at time-proportional Y on the continuous rail */}
                   {showNow && nowY !== null && (
                     <View
                       style={[styles.nowIndicator, { top: nowY }]}
@@ -409,10 +453,10 @@ export default function DayView({
                         <View style={styles.nowDot} />
                       </View>
 
-                      {/* Short lime horizontal line */}
+                      {/* Short lime horizontal connector */}
                       <View style={styles.nowLine} />
 
-                      {/* NOW label — after the dot+line, not in the time column */}
+                      {/* NOW label */}
                       <Text
                         style={styles.nowTimeText}
                         numberOfLines={1}
@@ -424,9 +468,14 @@ export default function DayView({
                 </View>
               )}
 
+              {/* Spacer when NOW extends below the last task — keeps Anytime below NOW */}
+              {showNow && nowIsAfterLast && nowY !== null && (
+                <View style={{ height: Math.max(0, nowY - timelineBottom + 24) }} />
+              )}
+
               {/* ANYTIME TODAY */}
               {anytimeActivities.length > 0 && (
-                <View style={[styles.anytimeSection, showNow && nowIsAfterLast && { paddingTop: 84 }]}>
+                <View style={styles.anytimeSection}>
                   <Text style={styles.anytimeTitle}>ANYTIME TODAY</Text>
                   <View style={styles.anytimeList}>
                     {anytimeActivities.map(activity => {
@@ -621,18 +670,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#191919',
     borderColor: '#3A3A3A',
   },
-  railConnector: {
+  continuousRail: {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
+    left: RAIL_CENTER_X - 1,
     width: 2,
-    height: ROW_HEIGHT,
-    marginLeft: -1,
-    marginTop: 5,
-    backgroundColor: 'rgba(58,58,58,0.6)',
-  },
-  railConnectorCompleted: {
-    backgroundColor: 'rgba(204,255,0,0.25)',
+    borderRadius: 1,
   },
   // Activity card
   activityCard: {
@@ -685,15 +727,9 @@ const styles = StyleSheet.create({
     zIndex: 10,
     elevation: 10,
   },
-  railExtension: {
-    position: 'absolute',
-    left: TIME_COL_W + RAIL_COL_W / 2 - 1,
-    width: 2,
-    backgroundColor: 'rgba(58,58,58,0.4)',
-  },
   nowTimeText: {
     position: 'absolute',
-    left: RAIL_CENTER_X + 32,
+    left: RAIL_CENTER_X + 44,
     top: -7,
     fontSize: 11,
     fontWeight: '800',
@@ -724,8 +760,8 @@ const styles = StyleSheet.create({
   },
   nowLine: {
     position: 'absolute',
-    left: RAIL_CENTER_X + 8,
-    width: 22,
+    left: RAIL_CENTER_X + 10,
+    width: 30,
     top: -1,
     height: 2,
     backgroundColor: LIME,
