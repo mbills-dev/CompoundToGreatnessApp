@@ -98,8 +98,6 @@ function TabLayoutInner() {
             backgroundColor: isDark ? colors.background : '#F5F5F0',
           },
 
-          // Use the existing native tab bar, but render a translucent
-          // blurred surface behind it instead of an opaque block.
           tabBarBackground: () => (
             <BlurView
               intensity={Platform.OS === 'ios' ? 42 : 28}
@@ -110,25 +108,35 @@ function TabLayoutInner() {
                 left: 0,
                 right: 0,
                 bottom: 0,
+                borderTopLeftRadius: 22,
+                borderTopRightRadius: 22,
+                overflow: 'hidden',
                 backgroundColor: isDark
-                  ? 'rgba(8, 8, 8, 0.64)'
+                  ? 'rgba(8, 8, 8, 0.68)'
                   : 'rgba(245, 245, 240, 0.78)',
               }}
             />
           ),
 
           tabBarStyle: {
+            position: 'absolute',
+            bottom: 0,
             backgroundColor: 'transparent',
 
-            borderTopWidth: 0.5,
-            borderTopColor: isDark
-              ? 'rgba(255, 255, 255, 0.06)'
-              : 'rgba(0, 0, 0, 0.06)',
+            borderTopWidth: 1,
+            borderTopColor: 'rgba(255, 255, 255, 0.08)',
+            borderLeftWidth: 0.5,
+            borderRightWidth: 0.5,
+            borderLeftColor: 'rgba(255, 255, 255, 0.04)',
+            borderRightColor: 'rgba(255, 255, 255, 0.04)',
 
-            // Restore intentional vertical presence.
-            height: 98,
+            borderTopLeftRadius: 22,
+            borderTopRightRadius: 22,
+            overflow: 'hidden',
+
+            height: 84,
             paddingTop: 14,
-            paddingBottom: 28,
+            paddingBottom: 20,
 
             display: visible ? 'flex' : 'none',
 
