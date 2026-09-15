@@ -1458,7 +1458,6 @@ export default function DailyDashboard({
       >
         <View style={styles.watcherSheetOverlay}>
           <View style={[styles.watcherSheet, { backgroundColor: isDark ? '#0A0A0A' : '#F5F5F0' }]}>
-            <View style={styles.watcherSheetDragHandle} />
             <View style={styles.watcherSheetHeader}>
               <Text style={[styles.watcherSheetTitle, { color: colors.text }]}>YOUR WATCHERS</Text>
               <TouchableOpacity onPress={() => setShowWatcherSheet(false)} style={styles.watcherSheetCloseButton}>
@@ -1651,21 +1650,15 @@ const styles = StyleSheet.create({
   watcherSheetOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.85)',
   },
   watcherSheet: {
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
     padding: 28,
     paddingBottom: 48,
-  },
-  watcherSheetDragHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#333',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 24,
   },
   watcherSheetHeader: {
     flexDirection: 'row',
@@ -2068,12 +2061,14 @@ const styles = StyleSheet.create({
   },
   identityModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.82)',
+    backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'flex-end',
   },
   identityModalCard: {
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
     padding: 28,
     paddingBottom: 48,
     maxHeight: '85%',
