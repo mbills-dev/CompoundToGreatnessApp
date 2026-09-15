@@ -29,7 +29,7 @@ import EvidenceLogSection from './EvidenceLog';
 import GracePeriodModal from './GracePeriodModal';
 import DayCardModal, { TileLayout } from './DayCardModal';
 import { isMilestoneDay, TOTAL_CHALLENGE_DAYS } from '@/constants/milestones';
-import CompoundScoreSection from './CompoundScoreSection';
+import ProgressSection from './ProgressSection';
 import ChallengeWall from './ChallengeWall';
 
 interface CalendarViewProps {
@@ -685,7 +685,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
           </View>
         )}
 
-        <CompoundScoreSection
+        <ProgressSection
           goal={goal}
           completions={completions}
           activities={activities}
