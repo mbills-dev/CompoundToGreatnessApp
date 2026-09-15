@@ -250,8 +250,9 @@ export default function DayView({
       }
     }
 
-    // AFTER all activities — time-proportional extension below the last task
-    const extension = Math.max(32, (nowMinutes - lastMin) * extensionScale);
+    // AFTER all activities — proportional up to a point, then capped so NOW never
+    // drifts arbitrarily far below the last scheduled task.
+    const extension = Math.min(Math.max(32, (nowMinutes - lastMin) * extensionScale), 60);
     return { y: lastRowC + extension, insertIndex: timedActivities.length, isAfterLast: true };
   }, [timedActivities, nowMinutes, extensionScale]);
 
