@@ -24,6 +24,7 @@ import Animated, {
   withSpring,
   withTiming,
   withSequence,
+  Easing,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CircleCheck as CheckCircle, Circle, Flame, Award, TrendingUp, Check, Plus, Lock, Eye, X, Zap, Bell, ChevronRight, Compass } from 'lucide-react-native';
@@ -287,6 +288,27 @@ export default function DailyDashboard({
   const displayDay = goal.challenge_start_date
     ? getDayNumberFromChallengeStart(goal.challenge_start_date, today)
     : 1;
+  const dayAnim = useSharedValue(0);
+  const [hasAnimatedDay, setHasAnimatedDay] = useState(false);
+  const [dayDisplayText, setDayDisplayText] = useState('0');
+  useEffect(() => {
+    if (hasAnimatedDay) return;
+    dayAnim.value = 0;
+    dayAnim.value = withTiming(displayDay, { duration: 900, easing: Easing.out(Easing.cubic) });
+    const interval = setInterval(() => {
+      setDayDisplayText(String(Math.round(dayAnim.value)));
+    }, 16);
+    const stopTimer = setTimeout(() => {
+      clearInterval(interval);
+      setDayDisplayText(String(displayDay));
+      setHasAnimatedDay(true);
+    }, 950);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(stopTimer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     setLocalActivities([...activities].sort((a, b) => a.order_position - b.order_position));
@@ -1064,7 +1086,7 @@ export default function DailyDashboard({
                 activeOpacity={0.7}
               >
                 <Text style={[styles.date, { color: colors.text }]}>
-                  DAY {displayDay}
+                  DAY {hasAnimatedDay ? displayDay : dayDisplayText}
                 </Text>
                 <Text style={[styles.dateLabel, { color: colors.textTertiary }]}>
                   77-DAY CHALLENGE
