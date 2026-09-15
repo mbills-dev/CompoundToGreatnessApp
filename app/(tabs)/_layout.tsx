@@ -1,6 +1,7 @@
 import { View, Platform } from 'react-native';
 import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
+import { BlurView } from 'expo-blur';
 import { Users } from 'lucide-react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -89,32 +90,81 @@ function TabLayoutInner() {
       <Tabs
         screenOptions={{
           headerShown: false,
+
           sceneStyle: {
             maxWidth: 480,
             width: '100%',
             alignSelf: 'center',
             backgroundColor: isDark ? colors.background : '#F5F5F0',
           },
+
+          // Use the existing native tab bar, but render a translucent
+          // blurred surface behind it instead of an opaque block.
+          tabBarBackground: () => (
+            <BlurView
+              intensity={Platform.OS === 'ios' ? 42 : 28}
+              tint={isDark ? 'dark' : 'light'}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: isDark
+                  ? 'rgba(5, 5, 5, 0.72)'
+                  : 'rgba(245, 245, 240, 0.78)',
+              }}
+            />
+          ),
+
           tabBarStyle: {
-            backgroundColor: isDark ? colors.background : '#F5F5F0',
-            borderTopWidth: 0,
-            height: 90,
-            paddingBottom: 30,
-            paddingTop: 10,
+            // IMPORTANT:
+            // The BlurView supplies the visual background.
+            // Keep the actual tab bar transparent.
+            backgroundColor: 'transparent',
+
+            borderTopWidth: 1,
+            borderTopColor: isDark
+              ? 'rgba(255, 255, 255, 0.08)'
+              : 'rgba(0, 0, 0, 0.08)',
+
+            // Slightly leaner than the current 90px bar.
+            // Keep enough room for the iPhone safe area.
+            height: 84,
+            paddingTop: 8,
+            paddingBottom: 26,
+
             display: visible ? 'flex' : 'none',
+
             maxWidth: 480,
             width: '100%',
             alignSelf: 'center',
+
+            // Prevent the native bar from painting an opaque shadow.
+            elevation: 0,
+            shadowOpacity: 0,
           },
+
           tabBarActiveTintColor: '#CCFF00',
-          tabBarInactiveTintColor: isDark ? colors.textTertiary : 'rgba(0,0,0,0.3)',
+
+          tabBarInactiveTintColor: isDark
+            ? 'rgba(255, 255, 255, 0.42)'
+            : 'rgba(0, 0, 0, 0.34)',
+
           tabBarLabelStyle: {
             fontSize: 12,
             fontWeight: '600',
+            marginTop: 1,
           },
+
+          tabBarIconStyle: {
+            marginTop: 0,
+          },
+
           tabBarItemStyle: {
             backgroundColor: 'transparent',
           },
+
           tabBarActiveBackgroundColor: 'transparent',
           tabBarInactiveBackgroundColor: 'transparent',
         }}
