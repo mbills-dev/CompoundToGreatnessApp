@@ -426,7 +426,7 @@ export default function DayView({
 
               {/* ANYTIME TODAY */}
               {anytimeActivities.length > 0 && (
-                <View style={[styles.anytimeSection, showNow && nowIsAfterLast && { paddingTop: 56 }]}>
+                <View style={[styles.anytimeSection, showNow && nowIsAfterLast && { paddingTop: 84 }]}>
                   <Text style={styles.anytimeTitle}>ANYTIME TODAY</Text>
                   <View style={styles.anytimeList}>
                     {anytimeActivities.map(activity => {
