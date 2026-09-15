@@ -2,7 +2,6 @@ import { View, Platform } from 'react-native';
 import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { BlurView } from 'expo-blur';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Users } from 'lucide-react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -48,8 +47,6 @@ function TabLayoutInner() {
   const { visible } = useTabBarVisibility();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const insets = useSafeAreaInsets();
-  const BAR_CONTENT_HEIGHT = 50;
 
   useEffect(() => {
     if (!user?.id) return;
@@ -114,28 +111,24 @@ function TabLayoutInner() {
                 right: 0,
                 bottom: 0,
                 backgroundColor: isDark
-                  ? 'rgba(5, 5, 5, 0.72)'
+                  ? 'rgba(8, 8, 8, 0.64)'
                   : 'rgba(245, 245, 240, 0.78)',
               }}
             />
           ),
 
           tabBarStyle: {
-            // IMPORTANT:
-            // The BlurView supplies the visual background.
-            // Keep the actual tab bar transparent.
             backgroundColor: 'transparent',
 
-            borderTopWidth: 1,
+            borderTopWidth: 0.5,
             borderTopColor: isDark
-              ? 'rgba(255, 255, 255, 0.08)'
-              : 'rgba(0, 0, 0, 0.08)',
+              ? 'rgba(255, 255, 255, 0.06)'
+              : 'rgba(0, 0, 0, 0.06)',
 
-            // Content height (icon + label) plus whatever this specific
-            // device's real bottom safe-area inset is — not a guessed number.
-            height: BAR_CONTENT_HEIGHT + insets.bottom,
-            paddingTop: 8,
-            paddingBottom: insets.bottom,
+            // Restore intentional vertical presence.
+            height: 98,
+            paddingTop: 14,
+            paddingBottom: 28,
 
             display: visible ? 'flex' : 'none',
 
@@ -143,10 +136,11 @@ function TabLayoutInner() {
             width: '100%',
             alignSelf: 'center',
 
-            // Prevent the native bar from painting an opaque shadow.
             elevation: 0,
             shadowOpacity: 0,
           },
+
+          tabBarShowLabel: false,
 
           tabBarActiveTintColor: '#CCFF00',
 
@@ -154,18 +148,13 @@ function TabLayoutInner() {
             ? 'rgba(255, 255, 255, 0.42)'
             : 'rgba(0, 0, 0, 0.34)',
 
-          tabBarLabelStyle: {
-            fontSize: 12,
-            fontWeight: '600',
-            marginTop: 1,
-          },
-
           tabBarIconStyle: {
             marginTop: 0,
           },
 
           tabBarItemStyle: {
             backgroundColor: 'transparent',
+            paddingVertical: 4,
           },
 
           tabBarActiveBackgroundColor: 'transparent',
@@ -176,8 +165,8 @@ function TabLayoutInner() {
           name="index"
           options={{
             title: 'Today',
-            tabBarIcon: ({ size, color }) => (
-              <HomeIcon size={size} color={color} />
+            tabBarIcon: ({ color }) => (
+              <HomeIcon size={27} color={color} />
             ),
           }}
         />
@@ -185,8 +174,8 @@ function TabLayoutInner() {
           name="calendar"
           options={{
             title: 'Progress',
-            tabBarIcon: ({ size, color }) => (
-              <ProgressIcon size={size} color={color} />
+            tabBarIcon: ({ color }) => (
+              <ProgressIcon size={27} color={color} />
             ),
           }}
         />
@@ -194,8 +183,8 @@ function TabLayoutInner() {
           name="friends"
           options={{
             title: 'Friends',
-            tabBarIcon: ({ size, color }) => (
-              <Users size={size} color={color} fill={color} strokeWidth={0} />
+            tabBarIcon: ({ color }) => (
+              <Users size={27} color={color} fill={color} strokeWidth={0} />
             ),
           }}
         />
@@ -203,8 +192,8 @@ function TabLayoutInner() {
           name="settings"
           options={{
             title: 'Settings',
-            tabBarIcon: ({ size, color }) => (
-              <SettingsIcon size={size} color={color} />
+            tabBarIcon: ({ color }) => (
+              <SettingsIcon size={27} color={color} />
             ),
           }}
         />
