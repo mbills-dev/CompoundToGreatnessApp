@@ -125,7 +125,8 @@ export default function ProgressSection({ goal, completions, activities }: Progr
       : 0;
 
   const sortedStats = [...activityStats].sort((a, b) => b.percentage - a.percentage);
-  const strongestStat = sortedStats[0];
+  const highestPct = sortedStats[0]?.percentage ?? 0;
+  const topStat = sortedStats.find((s) => s.percentage === highestPct);
   const lowestStat = sortedStats[sortedStats.length - 1];
 
   const formatLogDate = (dateStr: string) => {
@@ -148,7 +149,7 @@ export default function ProgressSection({ goal, completions, activities }: Progr
   const hasComparisonPhotos = photos.length >= 2;
 
   // Evidence logs visible
-  const visibleLogs = showAllEvidence ? evidenceLogs : evidenceLogs.slice(0, 3);
+  const visibleLogs = showAllEvidence ? evidenceLogs : evidenceLogs.slice(0, 2);
 
   return (
     <View style={styles.root}>
@@ -167,30 +168,29 @@ export default function ProgressSection({ goal, completions, activities }: Progr
               </View>
               <View style={styles.consistencyHeroRight}>
                 <Text style={styles.consistencyHeroLabel}>OVERALL CONSISTENCY</Text>
-                <Text style={styles.consistencyHeroSub}>Across your daily commitments.</Text>
+                <Text style={styles.consistencyHeroSub}>You keep your promises {overallConsistency}% of the time.</Text>
               </View>
             </View>
 
             <View style={styles.consistencyDivider} />
 
-            {/* Two insights */}
-            {strongestStat && (
+            {topStat && (
               <View style={styles.insightRow}>
                 <View style={styles.insightLabelCol}>
-                  <Text style={styles.insightEyebrow}>STRONGEST</Text>
-                  <Text style={styles.insightName} numberOfLines={1}>{strongestStat.name}</Text>
+                  <Text style={styles.insightEyebrow}>TOP INPUT</Text>
+                  <Text style={styles.insightName} numberOfLines={1}>{topStat.name}</Text>
                 </View>
-                <Text style={[styles.insightPct, { color: LIME }]}>{strongestStat.percentage}%</Text>
+                <Text style={[styles.insightPct, { color: LIME }]}>{topStat.percentage}%</Text>
               </View>
             )}
 
-            {lowestStat && lowestStat.id !== strongestStat?.id && (
+            {lowestStat && lowestStat.id !== topStat?.id && (
               <View style={styles.insightRow}>
                 <View style={styles.insightLabelCol}>
                   <Text style={styles.insightEyebrow}>NEEDS ATTENTION</Text>
                   <Text style={styles.insightName} numberOfLines={1}>{lowestStat.name}</Text>
                 </View>
-                <Text style={[styles.insightPct, { color: MUTED_40 }]}>{lowestStat.percentage}%</Text>
+                <Text style={[styles.insightPct, { color: LIME }]}>{lowestStat.percentage}%</Text>
               </View>
             )}
 
@@ -302,7 +302,7 @@ export default function ProgressSection({ goal, completions, activities }: Progr
               </View>
             ))}
 
-            {evidenceLogs.length > 3 && !showAllEvidence && (
+            {evidenceLogs.length > 2 && !showAllEvidence && (
               <TouchableOpacity
                 style={styles.viewAllBtn}
                 onPress={() => setShowAllEvidence(true)}
@@ -311,7 +311,7 @@ export default function ProgressSection({ goal, completions, activities }: Progr
                 <Text style={styles.viewAllText}>VIEW ALL ENTRIES →</Text>
               </TouchableOpacity>
             )}
-            {showAllEvidence && evidenceLogs.length > 3 && (
+            {showAllEvidence && evidenceLogs.length > 2 && (
               <TouchableOpacity
                 style={styles.viewAllBtn}
                 onPress={() => setShowAllEvidence(false)}
@@ -325,7 +325,7 @@ export default function ProgressSection({ goal, completions, activities }: Progr
       </View>
 
       {/* THE STAKES */}
-      <View style={styles.section}>
+      <View style={[styles.section, { marginTop: 28 }]}>
         <View style={styles.eyebrowPill}>
           <Text style={styles.eyebrowPillText}>THE STAKES</Text>
         </View>
@@ -541,13 +541,13 @@ const styles = StyleSheet.create({
   journeyCard: {
     backgroundColor: CARD_BG,
     borderRadius: 16,
-    padding: 16,
+    padding: 12,
   },
   journeyPhotoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   journeyPhotoPanel: {
     flex: 1,
@@ -587,7 +587,7 @@ const styles = StyleSheet.create({
   journeyCta: {
     backgroundColor: LIME,
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   journeyCtaText: {
