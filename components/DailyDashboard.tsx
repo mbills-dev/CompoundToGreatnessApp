@@ -2157,7 +2157,7 @@ const styles = StyleSheet.create({
   },
   identityModalFooterScript: {
     fontSize: 22,
-    fontFamily: 'Yellowtail',
+    fontFamily: 'Northwell',
     color: '#ccff00',
   },
   activityCardLocked: {

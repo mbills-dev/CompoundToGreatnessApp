@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   },
   signature: {
     fontSize: 26,
-    fontFamily: 'Yellowtail',
+    fontFamily: 'Northwell',
     color: '#CCFF00',
     textAlign: 'center',
     lineHeight: 34,
