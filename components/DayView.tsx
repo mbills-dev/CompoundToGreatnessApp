@@ -221,51 +221,43 @@ export default function DayView({
 
   const nowMinutes = nowTick.getHours() * 60 + nowTick.getMinutes();
 
-  // Timeline time range — extended to include the current time so NOW
-  // is always visible even when it falls outside scheduled activities.
-  const timelineRange = useMemo(() => {
+  // Compressed event-based NOW position.
+  // Clock time determines WHERE in the event sequence NOW belongs.
+  // It does NOT create pixel-proportional gaps for elapsed time.
+  const nowPlacement = useMemo(() => {
     if (timedActivities.length === 0) return null;
     const firstMin = scheduleToMinutes(timedActivities[0].schedule!);
     const lastMin = scheduleToMinutes(timedActivities[timedActivities.length - 1].schedule!);
-    const startMin = Math.min(firstMin, nowMinutes);
-    const endMin = Math.max(lastMin, nowMinutes);
-    if (endMin === startMin) return null;
-    return { startMin, endMin, firstMin, lastMin };
-  }, [timedActivities, nowMinutes]);
 
-  // Number of spacer rows needed after the last activity to reach NOW
-  const spacerRows = useMemo(() => {
-    if (!timelineRange) return 0;
-    if (nowMinutes <= timelineRange.lastMin) return 0;
-    const extraMinutes = nowMinutes - timelineRange.lastMin;
-    // Each row represents at least 30 min of time; use 1 row minimum
-    return Math.max(1, Math.ceil(extraMinutes / 60));
-  }, [timelineRange, nowMinutes]);
+    if (nowMinutes < firstMin) {
+      // BEFORE all activities — place shortly above first row
+      const firstRowCenter = TOP_PADDING + ROW_HEIGHT / 2;
+      return { y: firstRowCenter - 40, insertIndex: 0, isAfterLast: false };
+    }
 
-  // Exact Y pixel for the NOW dot on the extended timeline
-  const nowY = useMemo(() => {
-    if (!timelineRange) return null;
-    const { startMin, endMin } = timelineRange;
-    const ratio = (nowMinutes - startMin) / (endMin - startMin);
-    const totalRows = timedActivities.length + spacerRows;
-    const firstRowCenter = TOP_PADDING + ROW_HEIGHT / 2;
-    const lastRowCenter = TOP_PADDING + (totalRows - 1) * ROW_HEIGHT + ROW_HEIGHT / 2;
-    return firstRowCenter + ratio * (lastRowCenter - firstRowCenter);
-  }, [timelineRange, nowMinutes, timedActivities.length, spacerRows]);
+    if (nowMinutes >= lastMin) {
+      // AFTER all activities — place 64px below the last row
+      const lastRowCenter = TOP_PADDING + (timedActivities.length - 1) * ROW_HEIGHT + ROW_HEIGHT / 2;
+      return { y: lastRowCenter + 64, insertIndex: timedActivities.length, isAfterLast: true };
+    }
 
-  // Collision avoidance: if NOW dot is too close to an activity row center,
-  // offset the NOW text label up or down while keeping the dot at its true position
-  const nowLabelOffset = useMemo(() => {
-    if (nowY === null) return 0;
-    for (let i = 0; i < timedActivities.length; i++) {
-      const rowCenter = TOP_PADDING + i * ROW_HEIGHT + ROW_HEIGHT / 2;
-      const dist = Math.abs(nowY - rowCenter);
-      if (dist < 18) {
-        return nowY > rowCenter ? 22 : -22;
+    // BETWEEN two activities — find the gap it falls into
+    for (let i = 0; i < timedActivities.length - 1; i++) {
+      const currentMin = scheduleToMinutes(timedActivities[i].schedule!);
+      const nextMin = scheduleToMinutes(timedActivities[i + 1].schedule!);
+      if (nowMinutes >= currentMin && nowMinutes < nextMin) {
+        const currentRowCenter = TOP_PADDING + i * ROW_HEIGHT + ROW_HEIGHT / 2;
+        const nextRowCenter = TOP_PADDING + (i + 1) * ROW_HEIGHT + ROW_HEIGHT / 2;
+        return { y: (currentRowCenter + nextRowCenter) / 2, insertIndex: i + 1, isAfterLast: false };
       }
     }
-    return 0;
-  }, [nowY, timedActivities.length]);
+
+    return null;
+  }, [timedActivities, nowMinutes]);
+
+  const nowY = nowPlacement?.y ?? null;
+  const nowInsertIndex = nowPlacement?.insertIndex ?? 0;
+  const nowIsAfterLast = nowPlacement?.isAfterLast ?? false;
 
   // Auto-scroll: position NOW roughly in the upper-middle of the viewport
   useEffect(() => {
@@ -292,7 +284,7 @@ export default function DayView({
     opacity: heroOpacity.value,
   }));
 
-  const showNow = nowY !== null && isToday && timelineRange !== null;
+  const showNow = nowY !== null && isToday && nowPlacement !== null;
 
   return (
     <Modal
@@ -392,39 +384,41 @@ export default function DayView({
                     );
                   })}
 
-                  {/* Spacer rows to extend timeline when NOW is past last activity */}
-                  {spacerRows > 0 && Array.from({ length: spacerRows }).map((_, i) => (
-                    <View key={`spacer-${i}`} style={styles.timelineRow}>
-                      <View style={styles.timeColumn} />
-                      <View style={styles.railColumn}>
-                        <View style={styles.railSpacerConnector} />
-                      </View>
-                      <View style={{ flex: 1, marginLeft: 4 }} />
-                    </View>
-                  ))}
+                  {/* Short rail extension when NOW is after the last activity */}
+                  {showNow && nowIsAfterLast && nowY !== null && (
+                    <View 
+                      style={[
+                        styles.railExtension, 
+                        { 
+                          top: TOP_PADDING + (timedActivities.length - 1) * ROW_HEIGHT + ROW_HEIGHT / 2,
+                          height: nowY - (TOP_PADDING + (timedActivities.length - 1) * ROW_HEIGHT + ROW_HEIGHT / 2),
+                        }
+                      ]} 
+                    />
+                  )}
 
-                  {/* NOW indicator — positioned at the exact Y on the extended timeline */}
+                  {/* NOW indicator — positioned at compressed event Y */}
                   {showNow && nowY !== null && (
                     <View
                       style={[styles.nowIndicator, { top: nowY }]}
                       pointerEvents="none"
                     >
-                      {/* NOW time label — offset vertically if colliding with an activity */}
-                      <Text
-                        style={[styles.nowTimeText, { top: nowLabelOffset - 7 }]}
-                        numberOfLines={1}
-                      >
-                        NOW · {formatCurrentTime(nowTick)}
-                      </Text>
-
                       {/* Glowing dot centered on the rail */}
                       <View style={styles.nowDotContainer}>
                         <View style={styles.nowDotOuter} />
                         <View style={styles.nowDot} />
                       </View>
 
-                      {/* Short lime horizontal line extending right */}
+                      {/* Short lime horizontal line */}
                       <View style={styles.nowLine} />
+
+                      {/* NOW label — after the dot+line, not in the time column */}
+                      <Text
+                        style={styles.nowTimeText}
+                        numberOfLines={1}
+                      >
+                        NOW · {formatCurrentTime(nowTick)}
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -432,7 +426,7 @@ export default function DayView({
 
               {/* ANYTIME TODAY */}
               {anytimeActivities.length > 0 && (
-                <View style={styles.anytimeSection}>
+                <View style={[styles.anytimeSection, showNow && nowIsAfterLast && { paddingTop: 56 }]}>
                   <Text style={styles.anytimeTitle}>ANYTIME TODAY</Text>
                   <View style={styles.anytimeList}>
                     {anytimeActivities.map(activity => {
@@ -691,20 +685,17 @@ const styles = StyleSheet.create({
     zIndex: 10,
     elevation: 10,
   },
-  railSpacerConnector: {
+  railExtension: {
     position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: '50%',
+    left: TIME_COL_W + RAIL_COL_W / 2 - 1,
     width: 2,
-    marginLeft: -1,
     backgroundColor: 'rgba(58,58,58,0.4)',
   },
   nowTimeText: {
     position: 'absolute',
-    left: 0,
-    width: TIME_COL_W - 2,
-    fontSize: 10,
+    left: RAIL_CENTER_X + 32,
+    top: -7,
+    fontSize: 11,
     fontWeight: '800',
     color: LIME,
     letterSpacing: 0.3,
@@ -734,11 +725,11 @@ const styles = StyleSheet.create({
   nowLine: {
     position: 'absolute',
     left: RAIL_CENTER_X + 8,
-    right: 4,
+    width: 22,
     top: -1,
     height: 2,
     backgroundColor: LIME,
-    opacity: 0.5,
+    opacity: 0.6,
   },
   // Anytime
   anytimeSection: {
