@@ -221,24 +221,37 @@ export default function DayView({
 
   const nowMinutes = nowTick.getHours() * 60 + nowTick.getMinutes();
 
-  // NOW position: proportional between first and last activity row centers
-  const nowOffset = useMemo(() => {
-    if (timedActivities.length < 2) return null;
+  // Timeline time range — extended to include the current time so NOW
+  // is always visible even when it falls outside scheduled activities.
+  const timelineRange = useMemo(() => {
+    if (timedActivities.length === 0) return null;
     const firstMin = scheduleToMinutes(timedActivities[0].schedule!);
     const lastMin = scheduleToMinutes(timedActivities[timedActivities.length - 1].schedule!);
-    if (lastMin === firstMin) return null;
-    const ratio = (nowMinutes - firstMin) / (lastMin - firstMin);
-    if (ratio < 0 || ratio > 1) return null;
-    return ratio;
+    const startMin = Math.min(firstMin, nowMinutes);
+    const endMin = Math.max(lastMin, nowMinutes);
+    if (endMin === startMin) return null;
+    return { startMin, endMin, firstMin, lastMin };
   }, [timedActivities, nowMinutes]);
 
-  // Exact Y pixel for the NOW dot on the timeline
+  // Number of spacer rows needed after the last activity to reach NOW
+  const spacerRows = useMemo(() => {
+    if (!timelineRange) return 0;
+    if (nowMinutes <= timelineRange.lastMin) return 0;
+    const extraMinutes = nowMinutes - timelineRange.lastMin;
+    // Each row represents at least 30 min of time; use 1 row minimum
+    return Math.max(1, Math.ceil(extraMinutes / 60));
+  }, [timelineRange, nowMinutes]);
+
+  // Exact Y pixel for the NOW dot on the extended timeline
   const nowY = useMemo(() => {
-    if (nowOffset === null) return null;
+    if (!timelineRange) return null;
+    const { startMin, endMin } = timelineRange;
+    const ratio = (nowMinutes - startMin) / (endMin - startMin);
+    const totalRows = timedActivities.length + spacerRows;
     const firstRowCenter = TOP_PADDING + ROW_HEIGHT / 2;
-    const lastRowCenter = TOP_PADDING + (timedActivities.length - 1) * ROW_HEIGHT + ROW_HEIGHT / 2;
-    return firstRowCenter + nowOffset * (lastRowCenter - firstRowCenter);
-  }, [nowOffset, timedActivities.length]);
+    const lastRowCenter = TOP_PADDING + (totalRows - 1) * ROW_HEIGHT + ROW_HEIGHT / 2;
+    return firstRowCenter + ratio * (lastRowCenter - firstRowCenter);
+  }, [timelineRange, nowMinutes, timedActivities.length, spacerRows]);
 
   // Collision avoidance: if NOW dot is too close to an activity row center,
   // offset the NOW text label up or down while keeping the dot at its true position
@@ -279,7 +292,7 @@ export default function DayView({
     opacity: heroOpacity.value,
   }));
 
-  const showNow = nowY !== null && isToday;
+  const showNow = nowY !== null && isToday && timelineRange !== null;
 
   return (
     <Modal
@@ -379,7 +392,18 @@ export default function DayView({
                     );
                   })}
 
-                  {/* NOW indicator — positioned at the exact proportional Y */}
+                  {/* Spacer rows to extend timeline when NOW is past last activity */}
+                  {spacerRows > 0 && Array.from({ length: spacerRows }).map((_, i) => (
+                    <View key={`spacer-${i}`} style={styles.timelineRow}>
+                      <View style={styles.timeColumn} />
+                      <View style={styles.railColumn}>
+                        <View style={styles.railSpacerConnector} />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 4 }} />
+                    </View>
+                  ))}
+
+                  {/* NOW indicator — positioned at the exact Y on the extended timeline */}
                   {showNow && nowY !== null && (
                     <View
                       style={[styles.nowIndicator, { top: nowY }]}
@@ -664,6 +688,17 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 0,
+    zIndex: 10,
+    elevation: 10,
+  },
+  railSpacerConnector: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: '50%',
+    width: 2,
+    marginLeft: -1,
+    backgroundColor: 'rgba(58,58,58,0.4)',
   },
   nowTimeText: {
     position: 'absolute',
