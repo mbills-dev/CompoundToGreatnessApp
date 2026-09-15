@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View,
   Text,
@@ -107,12 +108,15 @@ export default function CoachCardCarousel({
 
   const milestoneProgress = getMilestoneProgress(challengeDay);
 
-  useEffect(() => {
-    milestoneFill.value = withTiming(milestoneProgress, {
-      duration: 800,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      milestoneFill.value = 0;
+      milestoneFill.value = withTiming(milestoneProgress, {
+        duration: 800,
+        easing: Easing.out(Easing.cubic),
+      });
+    }, [milestoneProgress])
+  );
 
   const triggerScoreAnimation = () => {
     if (hasAnimatedScore) return;
