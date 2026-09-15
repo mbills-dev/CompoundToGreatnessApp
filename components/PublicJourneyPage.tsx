@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChallengeWall from './ChallengeWall';
 import { responsiveStyle } from '@/components/ResponsiveContainer';
 import MonthWall from './MonthWall';
-import { getDateForChallengeDay, getTodayDateString, toLocalDateString, parseLocalDate } from '@/lib/dateHelpers';
+import { getDateForChallengeDay, getTodayDateString, toLocalDateString, parseLocalDate, getDayNumberFromChallengeStart } from '@/lib/dateHelpers';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
 
 interface Activity {
@@ -145,7 +145,7 @@ export default function PublicJourneyPage({ username }: Props) {
         userId: profile.id,
         goalId: goal?.id || '',
         displayName: displayName || profile.display_name || 'This person',
-        currentDay: goal?.current_challenge_day || 0,
+        currentDay: getDayNumberFromChallengeStart(goal?.challenge_start_date ?? null, getTodayDateString()),
         identityStatement: goal?.identity_statement || '',
         goalTitle: goal?.title || 'their 77-day journey',
         lastCompletionDate: goal?.last_completion_date || null,

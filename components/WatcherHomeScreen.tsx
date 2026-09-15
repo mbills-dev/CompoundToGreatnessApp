@@ -16,7 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { computeCurrentStreak } from '@/lib/streakHelpers';
-import { getTodayDateString, toLocalDateString, parseLocalDate } from '@/lib/dateHelpers';
+import { getTodayDateString, toLocalDateString, parseLocalDate, getDayNumberFromChallengeStart } from '@/lib/dateHelpers';
 import { awardEncouragementBadge } from '@/lib/badgeHelpers';
 import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
 import EncourageModal from '@/components/EncourageModal';
@@ -129,7 +129,7 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
           .maybeSingle(),
         supabase
           .from('goals')
-          .select('id, title, identity_statement, current_challenge_day, last_completion_date, share_full_journey, best_streak, scheduled_start_date')
+          .select('id, title, identity_statement, current_challenge_day, last_completion_date, share_full_journey, best_streak, scheduled_start_date, challenge_start_date')
           .eq('user_id', watchedId)
           .eq('is_active', true)
           .maybeSingle(),
@@ -207,7 +207,7 @@ export default function WatcherHomeScreen({ watcherId, watchedId, onSignOut, onS
 
       setWatched({
         displayName: displayName || 'Your person',
-        currentDay: goalRes.data?.current_challenge_day || 0,
+        currentDay: getDayNumberFromChallengeStart(goalRes.data?.challenge_start_date ?? null, getTodayDateString()),
         identityStatement: goalRes.data?.identity_statement || '',
         goalTitle: goalRes.data?.title || 'their journey',
         streak: realStreak,
