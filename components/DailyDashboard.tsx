@@ -298,13 +298,21 @@ export default function DailyDashboard({
     const interval = setInterval(() => {
       setDayDisplayText(String(Math.round(dayAnim.value)));
     }, 16);
+    let hapticInterval: ReturnType<typeof setInterval> | null = null;
+    if (Haptics) {
+      hapticInterval = setInterval(() => {
+        try { Haptics.selectionAsync(); } catch {}
+      }, 90);
+    }
     const stopTimer = setTimeout(() => {
       clearInterval(interval);
+      if (hapticInterval) clearInterval(hapticInterval);
       setDayDisplayText(String(displayDay));
       setHasAnimatedDay(true);
     }, 950);
     return () => {
       clearInterval(interval);
+      if (hapticInterval) clearInterval(hapticInterval);
       clearTimeout(stopTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
