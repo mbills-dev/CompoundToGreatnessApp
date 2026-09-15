@@ -2,6 +2,7 @@ import { View, Platform } from 'react-native';
 import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Users } from 'lucide-react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -47,6 +48,8 @@ function TabLayoutInner() {
   const { visible } = useTabBarVisibility();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
+  const BAR_CONTENT_HEIGHT = 50;
 
   useEffect(() => {
     if (!user?.id) return;
@@ -128,11 +131,11 @@ function TabLayoutInner() {
               ? 'rgba(255, 255, 255, 0.08)'
               : 'rgba(0, 0, 0, 0.08)',
 
-            // Slightly leaner than the current 90px bar.
-            // Keep enough room for the iPhone safe area.
-            height: 84,
+            // Content height (icon + label) plus whatever this specific
+            // device's real bottom safe-area inset is — not a guessed number.
+            height: BAR_CONTENT_HEIGHT + insets.bottom,
             paddingTop: 8,
-            paddingBottom: 26,
+            paddingBottom: insets.bottom,
 
             display: visible ? 'flex' : 'none',
 
