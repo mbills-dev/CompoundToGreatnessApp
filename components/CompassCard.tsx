@@ -7,13 +7,6 @@ import {
   Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withDelay,
-  Easing,
-} from 'react-native-reanimated';
 import { Compass, X, ChevronRight, Check, Minus, Star } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -28,27 +21,15 @@ export default function CompassCard({ declaration, filterQuestion, onLockedInter
   const { colors, isDark } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
 
-  const modalOpacity = useSharedValue(0);
-  const modalScale = useSharedValue(0.9);
-
   const openModal = () => {
     if (onLockedInteraction) { onLockedInteraction(); return; }
     setModalVisible(true);
-    modalOpacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.ease) });
-    modalScale.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.back(1.2)) });
   };
 
   const closeModal = () => {
     if (onLockedInteraction) { onLockedInteraction(); return; }
-    modalOpacity.value = withTiming(0, { duration: 200 });
-    modalScale.value = withTiming(0.9, { duration: 200 });
-    setTimeout(() => setModalVisible(false), 220);
+    setModalVisible(false);
   };
-
-  const modalContentStyle = useAnimatedStyle(() => ({
-    opacity: modalOpacity.value,
-    transform: [{ scale: modalScale.value }],
-  }));
 
   return (
     <>
@@ -83,11 +64,11 @@ export default function CompassCard({ declaration, filterQuestion, onLockedInter
       <Modal
         visible={modalVisible}
         transparent
-        animationType="none"
+        animationType="slide"
+        statusBarTranslucent
         onRequestClose={closeModal}
       >
         <View style={styles.modalOverlay}>
-          <Animated.View style={[styles.modalContent, modalContentStyle]}>
             <View style={[styles.modalInner, {
               backgroundColor: isDark ? '#121212' : '#1A1A1A',
               borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.08)',
@@ -159,7 +140,6 @@ export default function CompassCard({ declaration, filterQuestion, onLockedInter
                 Better Inputs.{'\n'}A Greater You.
               </Text>
             </View>
-          </Animated.View>
         </View>
       </Modal>
     </>
@@ -226,20 +206,16 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 400,
+    justifyContent: 'flex-end',
   },
   modalInner: {
-    borderRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     borderWidth: 1,
     padding: 24,
     paddingTop: 14,
-    paddingBottom: 20,
+    paddingBottom: 40,
+    maxHeight: '85%',
     position: 'relative',
   },
   closeButton: {
