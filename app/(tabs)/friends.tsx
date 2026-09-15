@@ -10,6 +10,7 @@ import {
   Image,
   FlatList,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Swipeable, PanGestureHandler, State } from 'react-native-gesture-handler';
@@ -772,18 +773,31 @@ export default function FriendsScreen() {
       animationType="slide"
       onRequestClose={() => setShowAddFriendModal(false)}
     >
-      <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setShowAddFriendModal(false)}>
-        <View style={[styles.addFriendSheet, { backgroundColor: colors.card }]} onStartShouldSetResponder={() => true}>
-          <Text style={[styles.addFriendSheetTitle, { color: colors.text }]}>ADD A FRIEND</Text>
-          <TextInput
-            style={[styles.addFriendInput, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border, color: colors.text }]}
-            placeholder="Enter username"
-            placeholderTextColor={colors.textTertiary}
-            value={searchUsername}
-            onChangeText={setSearchUsername}
-            autoCapitalize="none"
-            autoFocus
-          />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <TouchableOpacity
+          style={[styles.menuOverlay, StyleSheet.absoluteFillObject]}
+          activeOpacity={1}
+          onPress={() => setShowAddFriendModal(false)}
+        />
+        <View style={styles.addFriendOverlayCenter} pointerEvents="box-none">
+          <View style={[styles.addFriendSheet, { backgroundColor: colors.card }]}>
+            <Text style={[styles.addFriendSheetTitle, { color: colors.text }]}>ADD A FRIEND</Text>
+            <TextInput
+              style={[styles.addFriendInput, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border, color: colors.text }]}
+              placeholder="Enter username"
+              placeholderTextColor={colors.textTertiary}
+              value={searchUsername}
+              onChangeText={setSearchUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="off"
+              returnKeyType="search"
+              keyboardAppearance={isDark ? 'dark' : 'light'}
+              autoFocus
+            />
           {searching ? (
             <View style={styles.searchLoadingRow}>
               <ActivityIndicator size="small" color={colors.primary} />
@@ -819,8 +833,9 @@ export default function FriendsScreen() {
               ))}
             </View>
           ) : null}
+          </View>
         </View>
-      </TouchableOpacity>
+      </KeyboardAvoidingView>
     </Modal>
 
     {burstPreview && (
@@ -1477,6 +1492,12 @@ const styles = StyleSheet.create({
     padding: 20,
     width: '100%',
     maxWidth: 380,
+  },
+  addFriendOverlayCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
   },
   addFriendSheetTitle: {
     fontSize: 12,
