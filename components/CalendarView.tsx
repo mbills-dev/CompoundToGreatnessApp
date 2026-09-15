@@ -487,7 +487,7 @@ export default function CalendarView({ goal: initialGoal }: CalendarViewProps) {
         colors={gradientColors}
         style={styles.gradient}
       >
-        <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           {isCompleted ? (
             <View style={[styles.completedBadge, { borderColor: colors.error }]}>
               <Text style={[styles.completedText, { color: colors.error }]}>COMPLETED</Text>
