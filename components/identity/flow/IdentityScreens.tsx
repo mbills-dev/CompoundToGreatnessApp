@@ -45,9 +45,8 @@ export function formatTargetDisplay(raw: string): string {
 function buildNumericFallbackSentence(lock: LockedGoal): string | null {
   if (!lock.resolvedTargetStr) return null;
   const source = (lock.originalGoalLabel ?? lock.goalLabel).trim();
-  const match = source.match(/^(\w+)/);
-  if (!match) return null;
-  const verb = match[1].toLowerCase();
+  const match = source.match(/^([A-Za-z]+)/);
+  const verb = match ? match[1].toLowerCase() : 'have';
   const suffix = lock.periodSuffix ?? 'month';
   const target = formatTargetDisplay(lock.resolvedTargetStr);
   return `I ${verb} ${target}/${suffix}, consistently.`;
