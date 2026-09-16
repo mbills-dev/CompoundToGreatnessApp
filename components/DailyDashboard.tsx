@@ -235,6 +235,7 @@ export default function DailyDashboard({
     targetIndex: null,
   });
   const [confettiCompleted, setConfettiCompleted] = useState(false);
+  const [badgeAnimationReady, setBadgeAnimationReady] = useState(false);
   const [reactionBursts, setReactionBursts] = useState<ReactionGroup[]>([]);
   const isFocusedRef = useRef(true);
   const playedCountRef = useRef(0);
@@ -508,6 +509,7 @@ export default function DailyDashboard({
   useEffect(() => {
     if (progress < 100) {
       setConfettiCompleted(false);
+      setBadgeAnimationReady(false);
     }
   }, [progress]);
 
@@ -760,6 +762,7 @@ export default function DailyDashboard({
       setCompletion(null);
       setCompletedActivities([]);
       setConfettiCompleted(false);
+      setBadgeAnimationReady(false);
       setEditMode(false);
       setLoading(true);
       loadTodayCompletion();
@@ -898,10 +901,15 @@ export default function DailyDashboard({
 
         triggerHaptics();
         triggerRacingBorder(() => {
-          scrollViewRef.current?.scrollToEnd({ animated: true });
-          setTimeout(() => {
-            setConfettiCompleted(true);
-          }, 600);
+          setConfettiCompleted(true);
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              scrollViewRef.current?.scrollToEnd({ animated: true });
+              setTimeout(() => {
+                setBadgeAnimationReady(true);
+              }, 450);
+            }, 50);
+          });
           const newDay = updates.current_challenge_day ?? goal.current_challenge_day;
           if (newDay >= 77 && !goal.celebration_seen && goal.challenge_phase === 'challenge') {
             setTimeout(() => {
@@ -1303,6 +1311,7 @@ export default function DailyDashboard({
                 isMilestone={MILESTONE_DAYS.includes(displayDay)}
                 variant={isKeepGoing ? 'keepGoing' : 'challenge'}
                 streak={streak}
+                animate={badgeAnimationReady}
               />
             )}
           </View>

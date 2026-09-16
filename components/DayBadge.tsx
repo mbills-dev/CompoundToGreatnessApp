@@ -23,13 +23,15 @@ interface DayBadgeProps {
   isMilestone: boolean;
   variant?: 'challenge' | 'keepGoing';
   streak?: number;
+  animate?: boolean;
 }
 
-export function DayBadge({ day, isMilestone, variant = 'challenge', streak = 0 }: DayBadgeProps) {
+export function DayBadge({ day, isMilestone, variant = 'challenge', streak = 0, animate = true }: DayBadgeProps) {
   const scale = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (!animate) return;
     Animated.spring(scale, {
       toValue: 1,
       friction: 5,
@@ -41,7 +43,7 @@ export function DayBadge({ day, isMilestone, variant = 'challenge', streak = 0 }
       duration: 200,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [animate]);
 
   const shieldPath = 'M55 4 L100 20 L100 58 C100 80 80 97 55 108 C30 97 10 80 10 58 L10 20 Z';
   const innerRing1 = 'M55 12 L92 26 L92 58 C92 76 74 91 55 101 C36 91 18 76 18 58 L18 26 Z';
