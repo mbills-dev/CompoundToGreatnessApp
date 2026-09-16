@@ -28,6 +28,7 @@ import CoachCard from './CoachCard';
 
 const LIME = '#CCFF00';
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const CARD_WIDTH = SCREEN_WIDTH - 48; // matches heroSection's 24px padding on each side in DailyDashboard.tsx
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const TOTAL_CURVE_DAYS = 77;
 
@@ -142,7 +143,7 @@ export default function CoachCardCarousel({
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = event.nativeEvent.contentOffset.x;
-    const panel = Math.round(x / SCREEN_WIDTH);
+    const panel = Math.round(x / CARD_WIDTH);
     if (panel !== activePanel) {
       setActivePanel(panel);
       if (panel === 1) {
@@ -152,7 +153,7 @@ export default function CoachCardCarousel({
   };
 
   const scrollToPanel = (panel: number) => {
-    scrollRef.current?.scrollTo({ x: panel * SCREEN_WIDTH, animated: true });
+    scrollRef.current?.scrollTo({ x: panel * CARD_WIDTH, animated: true });
   };
 
   // Score display text
@@ -454,7 +455,7 @@ const styles = StyleSheet.create({
     height: CARD_HEIGHT,
   },
   panel: {
-    width: SCREEN_WIDTH,
+    width: CARD_WIDTH,
     height: CARD_HEIGHT,
     overflow: 'hidden',
   },
