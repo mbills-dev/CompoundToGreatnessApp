@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, ImageBackground } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,78 +14,81 @@ export default function WelcomePathChooser({
 
   return (
     <View style={styles.container}>
-      <ImageBackground
+      {/* Background image — contain preserves full vertical composition */}
+      <Image
         source={require('@/assets/images/CTG-Onboarding-Hero-Mountain.png')}
+        style={styles.backgroundImage}
+        resizeMode="contain"
+      />
+
+      {/* Cinematic gradient overlay (independent of image sizing) */}
+      <LinearGradient
+        colors={[
+          'rgba(0,0,0,0.82)',
+          'rgba(0,0,0,0.35)',
+          'rgba(0,0,0,0.15)',
+          'rgba(0,0,0,0.55)',
+          'rgba(0,0,0,0.92)',
+        ]}
+        locations={[0, 0.25, 0.45, 0.75, 1]}
         style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
+      />
+
+      <View
+        style={[
+          styles.content,
+          { paddingTop: insets.top + 52, paddingBottom: insets.bottom + 28 },
+        ]}
       >
-        {/* Cinematic gradient: dark top for legibility, clear middle to show
-            the mountain/person, dark bottom behind the CTA */}
-        <LinearGradient
-          colors={[
-            'rgba(0,0,0,0.82)',
-            'rgba(0,0,0,0.35)',
-            'rgba(0,0,0,0.15)',
-            'rgba(0,0,0,0.55)',
-            'rgba(0,0,0,0.92)',
-          ]}
-          locations={[0, 0.25, 0.45, 0.75, 1]}
-          style={StyleSheet.absoluteFillObject}
-        />
-
-        <View
-          style={[
-            styles.content,
-            { paddingTop: insets.top + 52, paddingBottom: insets.bottom + 28 },
-          ]}
-        >
-          {/* Logo mark */}
-          <View style={styles.logoWrap}>
-            <Image
-              source={require('@/assets/images/logo-mark.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </View>
-
-          {/* Hero copy */}
-          <View style={styles.hero}>
-            <Text style={styles.headline}>
-              <Text style={styles.headlineWhite}>YOU ARE CALLED{'\n'}</Text>
-              <Text style={styles.headlineLime}>TO MORE.</Text>
-            </Text>
-            <Text style={styles.subheadline}>Unlock your greatness.</Text>
-          </View>
-
-          {/* CTA area */}
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={onStartNew}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.primaryText}>Let's begin →</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={onSignIn}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.secondaryText}>
-                Already have an account?{' '}
-                <Text style={styles.secondaryLink}>Sign in</Text>
-              </Text>
-            </TouchableOpacity>
-          </View>
+        {/* Logo mark */}
+        <View style={styles.logoWrap}>
+          <Image
+            source={require('@/assets/images/logo-mark.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
         </View>
-      </ImageBackground>
+
+        {/* Hero copy */}
+        <View style={styles.hero}>
+          <Text style={styles.headline}>
+            <Text style={styles.headlineWhite}>YOU ARE CALLED{'\n'}</Text>
+            <Text style={styles.headlineLime}>TO MORE.</Text>
+          </Text>
+          <Text style={styles.subheadline}>Unlock your greatness.</Text>
+        </View>
+
+        {/* CTA area */}
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={onStartNew}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.primaryText}>Let's begin →</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={onSignIn}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.secondaryText}>
+              Already have an account?{' '}
+              <Text style={styles.secondaryLink}>Sign in</Text>
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
+  container: { flex: 1, backgroundColor: '#050505' },
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
   content: {
     flex: 1,
     justifyContent: 'space-between',
@@ -122,11 +125,11 @@ const styles = StyleSheet.create({
   },
   subheadline: {
     fontFamily: 'Inter-Bold',
-    fontSize: 17,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.8)',
+    fontSize: 14,
+    fontWeight: '400',
+    color: 'rgba(255,255,255,0.55)',
     textAlign: 'center',
-    marginTop: 16,
+    marginTop: 14,
     letterSpacing: 0.3,
   },
   actions: {
