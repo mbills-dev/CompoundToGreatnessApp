@@ -258,11 +258,11 @@ export default function InputsConceptScreen({ onContinue }: Props) {
           {/* Goal card — lime-bordered container, moves up as headline collapses */}
           <Animated.View style={[styles.goalCard, goalStyle]}>
             <Text style={styles.goalLabel}>GOAL</Text>
-            <Text style={[styles.goalText, { fontSize: goalTextSize }]}>LOSE 20 LBS.</Text>
+            <Text style={[styles.goalText, { fontSize: goalTextSize, color: LIME }]}>LOSE 20 LBS.</Text>
           </Animated.View>
 
           {/* Inputs headline — wrapper expands on tap, fills space below goal */}
-          <Animated.View style={inputsWrapStyle} pointerEvents="none">
+          <Animated.View style={[inputsWrapStyle, { marginTop: 36 }]} pointerEvents="none">
             <Animated.View style={[styles.headlineCenter, inputsStyle]}>
               <Text style={[styles.headline2, { fontSize: headline2Size }]}>
                 <Text style={styles.textWhite}>FOCUS ON THE{'\n'}</Text>
@@ -281,7 +281,7 @@ export default function InputsConceptScreen({ onContinue }: Props) {
                 style={styles.breakDownTouch}
               >
                 <Animated.View style={breakDownArrowStyle}>
-                  <Text style={styles.arrow}>↓</Text>
+                  <Text style={styles.arrowLime}>↓</Text>
                 </Animated.View>
                 <Text style={styles.reverseLabel}>BREAK IT DOWN</Text>
               </TouchableOpacity>
@@ -291,7 +291,7 @@ export default function InputsConceptScreen({ onContinue }: Props) {
           {/* Reverse engineer label — Phase 2 */}
           {brokenDown && (
             <Animated.View style={[styles.reverseWrap, reverseStyle]}>
-              <Text style={styles.arrow}>↓</Text>
+              <Text style={styles.arrowLime}>↓</Text>
               <Text style={styles.reverseLabel}>REVERSE ENGINEER</Text>
             </Animated.View>
           )}
@@ -315,7 +315,7 @@ export default function InputsConceptScreen({ onContinue }: Props) {
           {brokenDown && (
             <>
               <Animated.View style={[styles.stackArrowWrap, stackArrowStyle]}>
-                <Text style={styles.arrow}>↓</Text>
+                <Text style={styles.arrowLime}>↓</Text>
               </Animated.View>
 
               <Animated.View style={[styles.stackCard, stackStyle, stackBorderStyle]}>
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     color: LIME,
   },
   goalCard: {
-    width: '100%',
+    width: '82%',
     backgroundColor: GOAL_BG,
     borderRadius: 12,
     borderWidth: 1,
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
   goalText: {
     fontFamily: 'Inter-Black',
     fontWeight: '900',
-    color: WHITE,
+    color: LIME,
     letterSpacing: 0.3,
   },
   breakDownWrap: {
@@ -432,6 +432,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Black',
     fontSize: 18,
     color: MUTED,
+    marginBottom: 2,
+  },
+  arrowLime: {
+    fontFamily: 'Inter-Black',
+    fontSize: 18,
+    color: LIME,
     marginBottom: 2,
   },
   reverseLabel: {
