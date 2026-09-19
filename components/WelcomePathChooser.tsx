@@ -14,11 +14,10 @@ export default function WelcomePathChooser({
 
   return (
     <View style={styles.container}>
-      {/* Background image — contain preserves full vertical composition */}
       <Image
         source={require('@/assets/images/CTG-Onboarding-Hero-Mountain.png')}
-        style={styles.backgroundImage}
-        resizeMode="contain"
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+        resizeMode="stretch"
       />
 
       {/* Cinematic gradient overlay (independent of image sizing) */}
@@ -86,9 +85,6 @@ export default function WelcomePathChooser({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#050505' },
-  backgroundImage: {
-    ...StyleSheet.absoluteFillObject,
-  },
   content: {
     flex: 1,
     justifyContent: 'space-between',
