@@ -11,7 +11,6 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import Svg, { Path, Circle, Line, Defs, Filter, Text as SvgText, Rect, ClipPath } from 'react-native-svg';
-import type { SharedValue } from 'react-native-reanimated';
 
 const LIME = '#CCFF00';
 const WHITE = '#FFFFFF';
@@ -42,7 +41,8 @@ function curvePoint(
 ) {
   const usableH = graphH - padTop - padBottom;
   const x = padX + progress * (graphW - 2 * padX);
-  const yNorm = (Math.exp(3.2 * progress) - 1) / (Math.exp(3.2) - 1);
+  // Steeper exponential for more dramatic "explosion" at the end
+  const yNorm = (Math.exp(4.0 * progress) - 1) / (Math.exp(4.0) - 1);
   const y = padTop + usableH - yNorm * usableH;
   return { x, y };
 }
@@ -54,8 +54,8 @@ export default function CompoundingScreen({ onContinue }: Props) {
   const isSmall = width <= 375;
   const isNarrowHeight = height < 700;
 
-  const topPad = insets.top + (isNarrowHeight ? 10 : 16);
-  const bottomPad = insets.bottom + 12;
+  const topPad = insets.top + (isNarrowHeight ? 8 : 14);
+  const bottomPad = insets.bottom + 28;
   const maxContentWidth = 480;
   const pageWidth = Math.min(width, maxContentWidth);
 
@@ -73,7 +73,8 @@ export default function CompoundingScreen({ onContinue }: Props) {
   // React state for SVG animation (curve draw + milestones)
   const [curveProgress, setCurveProgress] = useState(0);
   const [visibleMilestones, setVisibleMilestones] = useState(0);
-  const [fullReveal, setFullReveal] = useState(false);
+
+  const visibleMilestonesRef = React.useRef(0);
 
   useEffect(() => {
     // 0.0s — headline visible
@@ -103,8 +104,6 @@ export default function CompoundingScreen({ onContinue }: Props) {
 
       if (t < 1) {
         curveRaf = requestAnimationFrame(animateCurve);
-      } else {
-        setFullReveal(true);
       }
     };
     const curveTimer = setTimeout(() => {
@@ -130,18 +129,19 @@ export default function CompoundingScreen({ onContinue }: Props) {
     };
   }, []);
 
-  const visibleMilestonesRef = React.useRef(0);
-
-  // Graph dimensions
-  const graphW = Math.min(pageWidth - 52, 380);
-  const graphH = isNarrowHeight ? 150 : isSmall ? 170 : 190;
+  // ─── Responsive graph dimensions ───
+  // Graph occupies ~40% of viewport height
+  const availH = height - topPad - bottomPad;
+  const graphH = Math.round(availH * (isNarrowHeight ? 0.32 : 0.36));
+  const graphW = Math.min(pageWidth - 48, 380);
   const padX = 28;
-  const padTop = 18;
+  const padTop = 20;
   const padBottom = 26;
+  const graphTotalH = graphH + 20; // +20 for day labels
 
   // Build the full SVG path for the curve
   const fullPath = useMemo(() => {
-    const steps = 60;
+    const steps = 80;
     let d = '';
     for (let i = 0; i <= steps; i++) {
       const t = i / steps;
@@ -164,6 +164,17 @@ export default function CompoundingScreen({ onContinue }: Props) {
   // Clip width for curve draw animation
   const clipW = padX + curveProgress * (graphW - 2 * padX) + 6;
 
+  // ─── Annotation positions (contextual to curve) ───
+  // "This is where most people quit." — near early flat portion (left, below curve)
+  const quitTop = milestonePos[0].y + 18;
+  const quitLeft = milestonePos[0].x - 18;
+  // "Keep going." — middle where curve accelerates (left-center, above curve)
+  const keepTop = Math.max(milestonePos[2].y - 38, 4);
+  const keepLeft = milestonePos[2].x - 50;
+  // "GREATNESS COMPOUNDS." — near Day 77 endpoint (upper-right)
+  const greatnessTop = Math.max(milestonePos[3].y - 52, 2);
+  const greatnessRight = graphW - milestonePos[3].x + 4;
+
   const headlineStyle = useAnimatedStyle(() => ({ opacity: headlineOpacity.value }));
   const subStyle = useAnimatedStyle(() => ({ opacity: subOpacity.value }));
   const quitStyle = useAnimatedStyle(() => ({ opacity: quitOpacity.value }));
@@ -176,6 +187,8 @@ export default function CompoundingScreen({ onContinue }: Props) {
   const challengeSubStyle = useAnimatedStyle(() => ({ opacity: challengeSubOpacity.value }));
   const ctaAnimatedStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
 
+  const challengeFontSize = isNarrowHeight ? 36 : isSmall ? 38 : 40;
+
   return (
     <View style={styles.container}>
       <View
@@ -183,7 +196,7 @@ export default function CompoundingScreen({ onContinue }: Props) {
           styles.content,
           { paddingTop: topPad, paddingBottom: bottomPad, maxWidth: maxContentWidth, alignSelf: 'center' },
         ]}>
-        {/* Hero */}
+        {/* ─── HERO (~15%) ─── */}
         <Animated.View style={[styles.heroWrap, headlineStyle]}>
           <Text style={styles.headline}>
             <Text style={styles.textWhite}>SMALL INPUTS.</Text>
@@ -195,117 +208,129 @@ export default function CompoundingScreen({ onContinue }: Props) {
           <Text style={styles.subText}>Do your Success Stack. Every day.</Text>
         </Animated.View>
 
-        {/* Compounding Graph */}
-        <View style={[styles.graphWrap, { width: graphW, height: graphH + 20 }]}>
-          <Svg width={graphW} height={graphH + 20}>
-            <Defs>
-              <Filter id="limeGlow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="3" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </Filter>
-              <ClipPath id="curveClip">
-                <Rect x={0} y={0} width={clipW} height={graphH + 20} />
-              </ClipPath>
-            </Defs>
+        {/* ─── GRAPH (~40%) — the hero visual ─── */}
+        <View style={styles.graphSection}>
+          <View style={[styles.graphWrap, { width: graphW, height: graphTotalH }]}>
+            <Svg width={graphW} height={graphTotalH}>
+              <Defs>
+                <Filter id="limeGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </Filter>
+                <ClipPath id="curveClip">
+                  <Rect x={0} y={0} width={clipW} height={graphTotalH} />
+                </ClipPath>
+              </Defs>
 
-            {/* Baseline */}
-            <Line
-              x1={padX}
-              y1={graphH - padBottom}
-              x2={graphW - padX}
-              y2={graphH - padBottom}
-              stroke="rgba(255,255,255,0.06)"
-              strokeWidth={1}
-            />
+              {/* Baseline */}
+              <Line
+                x1={padX}
+                y1={graphH - padBottom}
+                x2={graphW - padX}
+                y2={graphH - padBottom}
+                stroke="rgba(255,255,255,0.06)"
+                strokeWidth={1}
+              />
 
-            {/* Animated exponential curve (clipped for draw effect) */}
-            <Path
-              d={fullPath}
-              stroke={LIME}
-              strokeWidth={2.5}
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              filter="url(#limeGlow)"
-              clipPath="url(#curveClip)"
-            />
+              {/* Animated exponential curve (clipped for draw effect) */}
+              <Path
+                d={fullPath}
+                stroke={LIME}
+                strokeWidth={2.5}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                filter="url(#limeGlow)"
+                clipPath="url(#curveClip)"
+              />
 
-            {/* Milestone dots */}
-            {milestonePos.map((m, i) =>
-              visibleMilestones > i ? (
-                <Circle
-                  key={`dot-${m.day}`}
-                  cx={m.x}
-                  cy={m.y}
-                  r={i === 3 ? 5 : 3.5}
-                  fill={i === 3 ? LIME : WHITE}
-                  stroke={LIME}
-                  strokeWidth={1.5}
-                />
-              ) : null,
-            )}
+              {/* Milestone dots */}
+              {milestonePos.map((m, i) =>
+                visibleMilestones > i ? (
+                  <Circle
+                    key={`dot-${m.day}`}
+                    cx={m.x}
+                    cy={m.y}
+                    r={i === 3 ? 5 : 3.5}
+                    fill={i === 3 ? LIME : WHITE}
+                    stroke={LIME}
+                    strokeWidth={1.5}
+                  />
+                ) : null,
+              )}
 
-            {/* Day labels along bottom */}
-            {milestonePos.map((m, i) =>
-              visibleMilestones > i ? (
-                <SvgText
-                  key={`label-${m.day}`}
-                  x={m.x}
-                  y={graphH - padBottom + 16}
-                  fontSize={9}
-                  fill={MUTED}
-                  fontFamily="Inter-Bold"
-                  fontWeight="700"
-                  textAnchor="middle">
-                  {m.label}
-                </SvgText>
-              ) : null,
-            )}
-          </Svg>
+              {/* Day labels along bottom */}
+              {milestonePos.map((m, i) =>
+                visibleMilestones > i ? (
+                  <SvgText
+                    key={`label-${m.day}`}
+                    x={m.x}
+                    y={graphH - padBottom + 16}
+                    fontSize={9}
+                    fill={MUTED}
+                    fontFamily="Inter-Bold"
+                    fontWeight="700"
+                    textAnchor="middle">
+                    {m.label}
+                  </SvgText>
+                ) : null,
+              )}
+            </Svg>
 
-          {/* Handwritten annotations overlay */}
-          <Animated.View style={[styles.annotationQuit, quitStyle]} pointerEvents="none">
-            <Text style={styles.handwrittenText}>This is where</Text>
-            <Text style={styles.handwrittenText}>most people quit.</Text>
-            <Text style={styles.handwrittenArrow}>↘</Text>
+            {/* Handwritten annotations — positioned contextually around curve */}
+            <Animated.View
+              style={[styles.annotationQuit, { top: quitTop, left: quitLeft }, quitStyle]}
+              pointerEvents="none">
+              <Text style={styles.handwrittenText}>This is where</Text>
+              <Text style={styles.handwrittenText}>most people quit.</Text>
+              <Text style={styles.handwrittenArrow}>↗</Text>
+            </Animated.View>
+
+            <Animated.View
+              style={[styles.annotationKeep, { top: keepTop, left: keepLeft }, keepGoingStyle]}
+              pointerEvents="none">
+              <Text style={styles.handwrittenText}>Keep going.</Text>
+              <Text style={styles.handwrittenArrowDown}>↓</Text>
+            </Animated.View>
+
+            <Animated.View
+              style={[styles.annotationGreatness, { top: greatnessTop, right: greatnessRight }, greatnessStyle]}
+              pointerEvents="none">
+              <Text style={[styles.handwrittenTextLime, { fontSize: 15 }]}>GREATNESS</Text>
+              <Text style={[styles.handwrittenTextLime, { fontSize: 15 }]}>COMPOUNDS.</Text>
+              <Text style={styles.handwrittenArrowDown}>↓</Text>
+            </Animated.View>
+          </View>
+        </View>
+
+        {/* ─── 77 DAY CHALLENGE reveal (~25%) — second major visual moment ─── */}
+        <View style={styles.challengeSection}>
+          <Animated.View style={[styles.challengeWrap, challengeStyle]}>
+            <Text style={styles.theLabel}>THE</Text>
+            <Text style={[styles.challengeHeadline, { fontSize: challengeFontSize }]}>
+              <Text style={styles.textLime}>77 DAY</Text>
+              {'\n'}
+              <Text style={styles.textWhite}>CHALLENGE</Text>
+            </Text>
           </Animated.View>
-
-          <Animated.View style={[styles.annotationKeep, keepGoingStyle]} pointerEvents="none">
-            <Text style={styles.handwrittenText}>Keep going.</Text>
-            <Text style={styles.handwrittenArrowDown}>↓</Text>
-          </Animated.View>
-
-          <Animated.View style={[styles.annotationGreatness, greatnessStyle]} pointerEvents="none">
-            <Text style={[styles.handwrittenTextLime, { fontSize: 14 }]}>GREATNESS</Text>
-            <Text style={[styles.handwrittenTextLime, { fontSize: 14 }]}>COMPOUNDS.</Text>
-            <Text style={styles.handwrittenArrowDown}>↓</Text>
+          <Animated.View style={[styles.challengeSubWrap, challengeSubStyle]}>
+            <Text style={styles.challengeSub}>77 days. Your Success Stack. Every day.</Text>
+            <Text style={styles.challengeMuted}>Long enough to build proof.</Text>
+            <Text style={styles.challengeMuted}>Short enough to start today.</Text>
           </Animated.View>
         </View>
 
-        {/* 77 Day Challenge reveal */}
-        <Animated.View style={[styles.challengeWrap, challengeStyle]}>
-          <Text style={styles.theLabel}>THE</Text>
-          <Text style={styles.challengeHeadline}>
-            <Text style={styles.textLime}>77 DAY</Text>
-            {'\n'}
-            <Text style={styles.textWhite}>CHALLENGE</Text>
-          </Text>
-        </Animated.View>
-        <Animated.View style={challengeSubStyle}>
-          <Text style={styles.challengeSub}>77 days. Your Success Stack. Every day.</Text>
-          <Text style={styles.challengeMuted}>Long enough to build proof.</Text>
-          <Text style={styles.challengeMuted}>Short enough to start today.</Text>
-        </Animated.View>
-
-        {/* CTA */}
-        <Animated.View style={[styles.ctaWrap, ctaAnimatedStyle]}>
-          <TouchableOpacity style={styles.primaryButton} onPress={onContinue} activeOpacity={0.85}>
-            <Text style={styles.primaryText}>Show me how →</Text>
-          </TouchableOpacity>
-        </Animated.View>
+        {/* ─── CTA (~15-20%) — anchored to bottom with intentional breathing room ─── */}
+        <View style={styles.ctaSection}>
+          <Animated.View style={[styles.ctaWrap, ctaAnimatedStyle]}>
+            <TouchableOpacity style={styles.primaryButton} onPress={onContinue} activeOpacity={0.85}>
+              <Text style={styles.primaryText}>Show me how →</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
       </View>
     </View>
   );
@@ -320,11 +345,12 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
   },
+  // Hero
   heroWrap: {
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 2,
   },
   headline: {
     fontFamily: 'Inter-Black',
@@ -349,46 +375,48 @@ const styles = StyleSheet.create({
     marginTop: 8,
     letterSpacing: 0.2,
   },
+  // Graph section
+  graphSection: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
   graphWrap: {
-    marginTop: 10,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
+  // Annotations
   annotationQuit: {
     position: 'absolute',
-    top: 0,
-    left: 0,
     alignItems: 'flex-start',
   },
   annotationKeep: {
     position: 'absolute',
-    top: 35,
-    left: '36%',
     alignItems: 'flex-start',
   },
   annotationGreatness: {
     position: 'absolute',
-    top: 0,
-    right: 0,
     alignItems: 'flex-end',
   },
   handwrittenText: {
     fontFamily: 'Northwell',
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
-    lineHeight: 16,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.75)',
+    lineHeight: 17,
   },
   handwrittenTextLime: {
     fontFamily: 'Northwell',
     color: LIME,
-    lineHeight: 16,
+    lineHeight: 18,
   },
   handwrittenArrow: {
     fontFamily: 'Northwell',
     fontSize: 16,
     color: 'rgba(255,255,255,0.5)',
-    marginLeft: 20,
+    marginLeft: 4,
     marginTop: -2,
   },
   handwrittenArrowDown: {
@@ -397,25 +425,32 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     marginTop: -2,
   },
+  // Challenge section
+  challengeSection: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
   challengeWrap: {
     alignItems: 'center',
-    marginTop: 6,
   },
   theLabel: {
     fontFamily: 'Inter-Bold',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
     color: MUTED,
-    letterSpacing: 2.5,
-    marginBottom: 2,
+    letterSpacing: 3,
+    marginBottom: 4,
   },
   challengeHeadline: {
     fontFamily: 'Inter-Black',
-    fontSize: 32,
     fontWeight: '900',
     textAlign: 'center',
-    lineHeight: 38,
+    lineHeight: 46,
     letterSpacing: 0.3,
+  },
+  challengeSubWrap: {
+    alignItems: 'center',
+    marginTop: 14,
   },
   challengeSub: {
     fontFamily: 'Inter-Bold',
@@ -423,7 +458,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: WHITE,
     textAlign: 'center',
-    marginTop: 6,
     letterSpacing: 0.2,
   },
   challengeMuted: {
@@ -432,12 +466,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: MUTED,
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: 3,
+  },
+  // CTA section
+  ctaSection: {
+    width: '100%',
+    alignItems: 'center',
+    paddingTop: 4,
   },
   ctaWrap: {
     width: '100%',
     paddingHorizontal: 26,
-    marginTop: 10,
   },
   primaryButton: {
     backgroundColor: LIME,
