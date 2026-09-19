@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   hero: {
     alignItems: 'center',
     marginTop: -30,
-    transform: [{ translateY: -40 }],
+    transform: [{ translateY: -45 }],
   },
   headline: {
     fontFamily: 'Inter-Black',
