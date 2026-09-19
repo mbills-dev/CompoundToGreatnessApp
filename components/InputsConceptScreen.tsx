@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -12,17 +13,54 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import type { SharedValue } from 'react-native-reanimated';
+import ExamplePanel from './ExamplePanel';
+import type { ExampleConfig } from './ExamplePanel';
 
 const LIME = '#CCFF00';
 const WHITE = '#FFFFFF';
 const MUTED = '#8D8D8D';
 const BG = '#050505';
-const GOAL_BG = '#111111';
-const ROW_BG = '#191919';
-const ROW_BORDER = 'rgba(255,255,255,0.07)';
 
 const EASE_OUT = Easing.out(Easing.cubic);
+
+const EXAMPLES: ExampleConfig[] = [
+  {
+    id: 'health',
+    category: 'GOAL',
+    goal: 'LOSE 20 LBS.',
+    inputs: [
+      { num: '01', text: '145g protein/day' },
+      { num: '02', text: '10,000 steps/day' },
+      { num: '03', text: '45 min strength training' },
+      { num: '04', text: 'Whole foods. No sugar.' },
+    ],
+  },
+  {
+    id: 'business',
+    category: 'GOAL',
+    goal: 'MAKE $100K/MONTH',
+    mathSteps: [
+      '$20K PROFIT / DEAL',
+      '5 DEALS / MONTH',
+      '1 DEAL / 10 OFFERS',
+      '≈ 3 OFFERS / BUSINESS DAY',
+    ],
+    inputs: [
+      { num: '01', text: '3 offers/day' },
+    ],
+  },
+  {
+    id: 'french',
+    category: 'GOAL',
+    goal: 'BECOME FLUENT IN FRENCH',
+    inputs: [
+      { num: '01', text: '30 min French app' },
+      { num: '02', text: '30 min French podcast' },
+      { num: '03', text: '15 min speaking practice' },
+      { num: '04', text: '10 new words/day' },
+    ],
+  },
+];
 
 type Props = {
   onContinue: () => void;
@@ -32,320 +70,175 @@ type Props = {
 export default function InputsConceptScreen({ onContinue }: Props) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const [brokenDown, setBrokenDown] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [completedExamples, setCompletedExamples] = useState<Set<number>>(new Set());
+  const [hasSwiped, setHasSwiped] = useState(false);
 
   const isSmall = width <= 375;
   const isNarrowHeight = height < 700;
-  const headline1Size = isSmall ? 30 : 34;
-  const headline2Size = isSmall ? 20 : 22;
-  const goalTextSize = isSmall ? 16 : 18;
-  const inputTextSize = isSmall ? 14 : 15;
-  const stackLimeSize = isSmall ? 26 : 30;
-  const rowHeight = isSmall ? 50 : 54;
-  const rowGap = isSmall ? 7 : 8;
 
-  // Layout heights for the headline wrappers
-  const outcomeH = isSmall ? 88 : 94;
-  const inputsH = isSmall ? 88 : 94;
+  // Swipe transition
+  const translateX = useSharedValue(0);
+  const isAnimating = useRef(false);
 
-  // Phase 1 — auto-entrance
-  const outcomeOpacity = useSharedValue(0);
-  const outcomeTranslateY = useSharedValue(0);
-  const outcomeWrapH = useSharedValue(outcomeH);
-  const goalOpacity = useSharedValue(0);
-  const goalEntranceY = useSharedValue(14);
-  const breakDownOpacity = useSharedValue(0);
-  const breakDownPulse = useSharedValue(1);
+  // Swipe cue
+  const swipeCueOpacity = useSharedValue(0);
+  const swipeCuePulse = useSharedValue(1);
 
-  // Phase 2 — after tap
-  const inputsOpacity = useSharedValue(0);
-  const inputsWrapH = useSharedValue(0);
-  const row1 = useSharedValue(0);
-  const row2 = useSharedValue(0);
-  const row3 = useSharedValue(0);
-  const row4 = useSharedValue(0);
-  const chk1 = useSharedValue(0);
-  const chk2 = useSharedValue(0);
-  const chk3 = useSharedValue(0);
-  const chk4 = useSharedValue(0);
-  const reverseOpacity = useSharedValue(0);
-  const stackArrowOpacity = useSharedValue(0);
-  const stackOpacity = useSharedValue(0);
-  const stackGlow = useSharedValue(0);
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      translateX.value = e.translationX;
+    })
+    .onEnd((e) => {
+      const threshold = width * 0.2;
+      if (e.translationX < -threshold && activeIndex < EXAMPLES.length - 1) {
+        // Swipe left → next
+        isAnimating.current = true;
+        translateX.value = withTiming(-width, { duration: 350, easing: EASE_OUT }, () => {
+          setActiveIndex(activeIndex + 1);
+          translateX.value = width;
+          translateX.value = withTiming(0, { duration: 0 });
+          isAnimating.current = false;
+        });
+      } else if (e.translationX > threshold && activeIndex > 0) {
+        // Swipe right → previous
+        isAnimating.current = true;
+        translateX.value = withTiming(width, { duration: 350, easing: EASE_OUT }, () => {
+          setActiveIndex(activeIndex - 1);
+          translateX.value = -width;
+          translateX.value = withTiming(0, { duration: 0 });
+          isAnimating.current = false;
+        });
+      } else {
+        translateX.value = withTiming(0, { duration: 250, easing: EASE_OUT });
+      }
+    });
+
+  const handleSequenceComplete = useCallback(() => {
+    setCompletedExamples((prev) => {
+      const next = new Set(prev);
+      next.add(activeIndex);
+      return next;
+    });
+  }, [activeIndex]);
+
+  // Show swipe cue after example 1 completes (and only once)
+  React.useEffect(() => {
+    if (completedExamples.has(0) && !hasSwiped && activeIndex === 0) {
+      const t = setTimeout(() => {
+        swipeCueOpacity.value = withTiming(1, { duration: 400, easing: EASE_OUT });
+        swipeCuePulse.value = withRepeat(
+          withSequence(
+            withTiming(0.4, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+            withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+          ),
+          -1,
+          false,
+        );
+      }, 900);
+      return () => clearTimeout(t);
+    }
+  }, [completedExamples, hasSwiped, activeIndex]);
+
+  // Hide swipe cue when user swipes
+  React.useEffect(() => {
+    if (hasSwiped) {
+      swipeCueOpacity.value = withTiming(0, { duration: 300, easing: EASE_OUT });
+    }
+  }, [hasSwiped]);
+
+  // Track if user has swiped at all
+  React.useEffect(() => {
+    if (activeIndex > 0) setHasSwiped(true);
+  }, [activeIndex]);
+
+  const allComplete = completedExamples.size === EXAMPLES.length;
+
+  const carouselStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  const swipeCueStyle = useAnimatedStyle(() => ({
+    opacity: swipeCueOpacity.value,
+  }));
+
+  const swipeCueArrowStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(swipeCuePulse.value, [0.4, 1], [0.5, 1], Extrapolation.CLAMP),
+    transform: [{ translateX: interpolate(swipeCuePulse.value, [0.4, 1], [-6, 0], Extrapolation.CLAMP) }],
+  }));
+
+  const topPad = insets.top + (isNarrowHeight ? 14 : 20);
+  const bottomPad = insets.bottom + 12;
+
+  // CTA opacity — only show after all examples complete
   const ctaOpacity = useSharedValue(0);
-
-  // Phase 1: auto-entrance on mount
-  useEffect(() => {
-    outcomeOpacity.value = withTiming(1, { duration: 450, easing: EASE_OUT });
-    goalOpacity.value = withDelay(550, withTiming(1, { duration: 380, easing: EASE_OUT }));
-    goalEntranceY.value = withDelay(550, withTiming(0, { duration: 380, easing: EASE_OUT }));
-    breakDownOpacity.value = withDelay(1000, withTiming(1, { duration: 350, easing: EASE_OUT }));
-    breakDownPulse.value = withDelay(
-      1350,
-      withRepeat(
-        withSequence(
-          withTiming(0, { duration: 1600, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.ease) }),
-        ),
-        -1,
-        false,
-      ),
-    );
-
-    return () => {
-      outcomeOpacity.value = 0;
-      outcomeTranslateY.value = 0;
-      outcomeWrapH.value = outcomeH;
-      goalOpacity.value = 0;
-      goalEntranceY.value = 14;
-      breakDownOpacity.value = 0;
-      breakDownPulse.value = 1;
-      inputsOpacity.value = 0;
-      inputsWrapH.value = 0;
-      reverseOpacity.value = 0;
-      row1.value = row2.value = row3.value = row4.value = 0;
-      chk1.value = chk2.value = chk3.value = chk4.value = 0;
-      stackArrowOpacity.value = 0;
-      stackOpacity.value = 0;
-      stackGlow.value = 0;
-      ctaOpacity.value = 0;
-    };
-  }, []);
-
-  const handleBreakDown = useCallback(() => {
-    if (brokenDown) return;
-    setBrokenDown(true);
-
-    // 1. Outcome headline exits upward + fades, wrapper collapses
-    outcomeOpacity.value = withTiming(0, { duration: 400, easing: EASE_OUT });
-    outcomeTranslateY.value = withTiming(-50, { duration: 400, easing: EASE_OUT });
-    outcomeWrapH.value = withTiming(0, { duration: 400, easing: EASE_OUT });
-
-    // 2. Inputs headline wrapper expands + fades in (after slight delay)
-    inputsWrapH.value = withDelay(300, withTiming(inputsH, { duration: 400, easing: EASE_OUT }));
-    inputsOpacity.value = withDelay(300, withTiming(1, { duration: 400, easing: EASE_OUT }));
-
-    // 3. Reverse engineer label
-    const reverseT = 750;
-    reverseOpacity.value = withDelay(reverseT, withTiming(1, { duration: 350, easing: EASE_OUT }));
-
-    // 4. Input cascade — 350ms apart, rapid premium reveal
-    const t0 = reverseT + 250;
-    const gap = 350;
-    const rowDur = 350;
-
-    row1.value = withDelay(t0, withTiming(1, { duration: rowDur, easing: EASE_OUT }));
-    chk1.value = withDelay(t0 + 80, withTiming(1, { duration: 220, easing: EASE_OUT }));
-
-    row2.value = withDelay(t0 + gap, withTiming(1, { duration: rowDur, easing: EASE_OUT }));
-    chk2.value = withDelay(t0 + gap + 80, withTiming(1, { duration: 220, easing: EASE_OUT }));
-
-    row3.value = withDelay(t0 + gap * 2, withTiming(1, { duration: rowDur, easing: EASE_OUT }));
-    chk3.value = withDelay(t0 + gap * 2 + 80, withTiming(1, { duration: 220, easing: EASE_OUT }));
-
-    row4.value = withDelay(t0 + gap * 3, withTiming(1, { duration: rowDur, easing: EASE_OUT }));
-    chk4.value = withDelay(t0 + gap * 3 + 80, withTiming(1, { duration: 220, easing: EASE_OUT }));
-
-    // 5. After input 04 settles + 650ms pause → arrow, then success stack
-    const input4Settle = t0 + gap * 3 + rowDur;
-    const stackT = input4Settle + 650;
-    stackArrowOpacity.value = withDelay(stackT, withTiming(1, { duration: 300, easing: EASE_OUT }));
-    stackOpacity.value = withDelay(stackT + 300, withTiming(1, { duration: 550, easing: EASE_OUT }));
-    stackGlow.value = withDelay(stackT + 500, withTiming(1, { duration: 700, easing: EASE_OUT }));
-
-    // 6. CTA emphasis after stack fully appeared + 500ms
-    const stackDone = stackT + 300 + 550;
-    ctaOpacity.value = withDelay(stackDone + 500, withTiming(1, { duration: 500, easing: EASE_OUT }));
-  }, [brokenDown, inputsH]);
-
-  const outcomeWrapStyle = useAnimatedStyle(() => ({
-    height: outcomeWrapH.value,
-    overflow: 'visible',
-  }));
-
-  const outcomeStyle = useAnimatedStyle(() => ({
-    opacity: outcomeOpacity.value,
-    transform: [{ translateY: outcomeTranslateY.value }],
-  }));
-
-  const inputsWrapStyle = useAnimatedStyle(() => ({
-    height: inputsWrapH.value,
-    overflow: 'visible',
-  }));
-
-  const inputsStyle = useAnimatedStyle(() => ({
-    opacity: inputsOpacity.value,
-    transform: [{ translateY: interpolate(inputsOpacity.value, [0, 1], [12, 0], Extrapolation.CLAMP) }],
-  }));
-
-  const goalStyle = useAnimatedStyle(() => ({
-    opacity: goalOpacity.value,
-    transform: [{ translateY: goalEntranceY.value }],
-  }));
-
-  const breakDownStyle = useAnimatedStyle(() => ({
-    opacity: breakDownOpacity.value,
-  }));
-
-  const breakDownArrowStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(breakDownPulse.value, [0, 1], [0.45, 1], Extrapolation.CLAMP),
-    transform: [
-      { translateY: interpolate(breakDownPulse.value, [0, 1], [3, -3], Extrapolation.CLAMP) },
-    ],
-  }));
-
-  const rowStyle = (sv: SharedValue<number>) =>
-    useAnimatedStyle(() => ({
-      opacity: sv.value,
-      transform: [{ translateY: interpolate(sv.value, [0, 1], [8, 0], Extrapolation.CLAMP) }],
-    }));
-
-  const checkAnim = (sv: SharedValue<number>) =>
-    useAnimatedStyle(() => ({
-      opacity: sv.value,
-      transform: [{ scale: interpolate(sv.value, [0, 1], [0.4, 1], Extrapolation.CLAMP) }],
-    }));
-
-  const reverseStyle = useAnimatedStyle(() => ({
-    opacity: reverseOpacity.value,
-  }));
-
-  const stackArrowStyle = useAnimatedStyle(() => ({
-    opacity: stackArrowOpacity.value,
-  }));
-
-  const stackStyle = useAnimatedStyle(() => ({
-    opacity: stackOpacity.value,
-    transform: [{ scale: interpolate(stackOpacity.value, [0, 1], [0.94, 1], Extrapolation.CLAMP) }],
-  }));
-
-  const stackBorderStyle = useAnimatedStyle(() => ({
-    borderColor: `rgba(204,255,0,${interpolate(stackGlow.value, [0, 1], [0.15, 0.5], Extrapolation.CLAMP)})`,
-    shadowColor: LIME,
-    shadowOpacity: interpolate(stackGlow.value, [0, 1], [0, 0.15], Extrapolation.CLAMP),
-    shadowRadius: interpolate(stackGlow.value, [0, 1], [0, 14], Extrapolation.CLAMP),
-    shadowOffset: { width: 0, height: 0 },
-  }));
+  React.useEffect(() => {
+    if (allComplete) {
+      ctaOpacity.value = withTiming(1, { duration: 500, easing: EASE_OUT });
+    }
+  }, [allComplete]);
 
   const ctaStyle = useAnimatedStyle(() => ({
     opacity: ctaOpacity.value,
   }));
 
-  const rows = [
-    { num: '01', text: '145g protein/day', style: rowStyle(row1), checkStyle: checkAnim(chk1) },
-    { num: '02', text: '10,000 steps/day', style: rowStyle(row2), checkStyle: checkAnim(chk2) },
-    { num: '03', text: '45 min strength training', style: rowStyle(row3), checkStyle: checkAnim(chk3) },
-    { num: '04', text: 'Whole foods. No sugar.', style: rowStyle(row4), checkStyle: checkAnim(chk4) },
-  ];
-
-  const topPad = insets.top + (isNarrowHeight ? 14 : 20);
-  const bottomPad = insets.bottom + 12;
-
   return (
-    <View style={styles.container}>
-      <View style={[styles.content, { paddingTop: topPad, paddingBottom: bottomPad }]}>
-        {/* Example area */}
-        <View style={styles.exampleArea}>
-          {/* Outcome headline — wrapper collapses on tap, headline exits upward */}
-          <Animated.View style={outcomeWrapStyle} pointerEvents="none">
-            <Animated.View style={[styles.headlineCenter, outcomeStyle]}>
-              <Text style={[styles.headline1, { fontSize: headline1Size }]}>
-                <Text style={styles.textWhite}>STOP FOCUSING{'\n'}ON THE OUTCOME.</Text>
-              </Text>
-            </Animated.View>
-          </Animated.View>
-
-          {/* Goal card — lime-bordered container, moves up as headline collapses */}
-          <Animated.View style={[styles.goalCard, goalStyle]}>
-            <Text style={styles.goalLabel}>GOAL</Text>
-            <Text style={[styles.goalText, { fontSize: goalTextSize, color: LIME }]}>LOSE 20 LBS.</Text>
-          </Animated.View>
-
-          {/* Inputs headline — wrapper expands on tap, fills space below goal */}
-          <Animated.View style={[inputsWrapStyle, { marginTop: 36 }]} pointerEvents="none">
-            <Animated.View style={[styles.headlineCenter, inputsStyle]}>
-              <Text style={[styles.headline2, { fontSize: headline2Size }]}>
-                <Text style={styles.textWhite}>FOCUS ON THE{'\n'}</Text>
-                <Text style={styles.textLime}>INPUTS{'\n'}</Text>
-                <Text style={styles.textWhite}>THAT CREATE IT.</Text>
-              </Text>
-            </Animated.View>
-          </Animated.View>
-
-          {/* Break it down — tappable control (Phase 1) */}
-          {!brokenDown && (
-            <Animated.View style={[styles.breakDownWrap, breakDownStyle]}>
-              <TouchableOpacity
-                onPress={handleBreakDown}
-                activeOpacity={0.7}
-                style={styles.breakDownTouch}
-              >
-                <Animated.View style={breakDownArrowStyle}>
-                  <Text style={styles.arrowLime}>↓</Text>
-                </Animated.View>
-                <Text style={styles.reverseLabel}>BREAK IT DOWN</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          )}
-
-          {/* Reverse engineer label — Phase 2 */}
-          {brokenDown && (
-            <Animated.View style={[styles.reverseWrap, reverseStyle]}>
-              <Text style={styles.arrowLime}>↓</Text>
-              <Text style={styles.reverseLabel}>REVERSE ENGINEER</Text>
-            </Animated.View>
-          )}
-
-          {/* Input rows — Phase 2 */}
-          {brokenDown && (
-            <View style={{ width: '100%', gap: rowGap, marginTop: 2 }}>
-              {rows.map((item) => (
-                <Animated.View key={item.num} style={[styles.inputRowCard, { height: rowHeight }, item.style]}>
-                  <Text style={styles.inputNum}>{item.num}</Text>
-                  <Text style={[styles.inputText, { fontSize: inputTextSize }]}>{item.text}</Text>
-                  <Animated.View style={[styles.checkWrap, item.checkStyle]}>
-                    <Text style={styles.checkMark}>✓</Text>
-                  </Animated.View>
-                </Animated.View>
+    <GestureDetector gesture={panGesture}>
+      <View style={styles.container}>
+        <View style={[styles.content, { paddingTop: topPad, paddingBottom: bottomPad }]}>
+          {/* Carousel — render all panels, translate horizontally */}
+          <View style={styles.carouselContainer}>
+            <Animated.View style={[styles.carouselTrack, carouselStyle]}>
+              {EXAMPLES.map((config, i) => (
+                <View key={config.id} style={styles.panelSlot}>
+                  <ExamplePanel
+                    config={config}
+                    isActive={i === activeIndex}
+                    isSmall={isSmall}
+                    isNarrowHeight={isNarrowHeight}
+                    onSequenceComplete={handleSequenceComplete}
+                  />
+                </View>
               ))}
-            </View>
-          )}
-
-          {/* Arrow to stack + Success Stack — Phase 2 */}
-          {brokenDown && (
-            <>
-              <Animated.View style={[styles.stackArrowWrap, stackArrowStyle]}>
-                <Text style={styles.arrowLime}>↓</Text>
-              </Animated.View>
-
-              <Animated.View style={[styles.stackCard, stackStyle, stackBorderStyle]}>
-                <Text style={styles.stackMuted}>YOUR DAILY</Text>
-                <Text style={[styles.stackLime, { fontSize: stackLimeSize }]}>SUCCESS STACK</Text>
-              </Animated.View>
-            </>
-          )}
-        </View>
-
-        {/* Bottom area */}
-        <View style={styles.bottomArea}>
-          <View style={styles.progressWrap}>
-            <View style={styles.progressDot} />
-            <View style={[styles.progressDot, styles.progressDotActive]} />
-            <View style={styles.progressDot} />
+            </Animated.View>
           </View>
 
-          <Animated.View style={[styles.ctaWrap, ctaStyle]}>
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={onContinue}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.primaryText}>Show me how →</Text>
-            </TouchableOpacity>
-          </Animated.View>
+          {/* Swipe cue — appears after example 1 completes */}
+          {activeIndex === 0 && !hasSwiped && (
+            <Animated.View style={[styles.swipeCueWrap, swipeCueStyle]} pointerEvents="none">
+              <Animated.View style={swipeCueArrowStyle}>
+                <Text style={styles.swipeCueArrow}>←</Text>
+              </Animated.View>
+              <Text style={styles.swipeCueLabel}>SWIPE FOR ANOTHER EXAMPLE</Text>
+            </Animated.View>
+          )}
+
+          {/* Bottom area */}
+          <View style={styles.bottomArea}>
+            {/* Pagination dots */}
+            <View style={styles.progressWrap}>
+              {EXAMPLES.map((_, i) => (
+                <View
+                  key={i}
+                  style={[styles.progressDot, i === activeIndex && styles.progressDotActive]}
+                />
+              ))}
+            </View>
+
+            {/* CTA — appears after all examples complete */}
+            <Animated.View style={[styles.ctaWrap, ctaStyle]}>
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={onContinue}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.primaryText}>Show me how →</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
         </View>
       </View>
-    </View>
+    </GestureDetector>
   );
 }
 
@@ -359,158 +252,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 26,
   },
-  exampleArea: {
+  carouselContainer: {
     flex: 1,
     width: '100%',
-    maxWidth: 380,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+    overflow: 'hidden',
   },
-  headlineCenter: {
-    alignItems: 'center',
+  carouselTrack: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  panelSlot: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
-  },
-  headline1: {
-    fontFamily: 'Inter-Black',
-    fontWeight: '900',
-    textAlign: 'center',
-    lineHeight: 40,
-    letterSpacing: 0.3,
-  },
-  headline2: {
-    fontFamily: 'Inter-Black',
-    fontWeight: '900',
-    textAlign: 'center',
-    lineHeight: 28,
-    letterSpacing: 0.2,
-  },
-  textWhite: {
-    color: WHITE,
-  },
-  textLime: {
-    color: LIME,
-  },
-  goalCard: {
-    width: '82%',
-    backgroundColor: GOAL_BG,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: LIME,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
     alignItems: 'center',
   },
-  goalLabel: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 10,
-    fontWeight: '700',
-    color: MUTED,
-    letterSpacing: 2.5,
-    marginBottom: 3,
-  },
-  goalText: {
-    fontFamily: 'Inter-Black',
-    fontWeight: '900',
-    color: LIME,
-    letterSpacing: 0.3,
-  },
-  breakDownWrap: {
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  breakDownTouch: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 48,
-  },
-  reverseWrap: {
-    alignItems: 'center',
-    paddingVertical: 6,
-    marginTop: 4,
-  },
-  arrow: {
-    fontFamily: 'Inter-Black',
-    fontSize: 18,
-    color: MUTED,
-    marginBottom: 2,
-  },
-  arrowLime: {
-    fontFamily: 'Inter-Black',
-    fontSize: 18,
-    color: LIME,
-    marginBottom: 2,
-  },
-  reverseLabel: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 10,
-    fontWeight: '700',
-    color: MUTED,
-    letterSpacing: 2.5,
-  },
-  inputRowCard: {
+  swipeCueWrap: {
+    position: 'absolute',
+    bottom: 140,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: ROW_BG,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: ROW_BORDER,
-    paddingHorizontal: 16,
+    gap: 8,
   },
-  inputNum: {
+  swipeCueArrow: {
     fontFamily: 'Inter-Black',
-    fontSize: 12,
-    fontWeight: '900',
+    fontSize: 16,
     color: LIME,
-    letterSpacing: 1,
-    width: 28,
   },
-  inputText: {
-    flex: 1,
-    fontFamily: 'Inter-Bold',
-    fontWeight: '700',
-    color: WHITE,
-    letterSpacing: 0.1,
-  },
-  checkWrap: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: LIME,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkMark: {
-    fontFamily: 'Inter-Black',
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#000000',
-  },
-  stackArrowWrap: {
-    paddingVertical: 6,
-    alignItems: 'center',
-  },
-  stackCard: {
-    width: '100%',
-    backgroundColor: 'rgba(204,255,0,0.04)',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  stackMuted: {
+  swipeCueLabel: {
     fontFamily: 'Inter-Bold',
     fontSize: 10,
     fontWeight: '700',
     color: MUTED,
-    letterSpacing: 2.5,
-    marginBottom: 2,
-  },
-  stackLime: {
-    fontFamily: 'Inter-Black',
-    fontWeight: '900',
-    color: LIME,
-    letterSpacing: 0.3,
+    letterSpacing: 2,
   },
   bottomArea: {
     width: '100%',
