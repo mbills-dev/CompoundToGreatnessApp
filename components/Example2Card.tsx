@@ -321,43 +321,43 @@ export default function Example2Card({ index, isActive, onCompleted, pageWidth }
         {brokenDown && (
           <Animated.View style={[styles.reverseWrap, reverseStyle]}>
             <Text style={styles.arrowLime}>↓</Text>
-            <Text style={styles.reverseLabel}>REVERSE ENGINEER</Text>
+            <Text style={styles.reverseLabel}>DO THE MATH</Text>
           </Animated.View>
         )}
 
-        {/* Math chain — sequential reverse-engineering calculation */}
+        {/* Math chain — lightweight calculation rows */}
         {brokenDown && (
           <View style={{ width: '100%', marginTop: 2 }}>
-            <Animated.View style={[styles.inputRowCard, { height: rowHeight }, mathSteps[0].style]}>
+            <Animated.View style={[styles.calcRow, { height: rowHeight }, mathSteps[0].style]}>
               <Text style={styles.inputNum}>{mathSteps[0].num}</Text>
-              <Text style={[styles.inputText, { fontSize: inputTextSize }]}>{mathSteps[0].text}</Text>
+              <Text style={[styles.calcText, { fontSize: inputTextSize }]}>{mathSteps[0].text}</Text>
             </Animated.View>
 
             <Animated.View style={[styles.mathArrowWrap, arrow12Style]}>
               <Text style={styles.mathArrowText}>↓</Text>
             </Animated.View>
 
-            <Animated.View style={[styles.inputRowCard, { height: rowHeight }, mathSteps[1].style]}>
+            <Animated.View style={[styles.calcRow, { height: rowHeight }, mathSteps[1].style]}>
               <Text style={styles.inputNum}>{mathSteps[1].num}</Text>
-              <Text style={[styles.inputText, { fontSize: inputTextSize }]}>{mathSteps[1].text}</Text>
+              <Text style={[styles.calcText, { fontSize: inputTextSize }]}>{mathSteps[1].text}</Text>
             </Animated.View>
 
             <Animated.View style={[styles.mathArrowWrap, arrow23Style]}>
               <Text style={styles.mathArrowText}>↓</Text>
             </Animated.View>
 
-            <Animated.View style={[styles.inputRowCard, { height: rowHeight }, mathSteps[2].style]}>
+            <Animated.View style={[styles.calcRow, { height: rowHeight }, mathSteps[2].style]}>
               <Text style={styles.inputNum}>{mathSteps[2].num}</Text>
-              <Text style={[styles.inputText, { fontSize: inputTextSize }]}>{mathSteps[2].text}</Text>
+              <Text style={[styles.calcText, { fontSize: inputTextSize }]}>{mathSteps[2].text}</Text>
             </Animated.View>
 
             <Animated.View style={[styles.mathArrowWrap, arrow34Style]}>
               <Text style={styles.mathArrowText}>↓</Text>
             </Animated.View>
 
-            <Animated.View style={[styles.inputRowCard, { height: rowHeight }, mathSteps[3].style]}>
+            <Animated.View style={[styles.calcRow, { height: rowHeight }, mathSteps[3].style]}>
               <Text style={styles.inputNum}>{mathSteps[3].num}</Text>
-              <Text style={[styles.inputText, { fontSize: inputTextSize }]}>{mathSteps[3].text}</Text>
+              <Text style={[styles.calcText, { fontSize: inputTextSize }]}>{mathSteps[3].text}</Text>
             </Animated.View>
           </View>
         )}
@@ -484,6 +484,12 @@ const styles = StyleSheet.create({
     borderColor: ROW_BORDER,
     paddingHorizontal: 16,
   },
+  calcRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 2,
+  },
   inputNum: {
     fontFamily: 'Inter-Black',
     fontSize: 12,
@@ -497,6 +503,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
     fontWeight: '700',
     color: WHITE,
+    letterSpacing: 0.1,
+  },
+  calcText: {
+    flex: 1,
+    fontFamily: 'Inter-Bold',
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.85)',
     letterSpacing: 0.1,
   },
   mathArrowWrap: {
