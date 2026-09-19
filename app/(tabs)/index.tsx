@@ -17,6 +17,7 @@ import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
 import SaveProgressScreen, { PENDING_PAYWALL_KEY } from '@/components/SaveProgressScreen';
 import WelcomePathChooser from '@/components/WelcomePathChooser';
 import SignInScreen from '@/components/SignInScreen';
+import InputsConceptScreen from '@/components/InputsConceptScreen';
 import { resyncAllReminders } from '@/lib/notifications';
 import { awardSignedBadge } from '@/lib/badgeHelpers';
 import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
@@ -37,7 +38,7 @@ export default function HomeScreen() {
   const [showRestartChooser, setShowRestartChooser] = useState(false);
   const [capturedFirstName, setCapturedFirstName] = useState<string | undefined>();
   const [capturedLastName, setCapturedLastName] = useState<string | undefined>();
-  const [onboardingPath, setOnboardingPath] = useState<'new' | 'signin' | null>(null);
+  const [onboardingPath, setOnboardingPath] = useState<'new' | 'signin' | 'concept' | null>(null);
   const router = useRouter();
   const { chooseStart } = useLocalSearchParams();
 
@@ -364,7 +365,7 @@ export default function HomeScreen() {
         if (!onboardingPath) {
           return (
             <WelcomePathChooser
-              onStartNew={() => setOnboardingPath('new')}
+              onStartNew={() => setOnboardingPath('concept')}
               onSignIn={() => setOnboardingPath('signin')}
             />
           );
@@ -374,6 +375,14 @@ export default function HomeScreen() {
             <SignInScreen
               onBack={() => setOnboardingPath(null)}
               onSuccess={() => setOnboardingPath(null)}
+            />
+          );
+        }
+        if (onboardingPath === 'concept') {
+          return (
+            <InputsConceptScreen
+              onContinue={() => setOnboardingPath('new')}
+              onBack={() => setOnboardingPath(null)}
             />
           );
         }
