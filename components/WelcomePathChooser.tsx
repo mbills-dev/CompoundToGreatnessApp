@@ -39,23 +39,24 @@ export default function WelcomePathChooser({
           { paddingTop: insets.top + 52, paddingBottom: insets.bottom + 28 },
         ]}
       >
-        {/* Logo mark */}
-        <View style={styles.logoWrap}>
-          <Image
-            source={require('@/assets/images/logo-mark.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+        {/* Logo + hero copy, grouped and anchored to the top */}
+        <View style={styles.topGroup}>
+          <View style={styles.logoWrap}>
+            <Image
+              source={require('@/assets/images/logo-mark.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={styles.hero}>
+            <Text style={styles.headline}>
+              <Text style={styles.headlineWhite}>YOU ARE CALLED{'\n'}</Text>
+              <Text style={styles.headlineLime}>TO MORE.</Text>
+            </Text>
+            <Text style={styles.subheadline}>Unlock your greatness.</Text>
+          </View>
         </View>
-
-        {/* Hero copy */}
-        <View style={styles.hero}>
-          <Text style={styles.headline}>
-            <Text style={styles.headlineWhite}>YOU ARE CALLED{'\n'}</Text>
-            <Text style={styles.headlineLime}>TO MORE.</Text>
-          </Text>
-          <Text style={styles.subheadline}>Unlock your greatness.</Text>
-        </View>
+        <View style={{ flex: 1 }} />
 
         {/* CTA area */}
         <View style={styles.actions}>
@@ -87,9 +88,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#050505' },
   content: {
     flex: 1,
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 28,
+  },
+  topGroup: {
+    alignItems: 'center',
   },
   logoWrap: {
     alignItems: 'center',
@@ -100,8 +103,7 @@ const styles = StyleSheet.create({
   },
   hero: {
     alignItems: 'center',
-    marginTop: -30,
-    transform: [{ translateY: -45 }],
+    marginTop: 20,
   },
   headline: {
     fontFamily: 'Inter-Black',
