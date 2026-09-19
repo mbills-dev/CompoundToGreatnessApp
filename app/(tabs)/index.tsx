@@ -18,6 +18,7 @@ import SaveProgressScreen, { PENDING_PAYWALL_KEY } from '@/components/SaveProgre
 import WelcomePathChooser from '@/components/WelcomePathChooser';
 import SignInScreen from '@/components/SignInScreen';
 import InputsConceptScreen from '@/components/InputsConceptScreen';
+import CompoundingScreen from '@/components/CompoundingScreen';
 import { resyncAllReminders } from '@/lib/notifications';
 import { awardSignedBadge } from '@/lib/badgeHelpers';
 import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
@@ -38,7 +39,7 @@ export default function HomeScreen() {
   const [showRestartChooser, setShowRestartChooser] = useState(false);
   const [capturedFirstName, setCapturedFirstName] = useState<string | undefined>();
   const [capturedLastName, setCapturedLastName] = useState<string | undefined>();
-  const [onboardingPath, setOnboardingPath] = useState<'new' | 'signin' | 'concept' | null>(null);
+  const [onboardingPath, setOnboardingPath] = useState<'new' | 'signin' | 'concept' | 'compounding' | null>(null);
   const router = useRouter();
   const { chooseStart } = useLocalSearchParams();
 
@@ -381,8 +382,16 @@ export default function HomeScreen() {
         if (onboardingPath === 'concept') {
           return (
             <InputsConceptScreen
-              onContinue={() => setOnboardingPath('new')}
+              onContinue={() => setOnboardingPath('compounding')}
               onBack={() => setOnboardingPath(null)}
+            />
+          );
+        }
+        if (onboardingPath === 'compounding') {
+          return (
+            <CompoundingScreen
+              onContinue={() => setOnboardingPath('new')}
+              onBack={() => setOnboardingPath('concept')}
             />
           );
         }
