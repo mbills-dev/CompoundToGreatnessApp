@@ -93,9 +93,10 @@ export default function InputsConceptScreen({ onContinue }: Props) {
     }
   }, [completedExamples, activeIndex, isLastExample]);
 
-  // CTA: only show after the last example completes
+  // CTA: only show after Example 3 (index 2) is reached and completed
+  const ctaExampleIndex = 2;
   useEffect(() => {
-    if (isLastExample && completedExamples.has(activeIndex)) {
+    if (activeIndex >= ctaExampleIndex && completedExamples.has(ctaExampleIndex)) {
       ctaOpacity.value = withDelay(
         500,
         withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }),
@@ -103,7 +104,7 @@ export default function InputsConceptScreen({ onContinue }: Props) {
     } else {
       ctaOpacity.value = withTiming(0, { duration: 300 });
     }
-  }, [completedExamples, activeIndex, isLastExample]);
+  }, [completedExamples, activeIndex]);
 
   const onScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {

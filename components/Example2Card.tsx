@@ -553,8 +553,9 @@ const styles = StyleSheet.create({
   stackInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
-    paddingTop: 10,
+    marginTop: 12,
+    paddingTop: 14,
+    paddingBottom: 4,
     borderTopWidth: 1,
     borderTopColor: 'rgba(204,255,0,0.15)',
     width: '100%',
