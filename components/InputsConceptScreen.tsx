@@ -18,6 +18,7 @@ const LIME = '#CCFF00';
 const WHITE = '#FFFFFF';
 const MUTED = '#8D8D8D';
 const BG = '#050505';
+const GOAL_BG = '#111111';
 const ROW_BG = '#191919';
 const ROW_BORDER = 'rgba(255,255,255,0.07)';
 
@@ -35,24 +36,30 @@ export default function InputsConceptScreen({ onContinue }: Props) {
 
   const isSmall = width <= 375;
   const isNarrowHeight = height < 700;
-  const headline1Size = isSmall ? 32 : 36;
-  const headline2Size = isSmall ? 22 : 24;
-  const goalTextSize = isSmall ? 16 : 17;
+  const headline1Size = isSmall ? 30 : 34;
+  const headline2Size = isSmall ? 20 : 22;
+  const goalTextSize = isSmall ? 16 : 18;
   const inputTextSize = isSmall ? 14 : 15;
   const stackLimeSize = isSmall ? 26 : 30;
-  const rowHeight = isSmall ? 52 : 56;
+  const rowHeight = isSmall ? 50 : 54;
   const rowGap = isSmall ? 7 : 8;
+
+  // Layout heights for the headline wrappers
+  const outcomeH = isSmall ? 88 : 94;
+  const inputsH = isSmall ? 88 : 94;
 
   // Phase 1 — auto-entrance
   const outcomeOpacity = useSharedValue(0);
-  const outcomeTranslate = useSharedValue(0);
+  const outcomeTranslateY = useSharedValue(0);
+  const outcomeWrapH = useSharedValue(outcomeH);
   const goalOpacity = useSharedValue(0);
-  const goalTranslate = useSharedValue(0);
+  const goalEntranceY = useSharedValue(14);
   const breakDownOpacity = useSharedValue(0);
   const breakDownPulse = useSharedValue(1);
 
   // Phase 2 — after tap
   const inputsOpacity = useSharedValue(0);
+  const inputsWrapH = useSharedValue(0);
   const row1 = useSharedValue(0);
   const row2 = useSharedValue(0);
   const row3 = useSharedValue(0);
@@ -70,12 +77,11 @@ export default function InputsConceptScreen({ onContinue }: Props) {
   // Phase 1: auto-entrance on mount
   useEffect(() => {
     outcomeOpacity.value = withTiming(1, { duration: 450, easing: EASE_OUT });
-    goalOpacity.value = withDelay(500, withTiming(1, { duration: 380, easing: EASE_OUT }));
-    goalTranslate.value = withDelay(500, withTiming(0, { duration: 380, easing: EASE_OUT }));
-    breakDownOpacity.value = withDelay(950, withTiming(1, { duration: 350, easing: EASE_OUT }));
-    // Subtle slow vertical pulse on the break-down arrow
+    goalOpacity.value = withDelay(550, withTiming(1, { duration: 380, easing: EASE_OUT }));
+    goalEntranceY.value = withDelay(550, withTiming(0, { duration: 380, easing: EASE_OUT }));
+    breakDownOpacity.value = withDelay(1000, withTiming(1, { duration: 350, easing: EASE_OUT }));
     breakDownPulse.value = withDelay(
-      1300,
+      1350,
       withRepeat(
         withSequence(
           withTiming(0, { duration: 1600, easing: Easing.inOut(Easing.ease) }),
@@ -88,12 +94,14 @@ export default function InputsConceptScreen({ onContinue }: Props) {
 
     return () => {
       outcomeOpacity.value = 0;
-      outcomeTranslate.value = 0;
+      outcomeTranslateY.value = 0;
+      outcomeWrapH.value = outcomeH;
       goalOpacity.value = 0;
-      goalTranslate.value = 16;
+      goalEntranceY.value = 14;
       breakDownOpacity.value = 0;
       breakDownPulse.value = 1;
       inputsOpacity.value = 0;
+      inputsWrapH.value = 0;
       reverseOpacity.value = 0;
       row1.value = row2.value = row3.value = row4.value = 0;
       chk1.value = chk2.value = chk3.value = chk4.value = 0;
@@ -108,56 +116,71 @@ export default function InputsConceptScreen({ onContinue }: Props) {
     if (brokenDown) return;
     setBrokenDown(true);
 
-    // 1. Fade out outcome headline
-    outcomeOpacity.value = withTiming(0, { duration: 380, easing: EASE_OUT });
-    outcomeTranslate.value = withTiming(-16, { duration: 380, easing: EASE_OUT });
+    // 1. Outcome headline exits upward + fades, wrapper collapses
+    outcomeOpacity.value = withTiming(0, { duration: 400, easing: EASE_OUT });
+    outcomeTranslateY.value = withTiming(-50, { duration: 400, easing: EASE_OUT });
+    outcomeWrapH.value = withTiming(0, { duration: 400, easing: EASE_OUT });
 
-    // 2. Replace with inputs headline
+    // 2. Inputs headline wrapper expands + fades in (after slight delay)
+    inputsWrapH.value = withDelay(300, withTiming(inputsH, { duration: 400, easing: EASE_OUT }));
     inputsOpacity.value = withDelay(300, withTiming(1, { duration: 400, easing: EASE_OUT }));
 
-    // 3. Reveal reverse-engineer label, then inputs one at a time, 800ms apart
-    const reverseT = 850;
+    // 3. Reverse engineer label
+    const reverseT = 750;
     reverseOpacity.value = withDelay(reverseT, withTiming(1, { duration: 350, easing: EASE_OUT }));
 
-    const t0 = reverseT + 450; // first input after reverse label settles
-    const gap = 800;
-    const rowDur = 380;
+    // 4. Input cascade — 350ms apart, rapid premium reveal
+    const t0 = reverseT + 250;
+    const gap = 350;
+    const rowDur = 350;
 
     row1.value = withDelay(t0, withTiming(1, { duration: rowDur, easing: EASE_OUT }));
-    chk1.value = withDelay(t0 + 100, withTiming(1, { duration: 250, easing: EASE_OUT }));
+    chk1.value = withDelay(t0 + 80, withTiming(1, { duration: 220, easing: EASE_OUT }));
 
     row2.value = withDelay(t0 + gap, withTiming(1, { duration: rowDur, easing: EASE_OUT }));
-    chk2.value = withDelay(t0 + gap + 100, withTiming(1, { duration: 250, easing: EASE_OUT }));
+    chk2.value = withDelay(t0 + gap + 80, withTiming(1, { duration: 220, easing: EASE_OUT }));
 
     row3.value = withDelay(t0 + gap * 2, withTiming(1, { duration: rowDur, easing: EASE_OUT }));
-    chk3.value = withDelay(t0 + gap * 2 + 100, withTiming(1, { duration: 250, easing: EASE_OUT }));
+    chk3.value = withDelay(t0 + gap * 2 + 80, withTiming(1, { duration: 220, easing: EASE_OUT }));
 
     row4.value = withDelay(t0 + gap * 3, withTiming(1, { duration: rowDur, easing: EASE_OUT }));
-    chk4.value = withDelay(t0 + gap * 3 + 100, withTiming(1, { duration: 250, easing: EASE_OUT }));
+    chk4.value = withDelay(t0 + gap * 3 + 80, withTiming(1, { duration: 220, easing: EASE_OUT }));
 
-    // 4. After input 04 + 900ms pause → arrow, then success stack
-    const stackT = t0 + gap * 3 + 900;
+    // 5. After input 04 settles + 650ms pause → arrow, then success stack
+    const input4Settle = t0 + gap * 3 + rowDur;
+    const stackT = input4Settle + 650;
     stackArrowOpacity.value = withDelay(stackT, withTiming(1, { duration: 300, easing: EASE_OUT }));
-    stackOpacity.value = withDelay(stackT + 350, withTiming(1, { duration: 550, easing: EASE_OUT }));
-    stackGlow.value = withDelay(stackT + 550, withTiming(1, { duration: 700, easing: EASE_OUT }));
+    stackOpacity.value = withDelay(stackT + 300, withTiming(1, { duration: 550, easing: EASE_OUT }));
+    stackGlow.value = withDelay(stackT + 500, withTiming(1, { duration: 700, easing: EASE_OUT }));
 
-    // 5. CTA emphasis after stack has fully appeared
-    ctaOpacity.value = withDelay(stackT + 550 + 500, withTiming(1, { duration: 500, easing: EASE_OUT }));
-  }, [brokenDown]);
+    // 6. CTA emphasis after stack fully appeared + 500ms
+    const stackDone = stackT + 300 + 550;
+    ctaOpacity.value = withDelay(stackDone + 500, withTiming(1, { duration: 500, easing: EASE_OUT }));
+  }, [brokenDown, inputsH]);
+
+  const outcomeWrapStyle = useAnimatedStyle(() => ({
+    height: outcomeWrapH.value,
+    overflow: 'visible',
+  }));
 
   const outcomeStyle = useAnimatedStyle(() => ({
     opacity: outcomeOpacity.value,
-    transform: [{ translateY: outcomeTranslate.value }],
+    transform: [{ translateY: outcomeTranslateY.value }],
+  }));
+
+  const inputsWrapStyle = useAnimatedStyle(() => ({
+    height: inputsWrapH.value,
+    overflow: 'visible',
   }));
 
   const inputsStyle = useAnimatedStyle(() => ({
     opacity: inputsOpacity.value,
-    transform: [{ translateY: interpolate(inputsOpacity.value, [0, 1], [16, 0], Extrapolation.CLAMP) }],
+    transform: [{ translateY: interpolate(inputsOpacity.value, [0, 1], [12, 0], Extrapolation.CLAMP) }],
   }));
 
   const goalStyle = useAnimatedStyle(() => ({
     opacity: goalOpacity.value,
-    transform: [{ translateY: interpolate(goalOpacity.value, [0, 1], [14, 0], Extrapolation.CLAMP) }],
+    transform: [{ translateY: goalEntranceY.value }],
   }));
 
   const breakDownStyle = useAnimatedStyle(() => ({
@@ -174,7 +197,7 @@ export default function InputsConceptScreen({ onContinue }: Props) {
   const rowStyle = (sv: SharedValue<number>) =>
     useAnimatedStyle(() => ({
       opacity: sv.value,
-      transform: [{ translateY: interpolate(sv.value, [0, 1], [10, 0], Extrapolation.CLAMP) }],
+      transform: [{ translateY: interpolate(sv.value, [0, 1], [8, 0], Extrapolation.CLAMP) }],
     }));
 
   const checkAnim = (sv: SharedValue<number>) =>
@@ -215,35 +238,38 @@ export default function InputsConceptScreen({ onContinue }: Props) {
     { num: '04', text: 'Whole foods. No sugar.', style: rowStyle(row4), checkStyle: checkAnim(chk4) },
   ];
 
-  const topPad = insets.top + (isNarrowHeight ? 16 : 24);
+  const topPad = insets.top + (isNarrowHeight ? 14 : 20);
   const bottomPad = insets.bottom + 12;
 
   return (
     <View style={styles.container}>
       <View style={[styles.content, { paddingTop: topPad, paddingBottom: bottomPad }]}>
-        {/* Headline region — both headlines share the same absolute space */}
-        <View style={styles.headlineRegion}>
-          <Animated.View style={[styles.headlineAbsolute, outcomeStyle]} pointerEvents="none">
-            <Text style={[styles.headline1, { fontSize: headline1Size }]}>
-              <Text style={styles.textWhite}>STOP FOCUSING{'\n'}ON THE OUTCOME.</Text>
-            </Text>
-          </Animated.View>
-
-          <Animated.View style={[styles.headlineAbsolute, inputsStyle]} pointerEvents="none">
-            <Text style={[styles.headline2, { fontSize: headline2Size }]}>
-              <Text style={styles.textWhite}>FOCUS ON THE{'\n'}</Text>
-              <Text style={styles.textLime}>INPUTS{'\n'}</Text>
-              <Text style={styles.textWhite}>THAT CREATE IT.</Text>
-            </Text>
-          </Animated.View>
-        </View>
-
         {/* Example area */}
         <View style={styles.exampleArea}>
-          {/* Goal — always visible after entrance */}
-          <Animated.View style={[styles.goalRow, goalStyle]}>
+          {/* Outcome headline — wrapper collapses on tap, headline exits upward */}
+          <Animated.View style={outcomeWrapStyle} pointerEvents="none">
+            <Animated.View style={[styles.headlineCenter, outcomeStyle]}>
+              <Text style={[styles.headline1, { fontSize: headline1Size }]}>
+                <Text style={styles.textWhite}>STOP FOCUSING{'\n'}ON THE OUTCOME.</Text>
+              </Text>
+            </Animated.View>
+          </Animated.View>
+
+          {/* Goal card — lime-bordered container, moves up as headline collapses */}
+          <Animated.View style={[styles.goalCard, goalStyle]}>
             <Text style={styles.goalLabel}>GOAL</Text>
             <Text style={[styles.goalText, { fontSize: goalTextSize }]}>LOSE 20 LBS.</Text>
+          </Animated.View>
+
+          {/* Inputs headline — wrapper expands on tap, fills space below goal */}
+          <Animated.View style={inputsWrapStyle} pointerEvents="none">
+            <Animated.View style={[styles.headlineCenter, inputsStyle]}>
+              <Text style={[styles.headline2, { fontSize: headline2Size }]}>
+                <Text style={styles.textWhite}>FOCUS ON THE{'\n'}</Text>
+                <Text style={styles.textLime}>INPUTS{'\n'}</Text>
+                <Text style={styles.textWhite}>THAT CREATE IT.</Text>
+              </Text>
+            </Animated.View>
           </Animated.View>
 
           {/* Break it down — tappable control (Phase 1) */}
@@ -333,29 +359,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 26,
   },
-  headlineRegion: {
+  exampleArea: {
+    flex: 1,
     width: '100%',
-    height: 130,
+    maxWidth: 380,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  headlineCenter: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
-  },
-  headlineAbsolute: {
-    position: 'absolute',
-    alignItems: 'center',
   },
   headline1: {
     fontFamily: 'Inter-Black',
     fontWeight: '900',
     textAlign: 'center',
-    lineHeight: 42,
+    lineHeight: 40,
     letterSpacing: 0.3,
   },
   headline2: {
     fontFamily: 'Inter-Black',
     fontWeight: '900',
     textAlign: 'center',
-    lineHeight: 30,
+    lineHeight: 28,
     letterSpacing: 0.2,
   },
   textWhite: {
@@ -364,15 +390,14 @@ const styles = StyleSheet.create({
   textLime: {
     color: LIME,
   },
-  exampleArea: {
-    flex: 1,
+  goalCard: {
     width: '100%',
-    maxWidth: 380,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: 4,
-  },
-  goalRow: {
+    backgroundColor: GOAL_BG,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: LIME,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
     alignItems: 'center',
   },
   goalLabel: {
@@ -381,7 +406,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: MUTED,
     letterSpacing: 2.5,
-    marginBottom: 2,
+    marginBottom: 3,
   },
   goalText: {
     fontFamily: 'Inter-Black',
