@@ -1,7 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function WelcomePathChooser({
@@ -11,46 +10,61 @@ export default function WelcomePathChooser({
   onStartNew: () => void;
   onSignIn: () => void;
 }) {
-  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient
-        colors={isDark ? ['#000000', '#0D0D0D', '#000000'] : ['#FFFFFF', '#F5F5F0', '#FFFFFF']}
-        style={styles.gradient}
+    <View style={styles.container}>
+      <ImageBackground
+        source={require('@/assets/images/CTG-Onboarding-Hero-Mountain.png')}
+        style={StyleSheet.absoluteFillObject}
+        resizeMode="cover"
       >
-        <View style={[styles.content, { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 32 }]}>
-          <View style={styles.header}>
-            <View style={styles.logoBadge}>
-              <Image
-                source={require('@/assets/images/logo-mark.png')}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-            </View>
-            <Text style={[styles.appName, { color: colors.text }]}>
-              COMPOUND TO{'\n'}GREATNESS
-            </Text>
-            <Text style={[styles.tagline, { color: colors.textSecondary }]}>
-              Small inputs. Exponential life.
-            </Text>
+        {/* Cinematic gradient: dark top for legibility, clear middle to show
+            the mountain/person, dark bottom behind the CTA */}
+        <LinearGradient
+          colors={[
+            'rgba(0,0,0,0.82)',
+            'rgba(0,0,0,0.35)',
+            'rgba(0,0,0,0.15)',
+            'rgba(0,0,0,0.55)',
+            'rgba(0,0,0,0.92)',
+          ]}
+          locations={[0, 0.25, 0.45, 0.75, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
+
+        <View
+          style={[
+            styles.content,
+            { paddingTop: insets.top + 52, paddingBottom: insets.bottom + 28 },
+          ]}
+        >
+          {/* Logo mark */}
+          <View style={styles.logoWrap}>
+            <Image
+              source={require('@/assets/images/logo-mark.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
           </View>
 
+          {/* Hero copy */}
+          <View style={styles.hero}>
+            <Text style={styles.headline}>
+              <Text style={styles.headlineWhite}>YOU ARE CALLED{'\n'}</Text>
+              <Text style={styles.headlineLime}>TO MORE.</Text>
+            </Text>
+            <Text style={styles.subheadline}>Unlock your greatness.</Text>
+          </View>
+
+          {/* CTA area */}
           <View style={styles.actions}>
             <TouchableOpacity
               style={styles.primaryButton}
               onPress={onStartNew}
               activeOpacity={0.85}
             >
-              <LinearGradient
-                colors={['#CCFF00', '#BDFD00']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.primaryGradient}
-              >
-                <Text style={styles.primaryText}>Start My 77 Days</Text>
-              </LinearGradient>
+              <Text style={styles.primaryText}>Let's begin →</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -58,76 +72,79 @@ export default function WelcomePathChooser({
               onPress={onSignIn}
               activeOpacity={0.7}
             >
-              <Text style={[styles.secondaryText, { color: colors.textSecondary }]}>
-                Already building your streak?{' '}
-                <Text style={[styles.secondaryTextBold, { color: colors.primary }]}>
-                  Sign in
-                </Text>
+              <Text style={styles.secondaryText}>
+                Already have an account?{' '}
+                <Text style={styles.secondaryLink}>Sign in</Text>
               </Text>
             </TouchableOpacity>
           </View>
         </View>
-      </LinearGradient>
+      </ImageBackground>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  gradient: { flex: 1 },
+  container: { flex: 1, backgroundColor: '#000000' },
   content: {
     flex: 1,
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
   },
-  header: {
+  logoWrap: {
     alignItems: 'center',
   },
-  logoBadge: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
+  logo: {
+    width: 64,
+    height: 64,
+  },
+  hero: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    backgroundColor: '#000000',
+    marginTop: -30,
   },
-  logoImage: {
-    width: 48,
-    height: 48,
-  },
-  appName: {
-    fontSize: 36,
-    fontWeight: '900',
+  headline: {
     fontFamily: 'Inter-Black',
+    fontSize: 44,
+    fontWeight: '900',
     textAlign: 'center',
-    lineHeight: 42,
-    marginBottom: 8,
-    letterSpacing: -0.5,
+    lineHeight: 50,
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0,0,0,0.55)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
-  tagline: {
-    fontSize: 16,
-    fontWeight: '500',
+  headlineWhite: {
+    color: '#FFFFFF',
+  },
+  headlineLime: {
+    color: '#CCFF00',
+  },
+  subheadline: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 17,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
+    marginTop: 16,
+    letterSpacing: 0.3,
   },
   actions: {
     width: '100%',
-    maxWidth: 420,
-    gap: 24,
+    maxWidth: 440,
+    gap: 20,
   },
   primaryButton: {
+    backgroundColor: '#CCFF00',
+    height: 62,
     borderRadius: 16,
-    overflow: 'hidden',
-  },
-  primaryGradient: {
-    paddingVertical: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryText: {
+    fontFamily: 'Inter-Black',
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '900',
     color: '#000000',
     letterSpacing: 0.3,
   },
@@ -136,10 +153,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   secondaryText: {
+    fontFamily: 'Inter-Bold',
     fontSize: 15,
-    fontWeight: '500',
-  },
-  secondaryTextBold: {
     fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
+  },
+  secondaryLink: {
+    color: '#CCFF00',
   },
 });
