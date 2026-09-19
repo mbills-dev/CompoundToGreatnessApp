@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -6,6 +6,8 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withDelay,
+  withRepeat,
+  withSequence,
   Easing,
   interpolate,
   Extrapolation,
@@ -29,8 +31,8 @@ type Props = {
 export default function InputsConceptScreen({ onContinue }: Props) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
+  const [brokenDown, setBrokenDown] = useState(false);
 
-  // Responsive scaling
   const isSmall = width <= 375;
   const isNarrowHeight = height < 700;
   const headline1Size = isSmall ? 32 : 36;
@@ -41,22 +43,16 @@ export default function InputsConceptScreen({ onContinue }: Props) {
   const rowHeight = isSmall ? 52 : 56;
   const rowGap = isSmall ? 7 : 8;
 
-  // Phase 1: outcome headline (visible then fades up and out)
+  // Phase 1 — auto-entrance
   const outcomeOpacity = useSharedValue(0);
   const outcomeTranslate = useSharedValue(0);
-
-  // Phase 2: inputs headline
-  const inputsOpacity = useSharedValue(0);
-  const inputsTranslate = useSharedValue(0);
-
-  // Goal card
   const goalOpacity = useSharedValue(0);
   const goalTranslate = useSharedValue(0);
+  const breakDownOpacity = useSharedValue(0);
+  const breakDownPulse = useSharedValue(1);
 
-  // Reverse arrow
-  const reverseOpacity = useSharedValue(0);
-
-  // Input rows
+  // Phase 2 — after tap
+  const inputsOpacity = useSharedValue(0);
   const row1 = useSharedValue(0);
   const row2 = useSharedValue(0);
   const row3 = useSharedValue(0);
@@ -65,82 +61,84 @@ export default function InputsConceptScreen({ onContinue }: Props) {
   const chk2 = useSharedValue(0);
   const chk3 = useSharedValue(0);
   const chk4 = useSharedValue(0);
-
-  // Success stack
+  const stackArrowOpacity = useSharedValue(0);
   const stackOpacity = useSharedValue(0);
   const stackGlow = useSharedValue(0);
+  const ctaOpacity = useSharedValue(0);
 
-  // CTA emphasis
-  const ctaOpacity = useSharedValue(0.4);
-
-  // Down arrow to stack
-  const stackArrowOpacity = useSharedValue(0);
-
+  // Phase 1: auto-entrance on mount
   useEffect(() => {
-    // Timeline (ms):
-    // 0     — outcome headline fades in
-    // 900   — hold done, start fade out + translate up
-    // 1400  — inputs headline fades in + slides up
-    // 2100  — goal appears
-    // 2550  — reverse arrow appears
-    // 2900  — input 01
-    // 3150  — input 02
-    // 3400  — input 03
-    // 3650  — input 04
-    // 3950  — success stack
-    // 4200  — CTA emphasis
-
-    // Outcome: fade in at 0, fade out at 900
-    outcomeOpacity.value = withTiming(1, { duration: 400, easing: EASE_OUT });
-    outcomeTranslate.value = withDelay(900, withTiming(-20, { duration: 420, easing: EASE_OUT }));
-    outcomeOpacity.value = withDelay(900, withTiming(0, { duration: 420, easing: EASE_OUT }));
-
-    // Inputs: fade in at 1400
-    inputsOpacity.value = withDelay(1400, withTiming(1, { duration: 400, easing: EASE_OUT }));
-    inputsTranslate.value = withDelay(1400, withTiming(0, { duration: 400, easing: EASE_OUT }));
-
-    // Goal
-    goalOpacity.value = withDelay(2100, withTiming(1, { duration: 380, easing: EASE_OUT }));
-    goalTranslate.value = withDelay(2100, withTiming(0, { duration: 380, easing: EASE_OUT }));
-
-    // Reverse arrow
-    reverseOpacity.value = withDelay(2550, withTiming(1, { duration: 350, easing: EASE_OUT }));
-
-    // Input rows — 250ms apart
-    row1.value = withDelay(2900, withTiming(1, { duration: 300, easing: EASE_OUT }));
-    chk1.value = withDelay(3150, withTiming(1, { duration: 250, easing: EASE_OUT }));
-    row2.value = withDelay(3150, withTiming(1, { duration: 300, easing: EASE_OUT }));
-    chk2.value = withDelay(3400, withTiming(1, { duration: 250, easing: EASE_OUT }));
-    row3.value = withDelay(3400, withTiming(1, { duration: 300, easing: EASE_OUT }));
-    chk3.value = withDelay(3650, withTiming(1, { duration: 250, easing: EASE_OUT }));
-    row4.value = withDelay(3650, withTiming(1, { duration: 300, easing: EASE_OUT }));
-    chk4.value = withDelay(3900, withTiming(1, { duration: 250, easing: EASE_OUT }));
-
-    // Stack arrow + stack
-    stackArrowOpacity.value = withDelay(3950, withTiming(1, { duration: 300, easing: EASE_OUT }));
-    stackOpacity.value = withDelay(4100, withTiming(1, { duration: 500, easing: EASE_OUT }));
-    stackGlow.value = withDelay(4300, withTiming(1, { duration: 700, easing: EASE_OUT }));
-
-    // CTA emphasis
-    ctaOpacity.value = withDelay(4400, withTiming(1, { duration: 500, easing: EASE_OUT }));
+    outcomeOpacity.value = withTiming(1, { duration: 450, easing: EASE_OUT });
+    goalOpacity.value = withDelay(500, withTiming(1, { duration: 380, easing: EASE_OUT }));
+    goalTranslate.value = withDelay(500, withTiming(0, { duration: 380, easing: EASE_OUT }));
+    breakDownOpacity.value = withDelay(950, withTiming(1, { duration: 350, easing: EASE_OUT }));
+    // Subtle slow pulse on the break-down control
+    breakDownPulse.value = withDelay(
+      1300,
+      withRepeat(
+        withSequence(
+          withTiming(0.55, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
+        ),
+        -1,
+        false,
+      ),
+    );
 
     return () => {
-      // Reset on unmount so re-entry replays
       outcomeOpacity.value = 0;
-        outcomeTranslate.value = 0;
-        inputsOpacity.value = 0;
-        inputsTranslate.value = 20;
-        goalOpacity.value = 0;
-        goalTranslate.value = 16;
-        reverseOpacity.value = 0;
-        row1.value = row2.value = row3.value = row4.value = 0;
-        chk1.value = chk2.value = chk3.value = chk4.value = 0;
-        stackOpacity.value = 0;
-        stackGlow.value = 0;
-        stackArrowOpacity.value = 0;
-      ctaOpacity.value = 0.4;
+      outcomeTranslate.value = 0;
+      goalOpacity.value = 0;
+      goalTranslate.value = 16;
+      breakDownOpacity.value = 0;
+      breakDownPulse.value = 1;
+      inputsOpacity.value = 0;
+      row1.value = row2.value = row3.value = row4.value = 0;
+      chk1.value = chk2.value = chk3.value = chk4.value = 0;
+      stackArrowOpacity.value = 0;
+      stackOpacity.value = 0;
+      stackGlow.value = 0;
+      ctaOpacity.value = 0;
     };
   }, []);
+
+  const handleBreakDown = useCallback(() => {
+    if (brokenDown) return;
+    setBrokenDown(true);
+
+    // 1. Fade out outcome headline
+    outcomeOpacity.value = withTiming(0, { duration: 380, easing: EASE_OUT });
+    outcomeTranslate.value = withTiming(-16, { duration: 380, easing: EASE_OUT });
+
+    // 2. Replace with inputs headline
+    inputsOpacity.value = withDelay(300, withTiming(1, { duration: 400, easing: EASE_OUT }));
+
+    // 3. Reveal inputs one at a time, 650ms apart
+    const t0 = 850; // first input starts 850ms after tap
+    const gap = 650;
+    const rowDur = 380;
+
+    row1.value = withDelay(t0, withTiming(1, { duration: rowDur, easing: EASE_OUT }));
+    chk1.value = withDelay(t0 + 100, withTiming(1, { duration: 250, easing: EASE_OUT }));
+
+    row2.value = withDelay(t0 + gap, withTiming(1, { duration: rowDur, easing: EASE_OUT }));
+    chk2.value = withDelay(t0 + gap + 100, withTiming(1, { duration: 250, easing: EASE_OUT }));
+
+    row3.value = withDelay(t0 + gap * 2, withTiming(1, { duration: rowDur, easing: EASE_OUT }));
+    chk3.value = withDelay(t0 + gap * 2 + 100, withTiming(1, { duration: 250, easing: EASE_OUT }));
+
+    row4.value = withDelay(t0 + gap * 3, withTiming(1, { duration: rowDur, easing: EASE_OUT }));
+    chk4.value = withDelay(t0 + gap * 3 + 100, withTiming(1, { duration: 250, easing: EASE_OUT }));
+
+    // 4. After input 04 + 700ms pause → success stack
+    const stackT = t0 + gap * 3 + 700;
+    stackArrowOpacity.value = withDelay(stackT, withTiming(1, { duration: 300, easing: EASE_OUT }));
+    stackOpacity.value = withDelay(stackT + 200, withTiming(1, { duration: 550, easing: EASE_OUT }));
+    stackGlow.value = withDelay(stackT + 400, withTiming(1, { duration: 700, easing: EASE_OUT }));
+
+    // 5. CTA emphasis
+    ctaOpacity.value = withDelay(stackT + 700, withTiming(1, { duration: 500, easing: EASE_OUT }));
+  }, [brokenDown]);
 
   const outcomeStyle = useAnimatedStyle(() => ({
     opacity: outcomeOpacity.value,
@@ -157,14 +155,19 @@ export default function InputsConceptScreen({ onContinue }: Props) {
     transform: [{ translateY: interpolate(goalOpacity.value, [0, 1], [14, 0], Extrapolation.CLAMP) }],
   }));
 
-  const reverseStyle = useAnimatedStyle(() => ({
-    opacity: reverseOpacity.value,
+  const breakDownStyle = useAnimatedStyle(() => ({
+    opacity: breakDownOpacity.value,
+  }));
+
+  const breakDownArrowStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(breakDownPulse.value, [0.55, 1], [0.5, 1], Extrapolation.CLAMP),
+    transform: [{ scale: interpolate(breakDownPulse.value, [0.55, 1], [0.97, 1], Extrapolation.CLAMP) }],
   }));
 
   const rowStyle = (sv: SharedValue<number>) =>
     useAnimatedStyle(() => ({
       opacity: sv.value,
-      transform: [{ translateX: interpolate(sv.value, [0, 1], [-12, 0], Extrapolation.CLAMP) }],
+      transform: [{ translateY: interpolate(sv.value, [0, 1], [10, 0], Extrapolation.CLAMP) }],
     }));
 
   const checkAnim = (sv: SharedValue<number>) =>
@@ -179,7 +182,7 @@ export default function InputsConceptScreen({ onContinue }: Props) {
 
   const stackStyle = useAnimatedStyle(() => ({
     opacity: stackOpacity.value,
-    transform: [{ scale: interpolate(stackOpacity.value, [0, 1], [0.95, 1], Extrapolation.CLAMP) }],
+    transform: [{ scale: interpolate(stackOpacity.value, [0, 1], [0.94, 1], Extrapolation.CLAMP) }],
   }));
 
   const stackBorderStyle = useAnimatedStyle(() => ({
@@ -195,20 +198,19 @@ export default function InputsConceptScreen({ onContinue }: Props) {
   }));
 
   const rows = [
-    { num: '01', text: '145g protein/day', sv: row1, check: chk1, style: rowStyle(row1), checkStyle: checkAnim(chk1) },
-    { num: '02', text: '10,000 steps/day', sv: row2, check: chk2, style: rowStyle(row2), checkStyle: checkAnim(chk2) },
-    { num: '03', text: '45 min strength training', sv: row3, check: chk3, style: rowStyle(row3), checkStyle: checkAnim(chk3) },
-    { num: '04', text: 'Whole foods. No sugar.', sv: row4, check: chk4, style: rowStyle(row4), checkStyle: checkAnim(chk4) },
+    { num: '01', text: '145g protein/day', style: rowStyle(row1), checkStyle: checkAnim(chk1) },
+    { num: '02', text: '10,000 steps/day', style: rowStyle(row2), checkStyle: checkAnim(chk2) },
+    { num: '03', text: '45 min strength training', style: rowStyle(row3), checkStyle: checkAnim(chk3) },
+    { num: '04', text: 'Whole foods. No sugar.', style: rowStyle(row4), checkStyle: checkAnim(chk4) },
   ];
 
-  // Layout: [headline region — overlapping] [example — flex:1] [progress + CTA — fixed bottom]
   const topPad = insets.top + (isNarrowHeight ? 16 : 24);
   const bottomPad = insets.bottom + 12;
 
   return (
     <View style={styles.container}>
       <View style={[styles.content, { paddingTop: topPad, paddingBottom: bottomPad }]}>
-        {/* Headline region — both headlines occupy same space via absolute positioning */}
+        {/* Headline region — both headlines share the same absolute space */}
         <View style={styles.headlineRegion}>
           <Animated.View style={[styles.headlineAbsolute, outcomeStyle]} pointerEvents="none">
             <Text style={[styles.headline1, { fontSize: headline1Size }]}>
@@ -216,7 +218,7 @@ export default function InputsConceptScreen({ onContinue }: Props) {
             </Text>
           </Animated.View>
 
-          <Animated.View style={[styles.headlineAbsolute, inputsStyle]}>
+          <Animated.View style={[styles.headlineAbsolute, inputsStyle]} pointerEvents="none">
             <Text style={[styles.headline2, { fontSize: headline2Size }]}>
               <Text style={styles.textWhite}>FOCUS ON THE{'\n'}</Text>
               <Text style={styles.textLime}>INPUTS{'\n'}</Text>
@@ -225,46 +227,61 @@ export default function InputsConceptScreen({ onContinue }: Props) {
           </Animated.View>
         </View>
 
-        {/* Example area — flex:1, grows to fill available space */}
+        {/* Example area */}
         <View style={styles.exampleArea}>
-          {/* Goal */}
+          {/* Goal — always visible after entrance */}
           <Animated.View style={[styles.goalRow, goalStyle]}>
             <Text style={styles.goalLabel}>GOAL</Text>
             <Text style={[styles.goalText, { fontSize: goalTextSize }]}>LOSE 20 LBS.</Text>
           </Animated.View>
 
-          {/* Reverse arrow */}
-          <Animated.View style={[styles.reverseWrap, reverseStyle]}>
-            <Text style={styles.arrow}>↓</Text>
-            <Text style={styles.reverseLabel}>REVERSE ENGINEER</Text>
-          </Animated.View>
-
-          {/* Input rows */}
-          <View style={{ width: '100%', gap: rowGap }}>
-            {rows.map((item) => (
-              <Animated.View key={item.num} style={[styles.inputRowCard, { height: rowHeight }, item.style]}>
-                <Text style={styles.inputNum}>{item.num}</Text>
-                <Text style={[styles.inputText, { fontSize: inputTextSize }]}>{item.text}</Text>
-                <Animated.View style={[styles.checkWrap, item.checkStyle]}>
-                  <Text style={styles.checkMark}>✓</Text>
+          {/* Break it down — tappable control (Phase 1) */}
+          {!brokenDown && (
+            <Animated.View style={[styles.breakDownWrap, breakDownStyle]}>
+              <TouchableOpacity
+                onPress={handleBreakDown}
+                activeOpacity={0.7}
+                style={styles.breakDownTouch}
+              >
+                <Animated.View style={breakDownArrowStyle}>
+                  <Text style={styles.arrow}>↓</Text>
                 </Animated.View>
+                <Text style={styles.reverseLabel}>BREAK IT DOWN</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+
+          {/* Input rows — Phase 2 */}
+          {brokenDown && (
+            <View style={{ width: '100%', gap: rowGap, marginTop: 2 }}>
+              {rows.map((item) => (
+                <Animated.View key={item.num} style={[styles.inputRowCard, { height: rowHeight }, item.style]}>
+                  <Text style={styles.inputNum}>{item.num}</Text>
+                  <Text style={[styles.inputText, { fontSize: inputTextSize }]}>{item.text}</Text>
+                  <Animated.View style={[styles.checkWrap, item.checkStyle]}>
+                    <Text style={styles.checkMark}>✓</Text>
+                  </Animated.View>
+                </Animated.View>
+              ))}
+            </View>
+          )}
+
+          {/* Arrow to stack + Success Stack — Phase 2 */}
+          {brokenDown && (
+            <>
+              <Animated.View style={[styles.stackArrowWrap, stackArrowStyle]}>
+                <Text style={styles.arrow}>↓</Text>
               </Animated.View>
-            ))}
-          </View>
 
-          {/* Arrow to stack */}
-          <Animated.View style={[styles.stackArrowWrap, stackArrowStyle]}>
-            <Text style={styles.arrow}>↓</Text>
-          </Animated.View>
-
-          {/* Success Stack */}
-          <Animated.View style={[styles.stackCard, stackStyle, stackBorderStyle]}>
-            <Text style={styles.stackMuted}>YOUR DAILY</Text>
-            <Text style={[styles.stackLime, { fontSize: stackLimeSize }]}>SUCCESS STACK</Text>
-          </Animated.View>
+              <Animated.View style={[styles.stackCard, stackStyle, stackBorderStyle]}>
+                <Text style={styles.stackMuted}>YOUR DAILY</Text>
+                <Text style={[styles.stackLime, { fontSize: stackLimeSize }]}>SUCCESS STACK</Text>
+              </Animated.View>
+            </>
+          )}
         </View>
 
-        {/* Bottom area — progress dots + CTA in dedicated layout space */}
+        {/* Bottom area */}
         <View style={styles.bottomArea}>
           <View style={styles.progressWrap}>
             <View style={styles.progressDot} />
@@ -297,7 +314,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 26,
   },
-  // Headline region — fixed height, both headlines absolute-positioned inside
   headlineRegion: {
     width: '100%',
     height: 130,
@@ -329,7 +345,6 @@ const styles = StyleSheet.create({
   textLime: {
     color: LIME,
   },
-  // Example area
   exampleArea: {
     flex: 1,
     width: '100%',
@@ -355,19 +370,24 @@ const styles = StyleSheet.create({
     color: WHITE,
     letterSpacing: 0.3,
   },
-  reverseWrap: {
+  breakDownWrap: {
     alignItems: 'center',
-    paddingVertical: 8,
+    marginTop: 10,
+  },
+  breakDownTouch: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 40,
   },
   arrow: {
     fontFamily: 'Inter-Black',
-    fontSize: 16,
+    fontSize: 18,
     color: MUTED,
-    marginBottom: 1,
+    marginBottom: 2,
   },
   reverseLabel: {
     fontFamily: 'Inter-Bold',
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
     color: MUTED,
     letterSpacing: 2.5,
@@ -437,7 +457,6 @@ const styles = StyleSheet.create({
     color: LIME,
     letterSpacing: 0.3,
   },
-  // Bottom area
   bottomArea: {
     width: '100%',
     maxWidth: 440,
