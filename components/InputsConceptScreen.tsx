@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -53,7 +53,10 @@ export default function InputsConceptScreen({ onContinue }: Props) {
   const isNarrowHeight = height < 700;
   const topPad = insets.top + (isNarrowHeight ? 14 : 20);
   const bottomPad = insets.bottom + 12;
-  const pageWidth = width;
+  const maxContentWidth = 480;
+  const pageWidth = Math.min(width, maxContentWidth);
+
+  const totalExamples = 2;
 
   const handleExampleCompleted = useCallback((idx: number) => {
     setCompletedExamples((prev) => {
@@ -63,9 +66,11 @@ export default function InputsConceptScreen({ onContinue }: Props) {
     });
   }, []);
 
-  // When Example 1 (index 0) completes, show the swipe-left discovery cue
-  React.useEffect(() => {
-    if (completedExamples.has(0) && activeIndex === 0) {
+  const isLastExample = activeIndex === totalExamples - 1;
+
+  // Swipe cue: show after any non-last example completes
+  useEffect(() => {
+    if (!isLastExample && completedExamples.has(activeIndex)) {
       swipeCueOpacity.value = withDelay(
         600,
         withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) }),
@@ -81,12 +86,14 @@ export default function InputsConceptScreen({ onContinue }: Props) {
           false,
         ),
       );
+    } else {
+      swipeCueOpacity.value = withTiming(0, { duration: 300 });
     }
-  }, [completedExamples, activeIndex]);
+  }, [completedExamples, activeIndex, isLastExample]);
 
-  // Show CTA once the active example is completed
-  React.useEffect(() => {
-    if (completedExamples.has(activeIndex)) {
+  // CTA: only show after the last example completes
+  useEffect(() => {
+    if (isLastExample && completedExamples.has(activeIndex)) {
       ctaOpacity.value = withDelay(
         500,
         withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }),
@@ -94,7 +101,7 @@ export default function InputsConceptScreen({ onContinue }: Props) {
     } else {
       ctaOpacity.value = withTiming(0, { duration: 300 });
     }
-  }, [completedExamples, activeIndex]);
+  }, [completedExamples, activeIndex, isLastExample]);
 
   const onScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -130,8 +137,6 @@ export default function InputsConceptScreen({ onContinue }: Props) {
     opacity: ctaOpacity.value,
   }));
 
-  const totalExamples = 2;
-
   const dots = useMemo(() => {
     return Array.from({ length: 3 }, (_, i) => {
       // 3 dots: Screen 1 (inactive), Screen 2 (the active page within this screen), Screen 3 (inactive)
@@ -150,7 +155,7 @@ export default function InputsConceptScreen({ onContinue }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.content, { paddingTop: topPad, paddingBottom: bottomPad }]}>
+      <View style={[styles.content, { paddingTop: topPad, paddingBottom: bottomPad, maxWidth: maxContentWidth, alignSelf: 'center' }]}>
         {/* Example area — horizontal pager */}
         <View style={styles.exampleArea}>
           <ScrollView
@@ -177,8 +182,8 @@ export default function InputsConceptScreen({ onContinue }: Props) {
             ))}
           </ScrollView>
 
-          {/* Swipe-left discovery cue overlay — shown after Example 1 completes */}
-          {activeIndex === 0 && completedExamples.has(0) && (
+          {/* Swipe-left discovery cue overlay — shown after any non-last example completes */}
+          {!isLastExample && completedExamples.has(activeIndex) && (
             <Animated.View style={[styles.swipeCueWrap, swipeCueStyle]} pointerEvents="none">
               <Text style={styles.swipeCueText}>SWIPE FOR ANOTHER EXAMPLE →</Text>
             </Animated.View>
@@ -213,8 +218,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
     alignItems: 'center',
-    paddingHorizontal: 26,
   },
   exampleArea: {
     flex: 1,
@@ -243,7 +248,7 @@ const styles = StyleSheet.create({
   },
   bottomArea: {
     width: '100%',
-    maxWidth: 440,
+    paddingHorizontal: 26,
     alignItems: 'center',
     paddingTop: 8,
   },

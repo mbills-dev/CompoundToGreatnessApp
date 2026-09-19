@@ -349,6 +349,7 @@ export default function ExampleCard({ index, isActive, onCompleted, swipeProgres
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
+    paddingHorizontal: 26,
   },
   exampleArea: {
     flex: 1,
