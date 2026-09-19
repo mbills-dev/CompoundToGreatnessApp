@@ -38,12 +38,17 @@ export default function Example2Card({ index, isActive, onCompleted, pageWidth }
   const completedRef = useRef(false);
 
   const isSmall = width <= 375;
+  const isNarrowHeight = height < 700;
   const headline1Size = isSmall ? 30 : 34;
   const headline2Size = isSmall ? 20 : 22;
   const goalTextSize = isSmall ? 16 : 18;
   const inputTextSize = isSmall ? 14 : 15;
   const stackLimeSize = isSmall ? 26 : 30;
-  const rowHeight = isSmall ? 50 : 54;
+  const rowHeight = isSmall ? 36 : isNarrowHeight ? 36 : 38;
+  const mathArrowH = isNarrowHeight ? 10 : 12;
+  const inputsHeadlineMargin = isNarrowHeight ? 24 : 30;
+  const stackPaddingV = isNarrowHeight ? 10 : 12;
+  const stackInputMargin = isNarrowHeight ? 8 : 10;
 
   const outcomeH = isSmall ? 88 : 94;
   const inputsH = isSmall ? 88 : 94;
@@ -286,7 +291,7 @@ export default function Example2Card({ index, isActive, onCompleted, pageWidth }
         </Animated.View>
 
         {/* Inputs headline — wrapper expands on tap, fills space below goal */}
-        <Animated.View style={[inputsWrapStyle, { marginTop: 36 }]} pointerEvents="none">
+        <Animated.View style={[inputsWrapStyle, { marginTop: inputsHeadlineMargin }]} pointerEvents="none">
           <Animated.View style={[styles.headlineCenter, inputsStyle]}>
             <Text style={[styles.headline2, { fontSize: headline2Size }]}>
               <Text style={styles.textWhite}>FOCUS ON THE{'\n'}</Text>
@@ -454,8 +459,8 @@ const styles = StyleSheet.create({
   },
   reverseWrap: {
     alignItems: 'center',
-    paddingVertical: 6,
-    marginTop: 4,
+    paddingVertical: 4,
+    marginTop: 2,
   },
   arrowLime: {
     fontFamily: 'Inter-Black',
@@ -496,12 +501,12 @@ const styles = StyleSheet.create({
   },
   mathArrowWrap: {
     alignItems: 'center',
-    height: 18,
+    height: 12,
     justifyContent: 'center',
   },
   mathArrowText: {
     fontFamily: 'Inter-Black',
-    fontSize: 14,
+    fontSize: 13,
     color: LIME,
   },
   checkWrap: {
@@ -519,7 +524,7 @@ const styles = StyleSheet.create({
     color: '#000000',
   },
   stackArrowWrap: {
-    paddingVertical: 6,
+    paddingVertical: 4,
     alignItems: 'center',
   },
   stackCard: {
@@ -528,7 +533,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1.5,
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   stackMuted: {
@@ -548,8 +553,8 @@ const styles = StyleSheet.create({
   stackInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: 10,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: 'rgba(204,255,0,0.15)',
     width: '100%',
