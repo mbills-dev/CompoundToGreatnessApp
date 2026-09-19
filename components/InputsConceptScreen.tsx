@@ -61,6 +61,7 @@ export default function InputsConceptScreen({ onContinue }: Props) {
   const chk2 = useSharedValue(0);
   const chk3 = useSharedValue(0);
   const chk4 = useSharedValue(0);
+  const reverseOpacity = useSharedValue(0);
   const stackArrowOpacity = useSharedValue(0);
   const stackOpacity = useSharedValue(0);
   const stackGlow = useSharedValue(0);
@@ -72,13 +73,13 @@ export default function InputsConceptScreen({ onContinue }: Props) {
     goalOpacity.value = withDelay(500, withTiming(1, { duration: 380, easing: EASE_OUT }));
     goalTranslate.value = withDelay(500, withTiming(0, { duration: 380, easing: EASE_OUT }));
     breakDownOpacity.value = withDelay(950, withTiming(1, { duration: 350, easing: EASE_OUT }));
-    // Subtle slow pulse on the break-down control
+    // Subtle slow vertical pulse on the break-down arrow
     breakDownPulse.value = withDelay(
       1300,
       withRepeat(
         withSequence(
-          withTiming(0.55, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0, { duration: 1600, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.ease) }),
         ),
         -1,
         false,
@@ -93,6 +94,7 @@ export default function InputsConceptScreen({ onContinue }: Props) {
       breakDownOpacity.value = 0;
       breakDownPulse.value = 1;
       inputsOpacity.value = 0;
+      reverseOpacity.value = 0;
       row1.value = row2.value = row3.value = row4.value = 0;
       chk1.value = chk2.value = chk3.value = chk4.value = 0;
       stackArrowOpacity.value = 0;
@@ -113,9 +115,12 @@ export default function InputsConceptScreen({ onContinue }: Props) {
     // 2. Replace with inputs headline
     inputsOpacity.value = withDelay(300, withTiming(1, { duration: 400, easing: EASE_OUT }));
 
-    // 3. Reveal inputs one at a time, 650ms apart
-    const t0 = 850; // first input starts 850ms after tap
-    const gap = 650;
+    // 3. Reveal reverse-engineer label, then inputs one at a time, 800ms apart
+    const reverseT = 850;
+    reverseOpacity.value = withDelay(reverseT, withTiming(1, { duration: 350, easing: EASE_OUT }));
+
+    const t0 = reverseT + 450; // first input after reverse label settles
+    const gap = 800;
     const rowDur = 380;
 
     row1.value = withDelay(t0, withTiming(1, { duration: rowDur, easing: EASE_OUT }));
@@ -130,14 +135,14 @@ export default function InputsConceptScreen({ onContinue }: Props) {
     row4.value = withDelay(t0 + gap * 3, withTiming(1, { duration: rowDur, easing: EASE_OUT }));
     chk4.value = withDelay(t0 + gap * 3 + 100, withTiming(1, { duration: 250, easing: EASE_OUT }));
 
-    // 4. After input 04 + 700ms pause → success stack
-    const stackT = t0 + gap * 3 + 700;
+    // 4. After input 04 + 900ms pause → arrow, then success stack
+    const stackT = t0 + gap * 3 + 900;
     stackArrowOpacity.value = withDelay(stackT, withTiming(1, { duration: 300, easing: EASE_OUT }));
-    stackOpacity.value = withDelay(stackT + 200, withTiming(1, { duration: 550, easing: EASE_OUT }));
-    stackGlow.value = withDelay(stackT + 400, withTiming(1, { duration: 700, easing: EASE_OUT }));
+    stackOpacity.value = withDelay(stackT + 350, withTiming(1, { duration: 550, easing: EASE_OUT }));
+    stackGlow.value = withDelay(stackT + 550, withTiming(1, { duration: 700, easing: EASE_OUT }));
 
-    // 5. CTA emphasis
-    ctaOpacity.value = withDelay(stackT + 700, withTiming(1, { duration: 500, easing: EASE_OUT }));
+    // 5. CTA emphasis after stack has fully appeared
+    ctaOpacity.value = withDelay(stackT + 550 + 500, withTiming(1, { duration: 500, easing: EASE_OUT }));
   }, [brokenDown]);
 
   const outcomeStyle = useAnimatedStyle(() => ({
@@ -160,8 +165,10 @@ export default function InputsConceptScreen({ onContinue }: Props) {
   }));
 
   const breakDownArrowStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(breakDownPulse.value, [0.55, 1], [0.5, 1], Extrapolation.CLAMP),
-    transform: [{ scale: interpolate(breakDownPulse.value, [0.55, 1], [0.97, 1], Extrapolation.CLAMP) }],
+    opacity: interpolate(breakDownPulse.value, [0, 1], [0.45, 1], Extrapolation.CLAMP),
+    transform: [
+      { translateY: interpolate(breakDownPulse.value, [0, 1], [3, -3], Extrapolation.CLAMP) },
+    ],
   }));
 
   const rowStyle = (sv: SharedValue<number>) =>
@@ -175,6 +182,10 @@ export default function InputsConceptScreen({ onContinue }: Props) {
       opacity: sv.value,
       transform: [{ scale: interpolate(sv.value, [0, 1], [0.4, 1], Extrapolation.CLAMP) }],
     }));
+
+  const reverseStyle = useAnimatedStyle(() => ({
+    opacity: reverseOpacity.value,
+  }));
 
   const stackArrowStyle = useAnimatedStyle(() => ({
     opacity: stackArrowOpacity.value,
@@ -248,6 +259,14 @@ export default function InputsConceptScreen({ onContinue }: Props) {
                 </Animated.View>
                 <Text style={styles.reverseLabel}>BREAK IT DOWN</Text>
               </TouchableOpacity>
+            </Animated.View>
+          )}
+
+          {/* Reverse engineer label — Phase 2 */}
+          {brokenDown && (
+            <Animated.View style={[styles.reverseWrap, reverseStyle]}>
+              <Text style={styles.arrow}>↓</Text>
+              <Text style={styles.reverseLabel}>REVERSE ENGINEER</Text>
             </Animated.View>
           )}
 
@@ -372,12 +391,17 @@ const styles = StyleSheet.create({
   },
   breakDownWrap: {
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 12,
   },
   breakDownTouch: {
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 40,
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+  },
+  reverseWrap: {
+    alignItems: 'center',
+    paddingVertical: 6,
+    marginTop: 4,
   },
   arrow: {
     fontFamily: 'Inter-Black',
