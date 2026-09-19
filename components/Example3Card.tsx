@@ -148,7 +148,16 @@ export default function Example3Card({ index, isActive, onCompleted, pageWidth }
     const reverseT = 750;
     reverseOpacity.value = withDelay(reverseT, withTiming(1, { duration: 350, easing: EASE_OUT }));
 
-    const t0 = reverseT + 250;
+    // Stack heading reveals before input rows
+    const stackArrowT = reverseT + 200;
+    stackArrowOpacity.value = withDelay(stackArrowT, withTiming(1, { duration: 300, easing: EASE_OUT }));
+
+    const stackHeadingT = stackArrowT + 200;
+    stackOpacity.value = withDelay(stackHeadingT, withTiming(1, { duration: 400, easing: EASE_OUT }));
+    stackGlow.value = withDelay(stackHeadingT + 200, withTiming(1, { duration: 700, easing: EASE_OUT }));
+
+    // Input rows stagger after heading
+    const t0 = stackHeadingT + 350;
     const gap = 350;
     const rowDur = 350;
 
@@ -164,13 +173,9 @@ export default function Example3Card({ index, isActive, onCompleted, pageWidth }
     row4.value = withDelay(t0 + gap * 3, withTiming(1, { duration: rowDur, easing: EASE_OUT }));
     chk4.value = withDelay(t0 + gap * 3 + 80, withTiming(1, { duration: 220, easing: EASE_OUT }));
 
+    // Signal completion after the full reveal finishes
     const input4Settle = t0 + gap * 3 + rowDur;
-    const stackT = input4Settle + 650;
-    stackArrowOpacity.value = withDelay(stackT, withTiming(1, { duration: 300, easing: EASE_OUT }));
-    stackOpacity.value = withDelay(stackT + 300, withTiming(1, { duration: 550, easing: EASE_OUT }));
-    stackGlow.value = withDelay(stackT + 500, withTiming(1, { duration: 700, easing: EASE_OUT }));
-
-    const totalDelay = stackT + 300 + 550 + 500;
+    const totalDelay = input4Settle + 500;
     stackGlow.value = withDelay(
       totalDelay,
       withTiming(1, { duration: 1 }, (finished) => {
@@ -318,9 +323,24 @@ export default function Example3Card({ index, isActive, onCompleted, pageWidth }
           </Animated.View>
         )}
 
-        {/* Input rows — Phase 2 */}
+        {/* Arrow to Success Stack heading — Phase 2 */}
         {brokenDown && (
-          <View style={{ width: '100%', gap: rowGap, marginTop: 2 }}>
+          <Animated.View style={[styles.stackArrowWrap, stackArrowStyle]}>
+            <Text style={styles.arrowLime}>↓</Text>
+          </Animated.View>
+        )}
+
+        {/* Success Stack heading — Phase 2 */}
+        {brokenDown && (
+          <Animated.View style={[styles.stackHeadingWrap, stackStyle, stackBorderStyle]}>
+            <Text style={styles.stackMuted}>YOUR DAILY</Text>
+            <Text style={[styles.stackLime, { fontSize: stackLimeSize }]}>SUCCESS STACK</Text>
+          </Animated.View>
+        )}
+
+        {/* Input rows — the actual daily stack — Phase 2 */}
+        {brokenDown && (
+          <View style={{ width: '100%', gap: rowGap, marginTop: 6 }}>
             {rows.map((item) => (
               <Animated.View key={item.num} style={[styles.inputRowCard, { height: rowHeight }, item.style]}>
                 <Text style={styles.inputNum}>{item.num}</Text>
@@ -331,20 +351,6 @@ export default function Example3Card({ index, isActive, onCompleted, pageWidth }
               </Animated.View>
             ))}
           </View>
-        )}
-
-        {/* Arrow to stack + Success Stack — Phase 2 */}
-        {brokenDown && (
-          <>
-            <Animated.View style={[styles.stackArrowWrap, stackArrowStyle]}>
-              <Text style={styles.arrowLime}>↓</Text>
-            </Animated.View>
-
-            <Animated.View style={[styles.stackCard, stackStyle, stackBorderStyle]}>
-              <Text style={styles.stackMuted}>YOUR DAILY</Text>
-              <Text style={[styles.stackLime, { fontSize: stackLimeSize }]}>SUCCESS STACK</Text>
-            </Animated.View>
-          </>
         )}
       </View>
     </View>
@@ -480,6 +486,10 @@ const styles = StyleSheet.create({
   stackArrowWrap: {
     paddingVertical: 4,
     alignItems: 'center',
+  },
+  stackHeadingWrap: {
+    alignItems: 'center',
+    paddingVertical: 2,
   },
   stackCard: {
     width: '100%',
