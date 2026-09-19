@@ -299,17 +299,14 @@ export default function CompoundingScreen({ onContinue }: Props) {
                 strokeWidth={1}
               />
 
-              {/* Animated exponential curve (clipped for draw effect) */}
-              <Path
-                d={fullPath}
-                stroke={LIME}
-                strokeWidth={2.5}
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                filter="url(#limeGlow)"
-                clipPath="url(#curveClip)"
-              />
+              {/* Animated exponential curve (clipped for draw effect) — glow built from
+                  stacked translucent strokes instead of an SVG blur filter, since filters
+                  render inconsistently (visible box artifacts) across platforms in
+                  react-native-svg */}
+              <Path d={fullPath} stroke={LIME} strokeWidth={10} strokeOpacity={0.12} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
+              <Path d={fullPath} stroke={LIME} strokeWidth={6} strokeOpacity={0.22} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
+              <Path d={fullPath} stroke={LIME} strokeWidth={3.5} strokeOpacity={0.35} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
+              <Path d={fullPath} stroke={LIME} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
 
               {/* Milestone dots 0–2 (standard) */}
               {milestonePos.slice(0, 3).map((m, i) =>
