@@ -22,6 +22,7 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import ExampleCard from './ExampleCard';
+import Example2Card from './Example2Card';
 
 const LIME = '#CCFF00';
 const WHITE = '#FFFFFF';
@@ -170,16 +171,27 @@ export default function InputsConceptScreen({ onContinue }: Props) {
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
           >
-            {Array.from({ length: totalExamples }, (_, i) => (
-              <ExampleCard
-                key={i}
-                index={i}
-                isActive={activeIndex === i}
-                onCompleted={() => handleExampleCompleted(i)}
-                swipeProgress={swipeProgress}
-                pageWidth={pageWidth}
-              />
-            ))}
+            {Array.from({ length: totalExamples }, (_, i) =>
+              i === 1 ? (
+                <Example2Card
+                  key={i}
+                  index={i}
+                  isActive={activeIndex === i}
+                  onCompleted={() => handleExampleCompleted(i)}
+                  swipeProgress={swipeProgress}
+                  pageWidth={pageWidth}
+                />
+              ) : (
+                <ExampleCard
+                  key={i}
+                  index={i}
+                  isActive={activeIndex === i}
+                  onCompleted={() => handleExampleCompleted(i)}
+                  swipeProgress={swipeProgress}
+                  pageWidth={pageWidth}
+                />
+              ),
+            )}
           </ScrollView>
 
           {/* Swipe-left discovery cue overlay — shown after any non-last example completes */}
