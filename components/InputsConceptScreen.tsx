@@ -24,6 +24,7 @@ import Animated, {
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import ExampleCard from './ExampleCard';
 import Example2Card from './Example2Card';
+import Example3Card from './Example3Card';
 
 const LIME = '#CCFF00';
 const WHITE = '#FFFFFF';
@@ -58,7 +59,7 @@ export default function InputsConceptScreen({ onContinue }: Props) {
   const maxContentWidth = 480;
   const pageWidth = Math.min(width, maxContentWidth);
 
-  const totalExamples = 2;
+  const totalExamples = 3;
 
   const handleExampleCompleted = useCallback((idx: number) => {
     setCompletedExamples((prev) => {
@@ -187,17 +188,32 @@ export default function InputsConceptScreen({ onContinue }: Props) {
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
           >
-            {Array.from({ length: totalExamples }, (_, i) =>
-              i === 1 ? (
-                <Example2Card
-                  key={i}
-                  index={i}
-                  isActive={activeIndex === i}
-                  onCompleted={() => handleExampleCompleted(i)}
-                  swipeProgress={swipeProgress}
-                  pageWidth={pageWidth}
-                />
-              ) : (
+            {Array.from({ length: totalExamples }, (_, i) => {
+              if (i === 1) {
+                return (
+                  <Example2Card
+                    key={i}
+                    index={i}
+                    isActive={activeIndex === i}
+                    onCompleted={() => handleExampleCompleted(i)}
+                    swipeProgress={swipeProgress}
+                    pageWidth={pageWidth}
+                  />
+                );
+              }
+              if (i === 2) {
+                return (
+                  <Example3Card
+                    key={i}
+                    index={i}
+                    isActive={activeIndex === i}
+                    onCompleted={() => handleExampleCompleted(i)}
+                    swipeProgress={swipeProgress}
+                    pageWidth={pageWidth}
+                  />
+                );
+              }
+              return (
                 <ExampleCard
                   key={i}
                   index={i}
@@ -206,8 +222,8 @@ export default function InputsConceptScreen({ onContinue }: Props) {
                   swipeProgress={swipeProgress}
                   pageWidth={pageWidth}
                 />
-              ),
-            )}
+              );
+            })}
           </ScrollView>
 
           {/* Swipe-left discovery cue overlay — shown after any non-last example completes */}
