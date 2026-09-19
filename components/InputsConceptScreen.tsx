@@ -21,6 +21,7 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
+import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import ExampleCard from './ExampleCard';
 import Example2Card from './Example2Card';
 
@@ -112,6 +113,18 @@ export default function InputsConceptScreen({ onContinue }: Props) {
     [pageWidth],
   );
 
+  const goToPage = useCallback(
+    (idx: number) => {
+      const clamped = Math.max(0, Math.min(idx, totalExamples - 1));
+      scrollRef.current?.scrollTo({ x: clamped * pageWidth, animated: true });
+      setActiveIndex(clamped);
+      if (clamped !== 0) {
+        swipeCueOpacity.value = withTiming(0, { duration: 250 });
+      }
+    },
+    [pageWidth, totalExamples],
+  );
+
   const onMomentumScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const x = e.nativeEvent.contentOffset.x;
@@ -139,20 +152,22 @@ export default function InputsConceptScreen({ onContinue }: Props) {
   }));
 
   const dots = useMemo(() => {
-    return Array.from({ length: 3 }, (_, i) => {
-      // 3 dots: Screen 1 (inactive), Screen 2 (the active page within this screen), Screen 3 (inactive)
-      // The middle dot should reflect the active example
-      if (i === 1) {
-        return (
-          <View
-            key={i}
-            style={[styles.progressDot, activeIndex === 0 ? styles.progressDotActive : styles.progressDotInactive]}
-          />
-        );
-      }
-      return <View key={i} style={styles.progressDot} />;
-    });
-  }, [activeIndex]);
+    return Array.from({ length: totalExamples }, (_, i) => (
+      <TouchableOpacity
+        key={i}
+        onPress={() => goToPage(i)}
+        activeOpacity={0.6}
+        hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+      >
+        <View
+          style={[
+            styles.progressDot,
+            activeIndex === i ? styles.progressDotActive : styles.progressDotInactive,
+          ]}
+        />
+      </TouchableOpacity>
+    ));
+  }, [activeIndex, totalExamples, goToPage]);
 
   return (
     <View style={styles.container}>
@@ -205,7 +220,35 @@ export default function InputsConceptScreen({ onContinue }: Props) {
         {/* Bottom area */}
         <View style={styles.bottomArea}>
           <View style={styles.progressWrap}>
+            <TouchableOpacity
+              onPress={() => goToPage(activeIndex - 1)}
+              disabled={activeIndex === 0}
+              activeOpacity={0.6}
+              hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+              style={styles.chevronBtn}
+            >
+              <ChevronLeft
+                size={16}
+                color={activeIndex === 0 ? 'rgba(255,255,255,0.1)' : MUTED}
+                strokeWidth={2}
+              />
+            </TouchableOpacity>
+
             {dots}
+
+            <TouchableOpacity
+              onPress={() => goToPage(activeIndex + 1)}
+              disabled={isLastExample}
+              activeOpacity={0.6}
+              hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+              style={styles.chevronBtn}
+            >
+              <ChevronRight
+                size={16}
+                color={isLastExample ? 'rgba(255,255,255,0.1)' : MUTED}
+                strokeWidth={2}
+              />
+            </TouchableOpacity>
           </View>
 
           <Animated.View style={[styles.ctaWrap, ctaAnimatedStyle]}>
@@ -266,9 +309,12 @@ const styles = StyleSheet.create({
   },
   progressWrap: {
     flexDirection: 'row',
-    gap: 7,
+    gap: 6,
     marginBottom: 10,
     alignItems: 'center',
+  },
+  chevronBtn: {
+    padding: 2,
   },
   progressDot: {
     width: 6,
