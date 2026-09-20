@@ -11,7 +11,7 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import Svg, { Path, Circle, Line, Defs, Filter, Text as SvgText, Rect, ClipPath } from 'react-native-svg';
+import Svg, { Path, Circle, Line, Defs, Text as SvgText, Rect, ClipPath } from 'react-native-svg';
 
 const LIME = '#CCFF00';
 const WHITE = '#FFFFFF';
@@ -32,7 +32,7 @@ const MILESTONES = [
   { day: 77, label: 'DAY 77' },
 ];
 
-// Piecewise curve: flat for a long time, then dramatic explosion.
+// One smooth continuous exponential curve — no piecewise segments, no elbows.
 // progress 0..1 maps to Day 1..77.
 function curvePoint(
   progress: number,
@@ -45,25 +45,9 @@ function curvePoint(
   const usableH = graphH - padTop - padBottom;
   const x = padX + progress * (graphW - 2 * padX);
 
-  // Normalize the y value piecewise:
-  // 0.00–0.26 (Day 1–20): nearly flat, only ~2% growth
-  // 0.26–0.52 (Day 20–40): subtle bend, ~8% total
-  // 0.52–0.72 (Day 40–55): noticeable acceleration, ~25%
-  // 0.72–1.00 (Day 55–77): dramatic hockey-stick to 100%
-  let yNorm: number;
-  if (progress < 0.26) {
-    yNorm = (progress / 0.26) * 0.02;
-  } else if (progress < 0.52) {
-    const local = (progress - 0.26) / 0.26;
-    yNorm = 0.02 + local * 0.06;
-  } else if (progress < 0.72) {
-    const local = (progress - 0.52) / 0.20;
-    yNorm = 0.08 + local * 0.17;
-  } else {
-    const local = (progress - 0.72) / 0.28;
-    // Exponential kick for the final section
-    yNorm = 0.25 + (Math.exp(3.5 * local) - 1) / (Math.exp(3.5) - 1) * 0.75;
-  }
+  // Normalized continuous exponential — flat for a long time, then dramatic rise
+  const k = 5.0;
+  const yNorm = (Math.exp(k * progress) - 1) / (Math.exp(k) - 1);
 
   const y = padTop + usableH - yNorm * usableH;
   return { x, y };
@@ -167,12 +151,12 @@ export default function CompoundingScreen({ onContinue }: Props) {
 
   // ─── Responsive graph dimensions ───
   const availH = height - topPad - bottomPad;
-  const graphH = Math.round(availH * (isNarrowHeight ? 0.32 : 0.36));
-  const graphW = Math.min(pageWidth - 48, 380);
+  const graphH = Math.round(availH * (isNarrowHeight ? 0.34 : 0.38));
+  const graphW = Math.min(pageWidth - 32, 410);
   const padX = 28;
   const padTop = 20;
   const padBottom = 26;
-  const graphTotalH = graphH + 20;
+  const graphTotalH = graphH + 24;
 
   // Build the full SVG path for the curve
   const fullPath = useMemo(() => {
@@ -202,16 +186,16 @@ export default function CompoundingScreen({ onContinue }: Props) {
   // ─── Annotation positions (contextual to curve) ───
   // "This is where most people quit." — ABOVE the early flat portion, between Day 1 and Day 20
   const midEarlyX = (milestonePos[0].x + milestonePos[1].x) / 2;
-  const quitTop = Math.max(milestonePos[0].y - 42, 2);
-  const quitLeft = midEarlyX - 50;
+  const quitTop = Math.max(milestonePos[0].y - 52, 2);
+  const quitLeft = midEarlyX - 55;
   // "Keep going." — near Day 40–50 where curve begins bending
   const bendX = milestonePos[2].x + (milestonePos[3].x - milestonePos[2].x) * 0.15;
   const bendY = milestonePos[2].y - (milestonePos[2].y - milestonePos[3].y) * 0.08;
-  const keepTop = Math.max(bendY - 40, 2);
+  const keepTop = Math.max(bendY - 46, 2);
   const keepLeft = bendX - 52;
-  // "GREATNESS COMPOUNDS." — slightly LEFT and ABOVE the final steep section
-  const greatnessTop = Math.max(milestonePos[3].y - 62, 2);
-  const greatnessRight = graphW - milestonePos[3].x + 50;
+  // "GREATNESS COMPOUNDS." — to the LEFT and ABOVE the Day 77 endpoint
+  const greatnessTop = Math.max(milestonePos[3].y - 72, 2);
+  const greatnessRight = graphW - milestonePos[3].x + 56;
 
   const headlineStyle = useAnimatedStyle(() => ({ opacity: headlineOpacity.value }));
   const subStyle = useAnimatedStyle(() => ({ opacity: subOpacity.value }));
@@ -231,7 +215,9 @@ export default function CompoundingScreen({ onContinue }: Props) {
     transform: [{ scale: interpolate(dot77Scale.value, [0, 1.5, 1], [0, 1.5, 1], Extrapolation.CLAMP) }],
   }));
 
-  const challengeFontSize = isNarrowHeight ? 36 : isSmall ? 38 : 40;
+  const headlineFontSize = isNarrowHeight ? 32 : isSmall ? 34 : 36;
+  const challenge77FontSize = isNarrowHeight ? 42 : isSmall ? 44 : 48;
+  const challengeWordFontSize = isNarrowHeight ? 38 : isSmall ? 40 : 44;
 
   // Pagination dots — matching InputsConceptScreen style (3 dots, 3rd active)
   const paginationDots = useMemo(() => {
@@ -255,7 +241,7 @@ export default function CompoundingScreen({ onContinue }: Props) {
         ]}>
         {/* ─── HERO (~15%) ─── */}
         <Animated.View style={[styles.heroWrap, headlineStyle]}>
-          <Text style={styles.headline}>
+          <Text style={[styles.headline, { fontSize: headlineFontSize, lineHeight: headlineFontSize * 1.02 }]}>
             <Text style={styles.textWhite}>SMALL INPUTS.</Text>
             {'\n'}
             <Text style={styles.textLime}>EXPONENTIAL LIFE.</Text>
@@ -270,20 +256,6 @@ export default function CompoundingScreen({ onContinue }: Props) {
           <View style={[styles.graphWrap, { width: graphW, height: graphTotalH }]}>
             <Svg width={graphW} height={graphTotalH}>
               <Defs>
-                <Filter id="limeGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </Filter>
-                <Filter id="limeGlowStrong" x="-40%" y="-40%" width="180%" height="180%">
-                  <feGaussianBlur stdDeviation="6" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </Filter>
                 <ClipPath id="curveClip">
                   <Rect x={0} y={0} width={clipW} height={graphTotalH} />
                 </ClipPath>
@@ -299,14 +271,11 @@ export default function CompoundingScreen({ onContinue }: Props) {
                 strokeWidth={1}
               />
 
-              {/* Animated exponential curve (clipped for draw effect) — glow built from
-                  stacked translucent strokes instead of an SVG blur filter, since filters
-                  render inconsistently (visible box artifacts) across platforms in
-                  react-native-svg */}
-              <Path d={fullPath} stroke={LIME} strokeWidth={10} strokeOpacity={0.12} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
-              <Path d={fullPath} stroke={LIME} strokeWidth={6} strokeOpacity={0.22} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
-              <Path d={fullPath} stroke={LIME} strokeWidth={3.5} strokeOpacity={0.35} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
-              <Path d={fullPath} stroke={LIME} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
+              {/* Soft atmospheric lime glow — broad translucent halos below one crisp line */}
+              <Path d={fullPath} stroke={LIME} strokeWidth={18} strokeOpacity={0.035} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
+              <Path d={fullPath} stroke={LIME} strokeWidth={12} strokeOpacity={0.06} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
+              <Path d={fullPath} stroke={LIME} strokeWidth={7} strokeOpacity={0.12} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
+              <Path d={fullPath} stroke={LIME} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
 
               {/* Milestone dots 0–2 (standard) */}
               {milestonePos.slice(0, 3).map((m, i) =>
@@ -323,39 +292,35 @@ export default function CompoundingScreen({ onContinue }: Props) {
                 ) : null,
               )}
 
-              {/* Day 77 dot — larger, with strong glow, pulses on reveal */}
+              {/* Day 77 dot — luminous endpoint with soft layered glow */}
               {visibleMilestones > 3 &&
                 (() => {
                   const m = milestonePos[3];
                   return (
                     <>
-                      {/* Outer glow ring */}
+                      {/* Large faint halo */}
+                      <Circle cx={m.x} cy={m.y} r={24} fill={LIME} opacity={0.04} />
+                      {/* Medium halo */}
+                      <Circle cx={m.x} cy={m.y} r={16} fill={LIME} opacity={0.08} />
+                      {/* Pulsing glow ring */}
                       <Animated.View
                         key="dot77-glow"
                         style={[
                           {
                             position: 'absolute',
-                            left: m.x - 16,
-                            top: m.y - 16,
-                            width: 32,
-                            height: 32,
-                            borderRadius: 16,
+                            left: m.x - 14,
+                            top: m.y - 14,
+                            width: 28,
+                            height: 28,
+                            borderRadius: 14,
                             backgroundColor: LIME,
                           },
                           dot77Style,
                         ]}
                         pointerEvents="none"
                       />
-                      <Circle
-                        key="dot77"
-                        cx={m.x}
-                        cy={m.y}
-                        r={6}
-                        fill={LIME}
-                        stroke={LIME}
-                        strokeWidth={1.5}
-                        filter="url(#limeGlowStrong)"
-                      />
+                      {/* Bright center dot */}
+                      <Circle cx={m.x} cy={m.y} r={7} fill={LIME} stroke={WHITE} strokeWidth={1.5} />
                     </>
                   );
                 })()}
@@ -366,9 +331,9 @@ export default function CompoundingScreen({ onContinue }: Props) {
                   <SvgText
                     key={`label-${m.day}`}
                     x={m.x}
-                    y={graphH - padBottom + 16}
-                    fontSize={9}
-                    fill={MUTED}
+                    y={graphH - padBottom + 18}
+                    fontSize={11}
+                    fill={i === 3 ? LIME : MUTED}
                     fontFamily="Inter-Bold"
                     fontWeight="700"
                     textAnchor="middle">
@@ -400,8 +365,8 @@ export default function CompoundingScreen({ onContinue }: Props) {
             <Animated.View
               style={[styles.annotationGreatness, { top: greatnessTop, right: greatnessRight }, greatnessStyle]}
               pointerEvents="none">
-              <Text style={[styles.handwrittenTextLime, { fontSize: 15 }]}>GREATNESS</Text>
-              <Text style={[styles.handwrittenTextLime, { fontSize: 15 }]}>COMPOUNDS.</Text>
+              <Text style={[styles.handwrittenTextLime, { fontSize: 17 }]}>GREATNESS</Text>
+              <Text style={[styles.handwrittenTextLime, { fontSize: 17 }]}>COMPOUNDS.</Text>
               <Text style={styles.handwrittenArrowRight}>→</Text>
             </Animated.View>
           </View>
@@ -411,10 +376,10 @@ export default function CompoundingScreen({ onContinue }: Props) {
         <View style={styles.challengeSection}>
           <Animated.View style={[styles.challengeWrap, challengeStyle]}>
             <Text style={styles.theLabel}>THE</Text>
-            <Text style={[styles.challengeHeadline, { fontSize: challengeFontSize }]}>
+            <Text style={[styles.challengeHeadline, { fontSize: challenge77FontSize, lineHeight: challenge77FontSize * 1.02 }]}>
               <Text style={styles.textLime}>77 DAY</Text>
               {'\n'}
-              <Text style={[styles.textWhite, { fontSize: challengeFontSize * 0.92 }]}>CHALLENGE</Text>
+              <Text style={[styles.textWhite, { fontSize: challengeWordFontSize, lineHeight: challengeWordFontSize * 1.02 }]}>CHALLENGE</Text>
             </Text>
           </Animated.View>
           <Animated.View style={[styles.challengeSubWrap, challengeSubStyle]}>
@@ -426,15 +391,15 @@ export default function CompoundingScreen({ onContinue }: Props) {
 
         {/* ─── CTA (~15-20%) — anchored to bottom with intentional breathing room ─── */}
         <View style={styles.ctaSection}>
-          {/* Pagination dots — matching Screen 2 style, 3rd dot active */}
-          <View style={styles.paginationWrap}>
-            {paginationDots}
-          </View>
           <Animated.View style={[styles.ctaWrap, ctaAnimatedStyle]}>
             <TouchableOpacity style={styles.primaryButton} onPress={onContinue} activeOpacity={0.85}>
               <Text style={styles.primaryText}>Show me how →</Text>
             </TouchableOpacity>
           </Animated.View>
+          {/* Pagination dots — below CTA, matching Screen 2 style, 3rd dot active */}
+          <View style={styles.paginationWrap}>
+            {paginationDots}
+          </View>
         </View>
       </View>
     </View>
@@ -450,7 +415,6 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
   // Hero
   heroWrap: {
@@ -459,11 +423,9 @@ const styles = StyleSheet.create({
   },
   headline: {
     fontFamily: 'Inter-Black',
-    fontSize: 30,
     fontWeight: '900',
     textAlign: 'center',
-    lineHeight: 38,
-    letterSpacing: 0.3,
+    letterSpacing: 0,
   },
   textWhite: {
     color: WHITE,
@@ -473,20 +435,19 @@ const styles = StyleSheet.create({
   },
   subText: {
     fontFamily: 'Inter-Bold',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: MUTED,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 10,
     letterSpacing: 0.2,
   },
   // Graph section
   graphSection: {
-    flex: 1,
     width: '100%',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: 18,
+    justifyContent: 'center',
+    marginTop: 36,
   },
   graphWrap: {
     alignItems: 'center',
@@ -508,34 +469,34 @@ const styles = StyleSheet.create({
   },
   handwrittenText: {
     fontFamily: 'Northwell',
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.75)',
-    lineHeight: 17,
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.88)',
+    lineHeight: 19,
     textAlign: 'center',
   },
   handwrittenTextLime: {
     fontFamily: 'Northwell',
     color: LIME,
-    lineHeight: 18,
+    lineHeight: 20,
     textAlign: 'center',
   },
   handwrittenArrow: {
     fontFamily: 'Northwell',
-    fontSize: 16,
+    fontSize: 18,
     color: 'rgba(255,255,255,0.5)',
     marginLeft: 4,
     marginTop: -2,
   },
   handwrittenArrowDown: {
     fontFamily: 'Northwell',
-    fontSize: 16,
+    fontSize: 18,
     color: 'rgba(255,255,255,0.5)',
     marginTop: -2,
     textAlign: 'center',
   },
   handwrittenArrowRight: {
     fontFamily: 'Northwell',
-    fontSize: 16,
+    fontSize: 18,
     color: 'rgba(255,255,255,0.5)',
     marginTop: -2,
     textAlign: 'center',
@@ -543,15 +504,14 @@ const styles = StyleSheet.create({
   // Challenge section
   challengeSection: {
     alignItems: 'center',
-    paddingTop: 0,
-    paddingBottom: 2,
+    marginTop: 48,
   },
   challengeWrap: {
     alignItems: 'center',
   },
   theLabel: {
     fontFamily: 'Inter-Bold',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: MUTED,
     letterSpacing: 3,
@@ -561,17 +521,16 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Black',
     fontWeight: '900',
     textAlign: 'center',
-    lineHeight: 46,
-    letterSpacing: 0.3,
+    letterSpacing: 0,
     paddingHorizontal: 28,
   },
   challengeSubWrap: {
     alignItems: 'center',
-    marginTop: 14,
+    marginTop: 16,
   },
   challengeSub: {
     fontFamily: 'Inter-Bold',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: WHITE,
     textAlign: 'center',
@@ -583,18 +542,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: MUTED,
     textAlign: 'center',
-    marginTop: 3,
+    marginTop: 4,
   },
   // CTA section
   ctaSection: {
     width: '100%',
     alignItems: 'center',
-    paddingTop: 2,
+    marginTop: 24,
   },
   paginationWrap: {
     flexDirection: 'row',
     gap: 6,
-    marginBottom: 10,
+    marginTop: 14,
     alignItems: 'center',
   },
   progressDot: {
