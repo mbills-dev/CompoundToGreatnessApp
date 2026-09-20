@@ -40,7 +40,6 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { IdentityBuilderResult, RawInputEntry, Dimension } from './types';
 import { WhenPickerValue } from './WhenPickerModal';
 import { DecodePath, FlowGoal, AnchoredInput, LockedGoal, NumbersSubtype, TargetResolution } from './flow/types';
-import { WelcomeSeriesScreen } from './flow/WelcomeScreens';
 import { GoalsEntryScreen, IntroScreen, GoalDoneLooksScreen, GoalFuelRedirectScreen } from './flow/GoalsEntry';
 import { PathSelectorScreen, PathNumbers, PathNumbersDirect, PathPractice, PathStarting } from './flow/PathScreens';
 import { AnchorScreen, AddInputScreen, GoalLockedScreen, GoalBadge, formatGoalLabel, displayGoalLabel } from './flow/AnchorScreens';
@@ -594,7 +593,6 @@ const HARDCODED_GOALS: FlowGoal[] = [
 // ─── Phase union ──────────────────────────────────────────────────────────────
 
 type Phase =
-  | { kind: 'welcome'; screen: 0 | 1 | 2 }
   | { kind: 'name-capture' }
   | { kind: 'goals-entry' }
   | { kind: 'intro' }
@@ -627,7 +625,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
   const insets = useSafeAreaInsets();
 
   const [checkpointLoading, setCheckpointLoading] = useState(true);
-  const [phase, setPhase] = useState<Phase>({ kind: 'welcome', screen: 0 });
+  const [phase, setPhase] = useState<Phase>({ kind: 'name-capture' });
   const [history, setHistory] = useState<Phase[]>([]);
   const [goals, setGoals] = useState<FlowGoal[]>(HARDCODED_GOALS);
   const [locked, setLocked] = useState<ExtendedLockedGoal[]>([]);
@@ -656,7 +654,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
         if (raw) {
           const cp = JSON.parse(raw);
           if (cp && cp.phase && cp.phase.kind) {
-            if (cp.phase.kind === 'welcome') {
+            if (cp.phase.kind === 'name-capture') {
               setCheckpointLoading(false);
               return;
             }
@@ -708,7 +706,6 @@ export default function IdentityBuilder({ onComplete }: Props) {
 
   const phaseKey = (p: Phase): string => {
     switch (p.kind) {
-      case 'welcome': return `welcome-${p.screen}`;
       case 'path-select': return `path-select-${p.goalIdx}`;
       case 'goal-done-looks': return `done-looks-${p.goalIdx}-${p.chosenPath}`;
       case 'goal-fuel-redirect': return `fuel-redirect-${p.goalIdx}`;
@@ -918,21 +915,6 @@ export default function IdentityBuilder({ onComplete }: Props) {
 
   const renderPhase = () => {
     switch (phase.kind) {
-      case 'welcome':
-        return (
-          <WelcomeSeriesScreen
-            screen={phase.screen}
-            onNext={() => {
-              if (phase.screen < 2) {
-                navigate({ kind: 'welcome', screen: (phase.screen + 1) as 0 | 1 | 2 });
-              } else {
-                navigate({ kind: 'name-capture' });
-              }
-            }}
-            onBack={phase.screen === 0 ? undefined : goBack}
-          />
-        );
-
       case 'name-capture':
         return (
           <NameCaptureScreen
