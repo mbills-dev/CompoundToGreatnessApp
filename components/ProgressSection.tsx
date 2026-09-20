@@ -16,7 +16,7 @@ import {
 import { X, Camera, ArrowRight } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { Goal, DailyCompletion, DailyActivity, EvidenceLog, ProgressPhoto } from '@/types/database';
-import { toLocalDateString } from '@/lib/dateHelpers';
+import { toLocalDateString, getDayNumberFromChallengeStart, getTodayDateString } from '@/lib/dateHelpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ComparisonModal } from './JourneyComparisonBanner';
@@ -98,11 +98,9 @@ export default function ProgressSection({ goal, completions, activities }: Progr
   };
 
   const getActivityConsistency = useCallback((): ActivityStat[] => {
-    const totalDays = goal.current_challenge_day || 0;
+    const totalDays = getDayNumberFromChallengeStart(goal.challenge_start_date, getTodayDateString());
     if (totalDays === 0 || activities.length === 0) return [];
-
     const completedWithDate = completions.filter((c) => c.completed_at !== null);
-
     return activities.map((activity) => {
       const daysCompleted = completedWithDate.filter(
         (c) => c.activities_completed && c.activities_completed.includes(activity.id)
@@ -116,7 +114,7 @@ export default function ProgressSection({ goal, completions, activities }: Progr
         percentage: pct,
       };
     });
-  }, [goal.current_challenge_day, activities, completions]);
+  }, [goal.challenge_start_date, activities, completions]);
 
   const activityStats = getActivityConsistency();
   const overallConsistency =
