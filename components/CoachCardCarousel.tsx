@@ -216,7 +216,7 @@ export default function CoachCardCarousel({
   }, [hasAnimatedScore, score]);
 
   // --- Compound curve geometry ---
-  const curveW = (SCREEN_WIDTH - 36) * 0.70 - 6;
+  const curveW = (SCREEN_WIDTH - 36) * 0.54 - 6;
   const curveH = 126;
   const PAD_L = curveW * 0.04;
   const PAD_R = curveW * 0.12;
