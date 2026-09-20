@@ -342,23 +342,19 @@ export default function CompoundingScreen({ onContinue }: Props) {
                   const m = milestonePos[3];
                   return (
                     <>
-                      {/* Outer faint halo */}
-                      <Circle cx={m.x} cy={m.y} r={24} fill={LIME} opacity={0.035} />
-                      {/* Middle halo */}
-                      <Circle cx={m.x} cy={m.y} r={16} fill={LIME} opacity={0.07} />
                       {/* Inner glow */}
-                      <Circle cx={m.x} cy={m.y} r={11} fill={LIME} opacity={0.14} />
+                      <Circle cx={m.x} cy={m.y} r={9} fill={LIME} opacity={0.16} />
                       {/* Pulsing glow ring */}
                       <Animated.View
                         key="dot77-glow"
                         style={[
                           {
                             position: 'absolute',
-                            left: m.x - 14,
-                            top: m.y - 14,
-                            width: 28,
-                            height: 28,
-                            borderRadius: 14,
+                            left: m.x - 9,
+                            top: m.y - 9,
+                            width: 18,
+                            height: 18,
+                            borderRadius: 9,
                             backgroundColor: LIME,
                           },
                           dot77Style,
@@ -366,7 +362,7 @@ export default function CompoundingScreen({ onContinue }: Props) {
                         pointerEvents="none"
                       />
                       {/* Bright center dot */}
-                      <Circle cx={m.x} cy={m.y} r={7} fill={WHITE} stroke={LIME} strokeWidth={2} />
+                      <Circle cx={m.x} cy={m.y} r={5} fill={WHITE} stroke={LIME} strokeWidth={1.5} />
                     </>
                   );
                 })()}
@@ -411,9 +407,9 @@ export default function CompoundingScreen({ onContinue }: Props) {
             <Animated.View
               style={[styles.annotationGreatness, { top: greatnessTop, right: greatnessRight }, greatnessStyle]}
               pointerEvents="none">
-              <Text style={[styles.handwrittenTextLime, { fontSize: 17 }]}>GREATNESS</Text>
-              <Text style={[styles.handwrittenTextLime, { fontSize: 17 }]}>COMPOUNDS.</Text>
-              <Text style={styles.handwrittenArrowDownRight}>↘</Text>
+              <Text style={[styles.handwrittenTextLime, { fontSize: 17 }]}>Greatness</Text>
+              <Text style={[styles.handwrittenTextLime, { fontSize: 17 }]}>Compounds.</Text>
+              <Text style={styles.handwrittenArrowDown}>↓</Text>
             </Animated.View>
           </View>
         </View>
@@ -528,7 +524,7 @@ const styles = StyleSheet.create({
   handwrittenTextLime: {
     fontFamily: 'Northwell',
     color: LIME,
-    lineHeight: 20,
+    lineHeight: 26,
     textAlign: 'center',
   },
   handwrittenArrow: {
