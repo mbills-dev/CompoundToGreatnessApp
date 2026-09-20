@@ -192,10 +192,10 @@ export default function CompoundingScreen({ onContinue }: Props) {
   const bendProgress = (42 - 1) / 76;
   const bendPt = curvePoint(bendProgress, graphW, graphH, padX, padTop, padBottom);
   const keepTop = Math.max(bendPt.y - 38, 2);
-  const keepLeft = bendPt.x - 48;
+  const keepLeft = bendPt.x - 30;
   // "GREATNESS COMPOUNDS." — above-left of the Day 77 endpoint
   const greatnessTop = Math.max(milestonePos[3].y - 68, 2);
-  const greatnessRight = graphW - milestonePos[3].x + 48;
+  const greatnessRight = graphW - milestonePos[3].x + 18;
 
   const headlineStyle = useAnimatedStyle(() => ({ opacity: headlineOpacity.value }));
   const subStyle = useAnimatedStyle(() => ({ opacity: subOpacity.value }));
@@ -428,7 +428,7 @@ export default function CompoundingScreen({ onContinue }: Props) {
               <Text style={[styles.challengeHeadline, { fontSize: challenge77FontSize, lineHeight: challenge77FontSize * 1.02 }]}>
                 <Text style={styles.textLime}>77 DAY</Text>
                 {'\n'}
-                <Text style={[styles.textWhite, { fontSize: challengeWordFontSize, lineHeight: challengeWordFontSize * 1.02 }]}>CHALLENGE</Text>
+                <Text style={[styles.textWhite, { fontSize: challengeWordFontSize, lineHeight: challengeWordFontSize * 1.02, marginTop: 5 }]}>CHALLENGE</Text>
               </Text>
             </Animated.View>
             <View style={styles.dividerLine} />
@@ -562,7 +562,7 @@ const styles = StyleSheet.create({
   // Challenge section
   challengeSection: {
     alignItems: 'center',
-    marginTop: 40,
+    marginTop: 5,
   },
   dividerRow: {
     flexDirection: 'row',
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
   ctaSection: {
     width: '100%',
     alignItems: 'center',
-    marginTop: 28,
+    marginTop: 36,
   },
   paginationWrap: {
     flexDirection: 'row',
