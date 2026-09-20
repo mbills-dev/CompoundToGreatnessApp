@@ -26,6 +26,8 @@ import {
   TextInput,
   InteractionManager,
   KeyboardAvoidingView,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Confetti from '@/components/Confetti';
@@ -172,103 +174,94 @@ function buildInputsAndRaw(locked: ExtendedLockedGoal[]): {
 
 function NameCaptureScreen({
   firstName,
-  lastName,
   onFirstNameChange,
-  onLastNameChange,
   onNext,
   onBack,
 }: {
   firstName: string;
-  lastName: string;
   onFirstNameChange: (v: string) => void;
-  onLastNameChange: (v: string) => void;
   onNext: () => void;
   onBack: () => void;
 }) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const screenFade = useSharedValue(0);
   useEffect(() => { screenFade.value = withTiming(1, { duration: 500 }); }, []);
   const fadeStyle = useAnimatedStyle(() => ({ opacity: screenFade.value }));
   const firstNameRef = useRef<TextInput>(null);
-  const lastNameRef = useRef<TextInput>(null);
-
-  useEffect(() => {
-    const t = setTimeout(() => firstNameRef.current?.focus(), 400);
-    return () => clearTimeout(t);
-  }, []);
+  const [inputFocused, setInputFocused] = useState(false);
 
   const canContinue = firstName.trim().length > 0;
+
+  const handleContinue = () => {
+    if (!canContinue) return;
+    Keyboard.dismiss();
+    onNext();
+  };
 
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-    <View style={[ncStyles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <View style={ncStyles.header}>
-        <TouchableOpacity onPress={onBack} style={ncStyles.backBtn}>
-          <ArrowLeft size={20} color={colors.text} strokeWidth={2.5} />
-        </TouchableOpacity>
-      </View>
-      <Animated.View style={[fadeStyle, { flex: 1, paddingHorizontal: 24 }]}>
-        <Text style={[ncStyles.headline, { color: colors.text }]}>
-          What should we call you?
-        </Text>
-        <Text style={[ncStyles.subtitle, { color: colors.textSecondary }]}>
-          We'll use this to personalize your commitment.
-        </Text>
+      <TouchableWithoutFeedback
+        onPress={Keyboard.dismiss}
+        accessible={false}
+      >
+        <View style={[ncStyles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+          <View style={ncStyles.header}>
+            <TouchableOpacity onPress={onBack} style={ncStyles.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <ArrowLeft size={20} color={colors.text} strokeWidth={2.5} />
+            </TouchableOpacity>
+          </View>
 
-        <View style={ncStyles.inputContainer}>
-          <TextInput
-            ref={firstNameRef}
-            style={[ncStyles.input, {
-              color: colors.text,
-              borderColor: isDark ? colors.border : '#E0E0E0',
-              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-            }]}
-            value={firstName}
-            onChangeText={onFirstNameChange}
-            placeholder="First name"
-            placeholderTextColor={colors.textTertiary}
-            autoCapitalize="words"
-            returnKeyType="next"
-            onSubmitEditing={() => lastNameRef.current?.focus()}
-          />
+          <Animated.View style={[fadeStyle, { flex: 1, paddingHorizontal: 24 }]}>
+            <Text style={ncStyles.headlineWrap}>
+              <Text style={[ncStyles.headline, { color: colors.text }]}>{"LET'S MAKE THIS\n"}</Text>
+              <Text style={[ncStyles.headline, { color: '#CCFF00' }]}>YOURS.</Text>
+            </Text>
+            <Text style={[ncStyles.subtitle, { color: colors.textSecondary }]}>
+              First, what’s your name?
+            </Text>
+
+            <View style={ncStyles.inputContainer}>
+              <TextInput
+                ref={firstNameRef}
+                style={[
+                  ncStyles.input,
+                  {
+                    color: colors.text,
+                    borderColor: inputFocused ? '#CCFF00' : '#2A2A2A',
+                    backgroundColor: '#111111',
+                  },
+                ]}
+                value={firstName}
+                onChangeText={onFirstNameChange}
+                placeholder="First name"
+                placeholderTextColor="#555555"
+                autoCapitalize="words"
+                returnKeyType="done"
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
+                onSubmitEditing={canContinue ? handleContinue : undefined}
+              />
+            </View>
+          </Animated.View>
+
+          <View style={[ncStyles.footer, { paddingBottom: insets.bottom + 24 }]}>
+            <TouchableOpacity
+              style={[ncStyles.continueBtn, !canContinue && ncStyles.continueBtnDisabled]}
+              onPress={handleContinue}
+              disabled={!canContinue}
+              activeOpacity={0.85}
+            >
+              <Text style={[ncStyles.continueText, { color: canContinue ? '#000000' : '#555555' }]}>
+                {'Continue \u2192'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-
-        <View style={ncStyles.inputContainer}>
-          <TextInput
-            ref={lastNameRef}
-            style={[ncStyles.input, {
-              color: colors.text,
-              borderColor: isDark ? colors.border : '#E0E0E0',
-              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-            }]}
-            value={lastName}
-            onChangeText={onLastNameChange}
-            placeholder="Last name (optional)"
-            placeholderTextColor={colors.textTertiary}
-            autoCapitalize="words"
-            returnKeyType="done"
-            onSubmitEditing={canContinue ? onNext : undefined}
-          />
-        </View>
-      </Animated.View>
-
-      <View style={[ncStyles.footer, { paddingBottom: insets.bottom + 24 }]}>
-        <TouchableOpacity
-          style={[ncStyles.continueBtn, !canContinue && ncStyles.continueBtnDisabled]}
-          onPress={onNext}
-          disabled={!canContinue}
-          activeOpacity={0.85}
-        >
-          <Text style={[ncStyles.continueText, { color: canContinue ? '#000000' : colors.textTertiary }]}>
-            Continue
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+      </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
 }
@@ -277,24 +270,31 @@ const ncStyles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 },
   backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  headline: {
-    fontSize: 32,
-    fontWeight: '900',
+  headlineWrap: {
+    fontSize: 36,
     fontFamily: 'Inter-Black',
-    lineHeight: 38,
-    marginBottom: 8,
-    letterSpacing: -0.5,
+    fontWeight: '900',
+    lineHeight: 42,
+    letterSpacing: -1,
+    marginBottom: 12,
+  },
+  headline: {
+    fontSize: 36,
+    fontFamily: 'Inter-Black',
+    fontWeight: '900',
+    lineHeight: 42,
+    letterSpacing: -1,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '500',
-    marginBottom: 32,
+    marginBottom: 40,
   },
   inputContainer: { marginBottom: 16 },
   input: {
     borderWidth: 1.5,
     borderRadius: 16,
-    paddingVertical: 16,
+    paddingVertical: 18,
     paddingHorizontal: 18,
     fontSize: 17,
     fontWeight: '500',
@@ -307,7 +307,7 @@ const ncStyles = StyleSheet.create({
     alignItems: 'center',
   },
   continueBtnDisabled: {
-    backgroundColor: 'rgba(204,255,0,0.2)',
+    backgroundColor: 'rgba(204,255,0,0.12)',
   },
   continueText: {
     fontSize: 17,
@@ -919,9 +919,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
         return (
           <NameCaptureScreen
             firstName={firstName}
-            lastName={lastName}
             onFirstNameChange={setFirstName}
-            onLastNameChange={setLastName}
             onNext={() => navigate({ kind: 'goals-entry' })}
             onBack={goBack}
           />
