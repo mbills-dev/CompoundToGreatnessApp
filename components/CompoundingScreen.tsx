@@ -184,18 +184,18 @@ export default function CompoundingScreen({ onContinue }: Props) {
   const clipW = padX + curveProgress * (graphW - 2 * padX) + 6;
 
   // ─── Annotation positions (contextual to curve) ───
-  // "This is where most people quit." — ABOVE the early flat portion, between Day 1 and Day 20
+  // "This is where most people quit." — ABOVE the flat portion, arrow close to curve
   const midEarlyX = (milestonePos[0].x + milestonePos[1].x) / 2;
-  const quitTop = Math.max(milestonePos[0].y - 52, 2);
+  const quitTop = Math.max(milestonePos[0].y - 58, 2);
   const quitLeft = midEarlyX - 55;
-  // "Keep going." — near Day 40–50 where curve begins bending
-  const bendX = milestonePos[2].x + (milestonePos[3].x - milestonePos[2].x) * 0.15;
-  const bendY = milestonePos[2].y - (milestonePos[2].y - milestonePos[3].y) * 0.08;
-  const keepTop = Math.max(bendY - 46, 2);
-  const keepLeft = bendX - 52;
-  // "GREATNESS COMPOUNDS." — to the LEFT and ABOVE the Day 77 endpoint
-  const greatnessTop = Math.max(milestonePos[3].y - 72, 2);
-  const greatnessRight = graphW - milestonePos[3].x + 56;
+  // "Keep going." — just above the curve around Day 40–45 where the bend starts
+  const bendProgress = (42 - 1) / 76;
+  const bendPt = curvePoint(bendProgress, graphW, graphH, padX, padTop, padBottom);
+  const keepTop = Math.max(bendPt.y - 38, 2);
+  const keepLeft = bendPt.x - 48;
+  // "GREATNESS COMPOUNDS." — above-left of the Day 77 endpoint
+  const greatnessTop = Math.max(milestonePos[3].y - 68, 2);
+  const greatnessRight = graphW - milestonePos[3].x + 48;
 
   const headlineStyle = useAnimatedStyle(() => ({ opacity: headlineOpacity.value }));
   const subStyle = useAnimatedStyle(() => ({ opacity: subOpacity.value }));
@@ -261,20 +261,64 @@ export default function CompoundingScreen({ onContinue }: Props) {
                 </ClipPath>
               </Defs>
 
-              {/* Baseline */}
+              {/* Horizontal baseline — Day 1 → Day 77 */}
               <Line
-                x1={padX}
+                x1={milestonePos[0].x}
                 y1={graphH - padBottom}
-                x2={graphW - padX}
+                x2={milestonePos[3].x}
                 y2={graphH - padBottom}
-                stroke="rgba(255,255,255,0.06)"
+                stroke="#6A6A6A"
                 strokeWidth={1}
+                strokeOpacity={0.65}
               />
 
-              {/* Soft atmospheric lime glow — broad translucent halos below one crisp line */}
-              <Path d={fullPath} stroke={LIME} strokeWidth={18} strokeOpacity={0.035} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
-              <Path d={fullPath} stroke={LIME} strokeWidth={12} strokeOpacity={0.06} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
-              <Path d={fullPath} stroke={LIME} strokeWidth={7} strokeOpacity={0.12} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
+              {/* Milestone vertical guides — Day 20 & Day 40 (subtle dashed) */}
+              {visibleMilestones > 1 && (
+                <Line
+                  x1={milestonePos[1].x}
+                  y1={milestonePos[1].y}
+                  x2={milestonePos[1].x}
+                  y2={graphH - padBottom}
+                  stroke="#777"
+                  strokeWidth={1}
+                  strokeOpacity={0.5}
+                  strokeDasharray="3 4"
+                />
+              )}
+              {visibleMilestones > 2 && (
+                <Line
+                  x1={milestonePos[2].x}
+                  y1={milestonePos[2].y}
+                  x2={milestonePos[2].x}
+                  y2={graphH - padBottom}
+                  stroke="#777"
+                  strokeWidth={1}
+                  strokeOpacity={0.5}
+                  strokeDasharray="3 4"
+                />
+              )}
+
+              {/* Day 77 vertical guide — dashed, more visible */}
+              {visibleMilestones > 3 && (
+                <Line
+                  x1={milestonePos[3].x}
+                  y1={milestonePos[3].y}
+                  x2={milestonePos[3].x}
+                  y2={graphH - padBottom}
+                  stroke="#8A8A8A"
+                  strokeWidth={1}
+                  strokeOpacity={0.65}
+                  strokeDasharray="4 4"
+                />
+              )}
+
+              {/* Broad diffused atmospheric lime glow */}
+              <Path d={fullPath} stroke={LIME} strokeWidth={28} strokeOpacity={0.025} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
+              <Path d={fullPath} stroke={LIME} strokeWidth={18} strokeOpacity={0.045} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
+              <Path d={fullPath} stroke={LIME} strokeWidth={10} strokeOpacity={0.09} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
+              <Path d={fullPath} stroke={LIME} strokeWidth={6} strokeOpacity={0.15} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
+
+              {/* Crisp main curve */}
               <Path d={fullPath} stroke={LIME} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#curveClip)" />
 
               {/* Milestone dots 0–2 (standard) */}
@@ -298,10 +342,12 @@ export default function CompoundingScreen({ onContinue }: Props) {
                   const m = milestonePos[3];
                   return (
                     <>
-                      {/* Large faint halo */}
-                      <Circle cx={m.x} cy={m.y} r={24} fill={LIME} opacity={0.04} />
-                      {/* Medium halo */}
-                      <Circle cx={m.x} cy={m.y} r={16} fill={LIME} opacity={0.08} />
+                      {/* Outer faint halo */}
+                      <Circle cx={m.x} cy={m.y} r={24} fill={LIME} opacity={0.035} />
+                      {/* Middle halo */}
+                      <Circle cx={m.x} cy={m.y} r={16} fill={LIME} opacity={0.07} />
+                      {/* Inner glow */}
+                      <Circle cx={m.x} cy={m.y} r={11} fill={LIME} opacity={0.14} />
                       {/* Pulsing glow ring */}
                       <Animated.View
                         key="dot77-glow"
@@ -320,7 +366,7 @@ export default function CompoundingScreen({ onContinue }: Props) {
                         pointerEvents="none"
                       />
                       {/* Bright center dot */}
-                      <Circle cx={m.x} cy={m.y} r={7} fill={LIME} stroke={WHITE} strokeWidth={1.5} />
+                      <Circle cx={m.x} cy={m.y} r={7} fill={WHITE} stroke={LIME} strokeWidth={2} />
                     </>
                   );
                 })()}
@@ -353,7 +399,7 @@ export default function CompoundingScreen({ onContinue }: Props) {
               <Text style={styles.handwrittenArrowDown}>↓</Text>
             </Animated.View>
 
-            {/* "Keep going." — near the Day 40–50 bend, arrow points DOWN toward the curve */}
+            {/* "Keep going." — just above the curve around Day 40–45, arrow points DOWN */}
             <Animated.View
               style={[styles.annotationKeep, { top: keepTop, left: keepLeft }, keepGoingStyle]}
               pointerEvents="none">
@@ -361,27 +407,32 @@ export default function CompoundingScreen({ onContinue }: Props) {
               <Text style={styles.handwrittenArrowDown}>↓</Text>
             </Animated.View>
 
-            {/* "GREATNESS COMPOUNDS." — left and above the final steep section, arrow points toward Day 77 */}
+            {/* "GREATNESS COMPOUNDS." — above-left of Day 77, arrow points toward endpoint */}
             <Animated.View
               style={[styles.annotationGreatness, { top: greatnessTop, right: greatnessRight }, greatnessStyle]}
               pointerEvents="none">
               <Text style={[styles.handwrittenTextLime, { fontSize: 17 }]}>GREATNESS</Text>
               <Text style={[styles.handwrittenTextLime, { fontSize: 17 }]}>COMPOUNDS.</Text>
-              <Text style={styles.handwrittenArrowRight}>→</Text>
+              <Text style={styles.handwrittenArrowDownRight}>↘</Text>
             </Animated.View>
           </View>
         </View>
 
         {/* ─── 77 DAY CHALLENGE reveal (~25%) — second major visual moment ─── */}
         <View style={styles.challengeSection}>
-          <Animated.View style={[styles.challengeWrap, challengeStyle]}>
-            <Text style={styles.theLabel}>THE</Text>
-            <Text style={[styles.challengeHeadline, { fontSize: challenge77FontSize, lineHeight: challenge77FontSize * 1.02 }]}>
-              <Text style={styles.textLime}>77 DAY</Text>
-              {'\n'}
-              <Text style={[styles.textWhite, { fontSize: challengeWordFontSize, lineHeight: challengeWordFontSize * 1.02 }]}>CHALLENGE</Text>
-            </Text>
-          </Animated.View>
+          {/* Subtle editorial divider lines flanking THE */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Animated.View style={[styles.challengeWrap, challengeStyle]}>
+              <Text style={styles.theLabel}>THE</Text>
+              <Text style={[styles.challengeHeadline, { fontSize: challenge77FontSize, lineHeight: challenge77FontSize * 1.02 }]}>
+                <Text style={styles.textLime}>77 DAY</Text>
+                {'\n'}
+                <Text style={[styles.textWhite, { fontSize: challengeWordFontSize, lineHeight: challengeWordFontSize * 1.02 }]}>CHALLENGE</Text>
+              </Text>
+            </Animated.View>
+            <View style={styles.dividerLine} />
+          </View>
           <Animated.View style={[styles.challengeSubWrap, challengeSubStyle]}>
             <Text style={styles.challengeSub}>77 days. Your Success Stack. Every day.</Text>
             <Text style={styles.challengeMuted}>Long enough to build proof.</Text>
@@ -447,7 +498,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 36,
+    marginTop: 30,
   },
   graphWrap: {
     alignItems: 'center',
@@ -501,10 +552,31 @@ const styles = StyleSheet.create({
     marginTop: -2,
     textAlign: 'center',
   },
+  handwrittenArrowDownRight: {
+    fontFamily: 'Northwell',
+    fontSize: 18,
+    color: 'rgba(255,255,255,0.5)',
+    marginTop: -2,
+    textAlign: 'center',
+  },
   // Challenge section
   challengeSection: {
     alignItems: 'center',
-    marginTop: 48,
+    marginTop: 40,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  dividerLine: {
+    flex: 1,
+    maxWidth: 80,
+    height: 1,
+    backgroundColor: LIME,
+    opacity: 0.25,
+    marginHorizontal: 12,
   },
   challengeWrap: {
     alignItems: 'center',
@@ -548,12 +620,12 @@ const styles = StyleSheet.create({
   ctaSection: {
     width: '100%',
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 28,
   },
   paginationWrap: {
     flexDirection: 'row',
     gap: 6,
-    marginTop: 14,
+    marginTop: 12,
     alignItems: 'center',
   },
   progressDot: {
