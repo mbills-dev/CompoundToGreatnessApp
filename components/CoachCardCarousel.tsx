@@ -8,6 +8,7 @@ import {
   Image,
   ImageSourcePropType,
   Dimensions,
+  LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
   TouchableOpacity,
@@ -28,7 +29,6 @@ import CoachCard from './CoachCard';
 
 const LIME = '#CCFF00';
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const CARD_WIDTH = SCREEN_WIDTH - 48; // matches heroSection's 24px padding on each side in DailyDashboard.tsx
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const TOTAL_CURVE_DAYS = 77;
 
@@ -61,6 +61,7 @@ export default function CoachCardCarousel({
   activitiesCount,
 }: CoachCardCarouselProps) {
   const [activePanel, setActivePanel] = useState(0);
+  const [carouselWidth, setCarouselWidth] = useState(0);
   const [hasAnimatedScore, setHasAnimatedScore] = useState(false);
   const [executionPct, setExecutionPct] = useState<number | null>(null);
   const scrollRef = useRef<ScrollView>(null);
@@ -141,19 +142,55 @@ export default function CoachCardCarousel({
     endpointGlowOpacity.value = withDelay(700, withTiming(0.22, { duration: 300 }));
   };
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const x = event.nativeEvent.contentOffset.x;
-    const panel = Math.round(x / CARD_WIDTH);
-    if (panel !== activePanel) {
-      setActivePanel(panel);
-      if (panel === 1) {
-        triggerScoreAnimation();
-      }
+  const handleCarouselLayout = (event: LayoutChangeEvent) => {
+    const width = event.nativeEvent.layout.width;
+    if (width > 0 && Math.abs(width - carouselWidth) > 0.5) {
+      setCarouselWidth(width);
     }
   };
 
+  const updateActivePanel = (panel: number) => {
+    const nextPanel = Math.max(0, Math.min(1, panel));
+    if (nextPanel !== activePanel) {
+      setActivePanel(nextPanel);
+    }
+    if (nextPanel === 1) {
+      triggerScoreAnimation();
+    }
+  };
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!carouselWidth) return;
+    const panel = Math.round(event.nativeEvent.contentOffset.x / carouselWidth);
+    updateActivePanel(panel);
+  };
+
+  const handleMomentumScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!carouselWidth) return;
+
+    const x = event.nativeEvent.contentOffset.x;
+    const panel = Math.max(0, Math.min(1, Math.round(x / carouselWidth)));
+    const exactX = panel * carouselWidth;
+
+    if (Math.abs(x - exactX) > 0.5) {
+      scrollRef.current?.scrollTo({
+        x: exactX,
+        y: 0,
+        animated: false,
+      });
+    }
+
+    updateActivePanel(panel);
+  };
+
   const scrollToPanel = (panel: number) => {
-    scrollRef.current?.scrollTo({ x: panel * CARD_WIDTH, animated: true });
+    if (!carouselWidth) return;
+    const nextPanel = Math.max(0, Math.min(1, panel));
+    scrollRef.current?.scrollTo({
+      x: nextPanel * carouselWidth,
+      y: 0,
+      animated: true,
+    });
   };
 
   // Score display text
@@ -275,19 +312,23 @@ export default function CoachCardCarousel({
 
   return (
     <View style={styles.container}>
-      <View style={styles.cardFrame}>
+      <View style={styles.cardFrame} onLayout={handleCarouselLayout}>
         <ScrollView
           ref={scrollRef}
           horizontal
-          pagingEnabled
+          snapToInterval={carouselWidth || undefined}
+          decelerationRate="fast"
+          snapToAlignment="start"
+          disableIntervalMomentum
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
           onScroll={handleScroll}
+          onMomentumScrollEnd={handleMomentumScrollEnd}
           scrollEnabled
           style={styles.scroll}
         >
           {/* PANEL 1 — COACHING */}
-          <View style={styles.panel}>
+          <View style={[styles.panel, carouselWidth > 0 && { width: carouselWidth }]}>
             <CoachCard
               challengeDay={challengeDay}
               firstName={firstName}
@@ -298,7 +339,7 @@ export default function CoachCardCarousel({
           </View>
 
           {/* PANEL 2 — COMPOUND SCORE */}
-          <View style={styles.panel}>
+          <View style={[styles.panel, carouselWidth > 0 && { width: carouselWidth }]}>
             <View style={styles.scoreCard}>
               <Image
                 source={COACHING_BG}
@@ -455,7 +496,6 @@ const styles = StyleSheet.create({
     height: CARD_HEIGHT,
   },
   panel: {
-    width: CARD_WIDTH,
     height: CARD_HEIGHT,
     overflow: 'hidden',
   },
