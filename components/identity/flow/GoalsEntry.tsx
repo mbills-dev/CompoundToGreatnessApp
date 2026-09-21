@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,15 @@ import {
   Alert,
   StyleSheet,
   InteractionManager,
+  ScrollView,
+  Keyboard,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
 } from 'react-native-reanimated';
-import { ArrowLeft, ArrowRight, Check, Zap, Camera, Image as ImageIcon, RotateCw } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Check, Zap, Image as ImageIcon, RotateCw, Plus, X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
@@ -66,23 +68,146 @@ function goalHasNumber(s: string): boolean {
   return /\d/.test(s) || /\b(lbs?|steps?|hrs?|hours?|minutes?|min|miles?|km)\b/i.test(s);
 }
 
+// ─── Spark pool ───────────────────────────────────────────────────────────────
+
+type SparkCategory = 'Health' | 'Money' | 'Career' | 'Growth' | 'Relationships' | 'Faith' | 'Lifestyle';
+
+interface SparkGoal {
+  text: string;
+  category: SparkCategory;
+}
+
+const SPARK_POOL: SparkGoal[] = [
+  { text: 'Lose 20 lbs', category: 'Health' },
+  { text: 'Make $10K/month', category: 'Money' },
+  { text: 'Read 12 books', category: 'Growth' },
+  { text: 'Run a 5K', category: 'Health' },
+  { text: 'Speak conversational French', category: 'Growth' },
+  { text: 'Grow closer to God', category: 'Faith' },
+  { text: 'Save $10,000', category: 'Money' },
+  { text: 'Write a book', category: 'Growth' },
+  { text: 'Pay off $20K in debt', category: 'Money' },
+  { text: 'Build 10 lbs of muscle', category: 'Health' },
+  { text: 'Walk 10,000 steps/day', category: 'Health' },
+  { text: 'Exercise 4x/week', category: 'Health' },
+  { text: 'Get 8 hours of sleep', category: 'Health' },
+  { text: 'Cut out added sugar', category: 'Health' },
+  { text: 'Track my macros every day', category: 'Health' },
+  { text: 'Drink 100 oz of water/day', category: 'Health' },
+  { text: 'Start a business', category: 'Career' },
+  { text: 'Get promoted', category: 'Career' },
+  { text: 'Land a new job', category: 'Career' },
+  { text: 'Grow my business to $1M', category: 'Career' },
+  { text: 'Build a 6-month emergency fund', category: 'Money' },
+  { text: 'Read the Bible every day', category: 'Faith' },
+  { text: 'Pray every morning', category: 'Faith' },
+  { text: 'Journal every day', category: 'Growth' },
+  { text: 'Wake up at 5:30 AM', category: 'Lifestyle' },
+  { text: 'Reduce screen time', category: 'Lifestyle' },
+  { text: 'Declutter my house', category: 'Lifestyle' },
+  { text: 'Travel to 3 new places', category: 'Lifestyle' },
+  { text: 'Learn a new skill', category: 'Growth' },
+  { text: 'Strengthen my marriage', category: 'Relationships' },
+  { text: 'Spend more quality time with my kids', category: 'Relationships' },
+];
+
+const SPARK_CATEGORIES: ('All' | SparkCategory)[] = ['All', 'Health', 'Money', 'Career', 'Growth', 'Relationships', 'Faith', 'Lifestyle'];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function normalizeGoal(s: string): string {
+  return s.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 // ─── GoalsEntryScreen ─────────────────────────────────────────────────────────
 
 export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: FlowGoal[], isAiSourced?: boolean) => void; onBack: () => void }) {
   const { colors, isDark } = useTheme();
   const router = useRouter();
-  const [text, setText] = useState('');
+  const [goals, setGoals] = useState<string[]>([]);
+  const [draft, setDraft] = useState('');
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [photoLoading, setPhotoLoading] = useState(false);
+  const [showSparkSheet, setShowSparkSheet] = useState(false);
+  const [sparkFilter, setSparkFilter] = useState<'All' | SparkCategory>('All');
+  const inputRef = useRef<TextInput>(null);
   const opacity = useSharedValue(0);
   useEffect(() => { opacity.value = withTiming(1, { duration: 400 }); }, []);
   const fadeStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
-  const canContinue = text.trim().length > 0;
+  const usedNormalized = useMemo(() => new Set(goals.map(normalizeGoal)), [goals]);
+
+  const visibleSparks = useMemo(() => {
+    return SPARK_POOL.filter(s => !usedNormalized.has(normalizeGoal(s.text))).slice(0, 6);
+  }, [usedNormalized]);
+
+  const canContinue = goals.length > 0 || draft.trim().length > 0;
+
+  const addGoal = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    const norm = normalizeGoal(trimmed);
+    if (usedNormalized.has(norm)) return;
+    setGoals(prev => [...prev, trimmed]);
+  };
+
+  const removeGoal = (idx: number) => {
+    setGoals(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const commitDraft = () => {
+    const trimmed = draft.trim();
+    if (!trimmed) return;
+    const parts = trimmed.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    parts.forEach(p => {
+      const norm = normalizeGoal(p);
+      setGoals(prev => {
+        if (prev.map(normalizeGoal).includes(norm)) return prev;
+        return [...prev, p];
+      });
+    });
+    setDraft('');
+  };
+
+  const handleDraftChange = (text: string) => {
+    if (text.includes(',')) {
+      const parts = text.split(',');
+      const completed = parts.slice(0, -1).map(s => s.trim()).filter(s => s.length > 0);
+      completed.forEach(p => {
+        const norm = normalizeGoal(p);
+        setGoals(prev => {
+          if (prev.map(normalizeGoal).includes(norm)) return prev;
+          return [...prev, p];
+        });
+      });
+      setDraft(parts[parts.length - 1]);
+    } else {
+      setDraft(text);
+    }
+  };
+
+  const handleDraftSubmit = () => {
+    commitDraft();
+    Keyboard.dismiss();
+  };
+
+  const handleSparkTap = (sparkText: string) => {
+    addGoal(sparkText);
+  };
 
   const handleContinue = () => {
     if (!canContinue) return;
-    onContinue(parseGoalsFromText(text));
+    let finalGoals = [...goals];
+    const draftTrimmed = draft.trim();
+    if (draftTrimmed) {
+      const draftNorm = normalizeGoal(draftTrimmed);
+      if (!finalGoals.map(normalizeGoal).includes(draftNorm)) {
+        finalGoals.push(draftTrimmed);
+      }
+    }
+    if (finalGoals.length === 0) return;
+    const serialized = finalGoals.join(', ');
+    onContinue(parseGoalsFromText(serialized));
   };
 
   const uploadAndExtract = async (uri: string) => {
@@ -132,23 +257,17 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
       const result = await response.json();
 
       if (result.success && Array.isArray(result.goals) && result.goals.length > 0) {
-        const flowGoals: FlowGoal[] = result.goals.map((rawLabel: string) => ({
-          id: _goalIdSeq++,
-          label: normalizeMoneyInLabel(rawLabel),
-          category: 'General',
-          deadline: 'ongoing',
-          defaultPath: 'starting' as DecodePath,
-        }));
-        onContinue(flowGoals, true);
+        const extracted: string[] = result.goals.map((rawLabel: string) => normalizeMoneyInLabel(rawLabel));
+        setGoals(prev => {
+          const existing = new Set(prev.map(normalizeGoal));
+          const fresh = extracted.filter(g => !existing.has(normalizeGoal(g)));
+          return [...prev, ...fresh];
+        });
         return;
       }
 
-      if (result.success === false && result.reason === 'not_goals') {
-        setPhotoError("Couldn't find goals in that photo — try another or type them in");
-      } else {
-        setPhotoError("Couldn't find goals in that photo — try another or type them in");
-      }
-    } catch (err) {
+      setPhotoError("Couldn't find goals in that photo — try another or type them in");
+    } catch {
       setPhotoError("Couldn't find goals in that photo — try another or type them in");
     } finally {
       setPhotoLoading(false);
@@ -197,43 +316,82 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
     );
   };
 
+  const goalCount = goals.length;
+  const sparkHelperCopy = goalCount >= 5
+    ? "You can add more — or continue when you're ready."
+    : 'Tap a goal to add it to your list.';
+
   return (
     <KeyboardStepWrapper contentContainerStyle={[styles.screen, { backgroundColor: colors.background }]}>
       <Animated.View style={[fadeStyle, { flex: 1 }]}>
         <TouchableOpacity onPress={onBack} style={[styles.backBtn, { marginBottom: 20 }]}>
           <ArrowLeft size={20} color={colors.text} strokeWidth={2.5} />
         </TouchableOpacity>
-        <View style={{ flex: 1, justifyContent: 'center' }}>
+
+        <View style={{ flex: 1 }}>
           <Text style={[styles.heroTitle, { color: colors.text }]}>
-            What do you{'\n'}want to achieve?
+            {'WHAT DO YOU WANT\nTO '}
+            <Text style={{ color: colors.primary }}>ACHIEVE?</Text>
           </Text>
-          <Text style={[styles.heroSubtitle, { color: colors.primary, marginBottom: 28 }]}>
-            Separate multiple goals with commas.
+          <Text style={[styles.heroSubtitle, { color: colors.textSecondary, marginBottom: 32 }]}>
+            Start where you are. We'll help you make it actionable.
           </Text>
 
-          <TextInput
-            style={[
-              styles.goalsEntryInput,
-              {
-                color: colors.text,
-                borderColor: text.trim() ? colors.primary + '80' : isDark ? '#333' : '#D8D8D8',
-                backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-              },
-            ]}
-            value={text}
-            onChangeText={setText}
-            placeholder="e.g. earn $100k, lose 20 lbs, read more books"
-            placeholderTextColor={colors.textTertiary}
-            multiline
-            returnKeyType="done"
-            blurOnSubmit={true}
-            autoCapitalize="sentences"
-            textAlignVertical="top"
-            inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
-          />
+          <Text style={[geStyles.sectionLabel, { color: colors.textSecondary }]}>
+            YOUR GOALS
+          </Text>
+
+          <View style={[
+            geStyles.composer,
+            {
+              borderColor: goals.length > 0 || draft.trim() ? colors.primary + '50' : '#2A2A2A',
+              backgroundColor: '#0F0F0F',
+            },
+          ]}>
+            <View style={geStyles.pillWrap}>
+              {goals.map((g, i) => (
+                <View key={i} style={geStyles.pill}>
+                  <Text style={geStyles.pillText}>{g}</Text>
+                  <TouchableOpacity
+                    onPress={() => removeGoal(i)}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                    activeOpacity={0.6}
+                  >
+                    <X size={14} color="#888" strokeWidth={2.5} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <TextInput
+                ref={inputRef}
+                style={[geStyles.draftInput, { color: colors.text }]}
+                value={draft}
+                onChangeText={handleDraftChange}
+                placeholder={goals.length === 0 ? 'e.g. Lose 20 lbs, make $10K/month, read 12 books' : 'Add another goal...'}
+                placeholderTextColor={colors.textTertiary}
+                returnKeyType="done"
+                blurOnSubmit={false}
+                autoCapitalize="sentences"
+                onSubmitEditing={handleDraftSubmit}
+                inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
+              />
+            </View>
+          </View>
+
+          {goalCount > 0 && (
+            <View style={geStyles.recognizedRow}>
+              <Check size={14} color={colors.primary} strokeWidth={3} />
+              <Text style={[geStyles.recognizedText, { color: colors.textSecondary }]}>
+                {goalCount} goal{goalCount !== 1 ? 's' : ''} recognized
+              </Text>
+            </View>
+          )}
+
+          <Text style={[geStyles.helperCopy, { color: colors.textTertiary }]}>
+            {goalCount > 0 ? 'Have more than one? Add a comma, press return, or choose a suggestion below.' : ''}
+          </Text>
 
           <TouchableOpacity
-            style={[photoStyles.uploadBtn, { borderColor: colors.primary, opacity: photoLoading ? 0.6 : 1, marginTop: 12 }]}
+            style={[geStyles.photoCard, { borderColor: '#222', opacity: photoLoading ? 0.6 : 1 }]}
             onPress={handleUploadPhoto}
             activeOpacity={0.8}
             disabled={photoLoading}
@@ -241,25 +399,59 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
             {photoLoading ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <>
-                <ImageIcon size={18} color={colors.primary} strokeWidth={2.5} />
-                <Text style={[photoStyles.uploadBtnText, { color: colors.primary }]}>
-                  Upload a photo instead
+              <View style={geStyles.photoCardBody}>
+                <Text style={[geStyles.photoCardTitle, { color: colors.text }]}>
+                  Have your goals written down?
                 </Text>
-              </>
+                <Text style={[geStyles.photoCardSub, { color: colors.textTertiary }]}>
+                  Upload a photo and we'll pull them in automatically.
+                </Text>
+                <Text style={[geStyles.photoCardLink, { color: colors.primary }]}>
+                  UPLOAD A PHOTO →
+                </Text>
+              </View>
             )}
           </TouchableOpacity>
-        </View>
 
-        {photoError && (
-          <View style={[photoStyles.errorCard, { backgroundColor: isDark ? 'rgba(255,68,0,0.08)' : 'rgba(255,68,0,0.06)', borderColor: 'rgba(255,68,0,0.3)' }]}>
-            <Text style={photoStyles.errorText}>{photoError}</Text>
-            <TouchableOpacity style={photoStyles.retryBtn} onPress={handleUploadPhoto} activeOpacity={0.7}>
-              <RotateCw size={14} color={colors.primary} strokeWidth={2.5} />
-              <Text style={[photoStyles.retryText, { color: colors.primary }]}>Try again</Text>
-            </TouchableOpacity>
+          {photoError && (
+            <View style={[geStyles.errorCard, { borderColor: 'rgba(255,68,0,0.3)' }]}>
+              <Text style={geStyles.errorText}>{photoError}</Text>
+              <TouchableOpacity style={geStyles.retryBtn} onPress={handleUploadPhoto} activeOpacity={0.7}>
+                <RotateCw size={14} color={colors.primary} strokeWidth={2.5} />
+                <Text style={[geStyles.retryText, { color: colors.primary }]}>Try again</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={geStyles.sparkSection}>
+            <View style={geStyles.sparkHeader}>
+              <Text style={[geStyles.sparkHeading, { color: colors.text }]}>
+                NEED A SPARK?
+              </Text>
+              <TouchableOpacity onPress={() => setShowSparkSheet(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={[geStyles.sparkMoreLink, { color: colors.primary }]}>
+                  SEE MORE →
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={[geStyles.sparkHelper, { color: colors.textSecondary }]}>
+              {sparkHelperCopy}
+            </Text>
+            <View style={geStyles.sparkChipWrap}>
+              {visibleSparks.map((spark, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={geStyles.sparkChip}
+                  onPress={() => handleSparkTap(spark.text)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[geStyles.sparkChipText, { color: colors.text }]}>{spark.text}</Text>
+                  <Plus size={14} color={colors.primary} strokeWidth={2.5} />
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        )}
+        </View>
 
         <View style={styles.bottomSection}>
           <TouchableOpacity
@@ -273,30 +465,200 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
           </TouchableOpacity>
         </View>
       </Animated.View>
+
+      {showSparkSheet && (
+        <SparkSheet
+          filter={sparkFilter}
+          onFilterChange={setSparkFilter}
+          onAdd={(text) => { addGoal(text); }}
+          usedNormalized={usedNormalized}
+          onClose={() => setShowSparkSheet(false)}
+        />
+      )}
     </KeyboardStepWrapper>
   );
 }
 
-const photoStyles = StyleSheet.create({
-  uploadBtn: {
+// ─── Spark sheet ──────────────────────────────────────────────────────────────
+
+function SparkSheet({
+  filter,
+  onFilterChange,
+  onAdd,
+  usedNormalized,
+  onClose,
+}: {
+  filter: 'All' | SparkCategory;
+  onFilterChange: (f: 'All' | SparkCategory) => void;
+  onAdd: (text: string) => void;
+  usedNormalized: Set<string>;
+  onClose: () => void;
+}) {
+  const { colors } = useTheme();
+
+  const filtered = useMemo(() => {
+    const pool = filter === 'All' ? SPARK_POOL : SPARK_POOL.filter(s => s.category === filter);
+    return pool.filter(s => !usedNormalized.has(normalizeGoal(s.text)));
+  }, [filter, usedNormalized]);
+
+  return (
+    <View style={geStyles.sheetOverlay}>
+      <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1} />
+      <View style={[geStyles.sheetCard, { backgroundColor: '#0A0A0A', borderColor: '#222' }]}>
+        <View style={geStyles.sheetHeader}>
+          <TouchableOpacity onPress={onClose} style={geStyles.sheetCloseBtn} activeOpacity={0.6}>
+            <X size={20} color="#888" strokeWidth={2.5} />
+          </TouchableOpacity>
+          <Text style={[geStyles.sheetTitle, { color: colors.text }]}>NEED A SPARK?</Text>
+          <View style={geStyles.sheetCloseBtn} />
+        </View>
+        <Text style={[geStyles.sheetSubtitle, { color: colors.textSecondary }]}>
+          Choose anything you'd like to achieve.
+        </Text>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={geStyles.sheetFilters}>
+          {SPARK_CATEGORIES.map(cat => (
+            <TouchableOpacity
+              key={cat}
+              style={[
+                geStyles.sheetFilterChip,
+                {
+                  backgroundColor: filter === cat ? colors.primary : 'transparent',
+                  borderColor: filter === cat ? colors.primary : '#333',
+                },
+              ]}
+              onPress={() => onFilterChange(cat)}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                geStyles.sheetFilterText,
+                { color: filter === cat ? '#000' : colors.textSecondary },
+              ]}>
+                {cat}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <ScrollView style={geStyles.sheetScroll} showsVerticalScrollIndicator={false}>
+          {filtered.map((spark, i) => (
+            <TouchableOpacity
+              key={i}
+              style={[geStyles.sheetItem, { borderColor: '#222' }]}
+              onPress={() => onAdd(spark.text)}
+              activeOpacity={0.7}
+            >
+              <Text style={[geStyles.sheetItemText, { color: colors.text }]}>{spark.text}</Text>
+              <Plus size={16} color={colors.primary} strokeWidth={2.5} />
+            </TouchableOpacity>
+          ))}
+          {filtered.length === 0 && (
+            <Text style={[geStyles.sheetEmpty, { color: colors.textTertiary }]}>
+              No more suggestions in this category.
+            </Text>
+          )}
+        </ScrollView>
+      </View>
+    </View>
+  );
+}
+
+// ─── GoalsEntry styles ────────────────────────────────────────────────────────
+
+const geStyles = StyleSheet.create({
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+  },
+  composer: {
+    borderWidth: 1.5,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 56,
+  },
+  pillWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    alignItems: 'center',
+  },
+  pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 15,
-    borderRadius: 14,
-    borderWidth: 1.5,
+    gap: 6,
+    backgroundColor: '#1C1C1C',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#333',
   },
-  uploadBtnText: {
+  pillText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  draftInput: {
+    fontSize: 16,
+    fontWeight: '500',
+    minWidth: 120,
+    flex: 1,
+    paddingVertical: 8,
+  },
+  recognizedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 14,
+  },
+  recognizedText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  helperCopy: {
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 19,
+    marginTop: 6,
+    minHeight: 19,
+  },
+  photoCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    marginTop: 20,
+    backgroundColor: '#0D0D0D',
+  },
+  photoCardBody: {
+    gap: 4,
+  },
+  photoCardTitle: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  photoCardSub: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  photoCardLink: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginTop: 8,
   },
   errorCard: {
     borderRadius: 12,
     borderWidth: 1,
     padding: 14,
     gap: 10,
-    marginBottom: 12,
+    marginTop: 12,
+    backgroundColor: 'rgba(255,68,0,0.06)',
   },
   errorText: {
     fontSize: 14,
@@ -314,6 +676,133 @@ const photoStyles = StyleSheet.create({
   retryText: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  sparkSection: {
+    marginTop: 28,
+  },
+  sparkHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  sparkHeading: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  sparkMoreLink: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  sparkHelper: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+  sparkChipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  sparkChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    backgroundColor: '#111111',
+  },
+  sparkChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // Spark sheet
+  sheetOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  sheetCard: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    maxHeight: '80%',
+    paddingBottom: 40,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 10,
+  },
+  sheetCloseBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  sheetSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  sheetFilters: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    maxHeight: 44,
+  },
+  sheetFilterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginRight: 8,
+  },
+  sheetFilterText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  sheetScroll: {
+    paddingHorizontal: 20,
+    maxHeight: 400,
+  },
+  sheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+    backgroundColor: '#111111',
+  },
+  sheetItemText: {
+    fontSize: 15,
+    fontWeight: '600',
+    flex: 1,
+  },
+  sheetEmpty: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    paddingVertical: 24,
   },
 });
 
