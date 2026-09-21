@@ -122,10 +122,10 @@ function normalizeGoal(s: string): string {
 
 // ─── GoalsEntryScreen ─────────────────────────────────────────────────────────
 
-export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: FlowGoal[], isAiSourced?: boolean) => void; onBack: () => void }) {
+export function GoalsEntryScreen({ onContinue, onBack, initialGoals }: { onContinue: (goals: FlowGoal[], isAiSourced?: boolean) => void; onBack: () => void; initialGoals?: string[] }) {
   const { colors, isDark } = useTheme();
   const router = useRouter();
-  const [goals, setGoals] = useState<string[]>([]);
+  const [goals, setGoals] = useState<string[]>(initialGoals ?? []);
   const [draft, setDraft] = useState('');
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [photoLoading, setPhotoLoading] = useState(false);

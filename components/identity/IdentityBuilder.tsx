@@ -928,6 +928,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
       case 'goals-entry':
         return (
           <GoalsEntryScreen
+            initialGoals={goals.length > 0 && goals !== HARDCODED_GOALS ? goals.map(g => g.label) : undefined}
             onBack={goBack}
             onContinue={(parsedGoals, aiSourced) => {
               setGoals(parsedGoals);
