@@ -133,7 +133,7 @@ export function PresetChip({
   }));
 
   return (
-    <Animated.View style={animStyle}>
+    <Animated.View style={[animStyle, { maxWidth: '100%' }]}>
       <TouchableOpacity
         style={[
           styles.chip,
