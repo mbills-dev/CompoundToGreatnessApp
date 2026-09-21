@@ -11,6 +11,7 @@ import {
   InteractionManager,
   ScrollView,
   Keyboard,
+  KeyboardAvoidingView,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -322,138 +323,155 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
     : 'Tap a goal to add it to your list.';
 
   return (
-    <KeyboardStepWrapper contentContainerStyle={[styles.screen, { backgroundColor: colors.background }]}>
-      <Animated.View style={[fadeStyle, { flex: 1 }]}>
-        <TouchableOpacity onPress={onBack} style={[styles.backBtn, { marginBottom: 20 }]}>
-          <ArrowLeft size={20} color={colors.text} strokeWidth={2.5} />
-        </TouchableOpacity>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View style={fadeStyle}>
+            <TouchableOpacity onPress={onBack} style={[styles.backBtn, { marginBottom: 12 }]}>
+              <ArrowLeft size={20} color={colors.text} strokeWidth={2.5} />
+            </TouchableOpacity>
 
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.heroTitle, { color: colors.text }]}>
-            {'WHAT DO YOU WANT\nTO '}
-            <Text style={{ color: colors.primary }}>ACHIEVE?</Text>
-          </Text>
-          <Text style={[styles.heroSubtitle, { color: colors.textSecondary, marginBottom: 32 }]}>
-            Start where you are. We'll help you make it actionable.
-          </Text>
+            <Text style={[geStyles.headline, { color: colors.text }]}>
+              {'WHAT DO YOU\nWANT\nTO '}
+              <Text style={{ color: colors.primary }}>ACHIEVE?</Text>
+            </Text>
+            <Text style={[geStyles.subhead, { color: colors.textSecondary }]}>
+              Start where you are. We'll help you make it actionable.
+            </Text>
 
-          <Text style={[geStyles.sectionLabel, { color: colors.textSecondary }]}>
-            YOUR GOALS
-          </Text>
+            <Text style={[geStyles.sectionLabel, { color: colors.textSecondary }]}>
+              YOUR GOALS
+            </Text>
 
-          <View style={[
-            geStyles.composer,
-            {
-              borderColor: goals.length > 0 || draft.trim() ? colors.primary + '50' : '#2A2A2A',
-              backgroundColor: '#0F0F0F',
-            },
-          ]}>
-            <View style={geStyles.pillWrap}>
-              {goals.map((g, i) => (
-                <View key={i} style={geStyles.pill}>
-                  <Text style={geStyles.pillText}>{g}</Text>
-                  <TouchableOpacity
-                    onPress={() => removeGoal(i)}
-                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                    activeOpacity={0.6}
-                  >
-                    <X size={14} color="#888" strokeWidth={2.5} />
-                  </TouchableOpacity>
-                </View>
-              ))}
-              <TextInput
-                ref={inputRef}
-                style={[geStyles.draftInput, { color: colors.text }]}
-                value={draft}
-                onChangeText={handleDraftChange}
-                placeholder={goals.length === 0 ? 'e.g. Lose 20 lbs, make $10K/month, read 12 books' : 'Add another goal...'}
-                placeholderTextColor={colors.textTertiary}
-                returnKeyType="done"
-                blurOnSubmit={false}
-                autoCapitalize="sentences"
-                onSubmitEditing={handleDraftSubmit}
-                inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
-              />
+            <View style={[
+              geStyles.composer,
+              {
+                borderColor: goals.length > 0 || draft.trim() ? colors.primary + '50' : '#2A2A2A',
+                backgroundColor: '#0F0F0F',
+              },
+            ]}>
+              <View style={geStyles.pillWrap}>
+                {goals.map((g, i) => (
+                  <View key={i} style={geStyles.pill}>
+                    <Text style={geStyles.pillText}>{g}</Text>
+                    <TouchableOpacity
+                      onPress={() => removeGoal(i)}
+                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                      activeOpacity={0.6}
+                    >
+                      <X size={13} color="#888" strokeWidth={2.5} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                <TextInput
+                  ref={inputRef}
+                  style={[geStyles.draftInput, { color: colors.text }]}
+                  value={draft}
+                  onChangeText={handleDraftChange}
+                  placeholder={goals.length === 0 ? 'e.g. Lose 20 lbs, make $10K/month, read 12 books' : 'Add another goal...'}
+                  placeholderTextColor={colors.textTertiary}
+                  returnKeyType="done"
+                  blurOnSubmit={false}
+                  autoCapitalize="sentences"
+                  onSubmitEditing={handleDraftSubmit}
+                  inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
+                />
+              </View>
             </View>
-          </View>
 
-          {goalCount > 0 && (
-            <View style={geStyles.recognizedRow}>
-              <Check size={14} color={colors.primary} strokeWidth={3} />
-              <Text style={[geStyles.recognizedText, { color: colors.textSecondary }]}>
-                {goalCount} goal{goalCount !== 1 ? 's' : ''} recognized
-              </Text>
-            </View>
-          )}
-
-          <Text style={[geStyles.helperCopy, { color: colors.textTertiary }]}>
-            {goalCount > 0 ? 'Have more than one? Add a comma, press return, or choose a suggestion below.' : ''}
-          </Text>
-
-          <TouchableOpacity
-            style={[geStyles.photoCard, { borderColor: '#222', opacity: photoLoading ? 0.6 : 1 }]}
-            onPress={handleUploadPhoto}
-            activeOpacity={0.8}
-            disabled={photoLoading}
-          >
-            {photoLoading ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <View style={geStyles.photoCardBody}>
-                <Text style={[geStyles.photoCardTitle, { color: colors.text }]}>
-                  Have your goals written down?
-                </Text>
-                <Text style={[geStyles.photoCardSub, { color: colors.textTertiary }]}>
-                  Upload a photo and we'll pull them in automatically.
-                </Text>
-                <Text style={[geStyles.photoCardLink, { color: colors.primary }]}>
-                  UPLOAD A PHOTO →
+            {goalCount > 0 && (
+              <View style={geStyles.recognizedRow}>
+                <Check size={12} color={colors.primary} strokeWidth={3} />
+                <Text style={[geStyles.recognizedText, { color: colors.textSecondary }]}>
+                  {goalCount} goal{goalCount !== 1 ? 's' : ''} recognized
                 </Text>
               </View>
             )}
-          </TouchableOpacity>
 
-          {photoError && (
-            <View style={[geStyles.errorCard, { borderColor: 'rgba(255,68,0,0.3)' }]}>
-              <Text style={geStyles.errorText}>{photoError}</Text>
-              <TouchableOpacity style={geStyles.retryBtn} onPress={handleUploadPhoto} activeOpacity={0.7}>
-                <RotateCw size={14} color={colors.primary} strokeWidth={2.5} />
-                <Text style={[geStyles.retryText, { color: colors.primary }]}>Try again</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          <View style={geStyles.sparkSection}>
-            <View style={geStyles.sparkHeader}>
-              <Text style={[geStyles.sparkHeading, { color: colors.text }]}>
-                NEED A SPARK?
-              </Text>
-              <TouchableOpacity onPress={() => setShowSparkSheet(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Text style={[geStyles.sparkMoreLink, { color: colors.primary }]}>
-                  SEE MORE →
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={[geStyles.sparkHelper, { color: colors.textSecondary }]}>
-              {sparkHelperCopy}
+            <Text style={[geStyles.helperCopy, { color: colors.textTertiary }]}>
+              {goalCount > 0 ? 'Have more than one? Add a comma, press return, or choose a suggestion below.' : ''}
             </Text>
-            <View style={geStyles.sparkChipWrap}>
-              {visibleSparks.map((spark, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={geStyles.sparkChip}
-                  onPress={() => handleSparkTap(spark.text)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[geStyles.sparkChipText, { color: colors.text }]}>{spark.text}</Text>
-                  <Plus size={14} color={colors.primary} strokeWidth={2.5} />
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </View>
 
-        <View style={styles.bottomSection}>
+            <View style={geStyles.sparkSection}>
+              <View style={geStyles.sparkHeader}>
+                <Text style={[geStyles.sparkHeading, { color: colors.text }]}>
+                  NEED A SPARK?
+                </Text>
+                <TouchableOpacity onPress={() => setShowSparkSheet(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={[geStyles.sparkMoreLink, { color: colors.primary }]}>
+                    SEE MORE →
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={[geStyles.sparkHelper, { color: colors.textSecondary }]}>
+                {sparkHelperCopy}
+              </Text>
+              <View style={geStyles.sparkGrid}>
+                {visibleSparks.map((spark, i) => {
+                  const isLong = spark.text.length > 24;
+                  return (
+                    <TouchableOpacity
+                      key={i}
+                      style={[geStyles.sparkChip, isLong && geStyles.sparkChipFull]}
+                      onPress={() => handleSparkTap(spark.text)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[geStyles.sparkChipText, { color: colors.text }]} numberOfLines={1}>{spark.text}</Text>
+                      <Plus size={13} color={colors.primary} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[geStyles.photoRow, { opacity: photoLoading ? 0.6 : 1 }]}
+              onPress={handleUploadPhoto}
+              activeOpacity={0.8}
+              disabled={photoLoading}
+            >
+              {photoLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <>
+                  <ImageIcon size={16} color={colors.primary} strokeWidth={2.5} />
+                  <View style={geStyles.photoRowText}>
+                    <Text style={[geStyles.photoRowTitle, { color: colors.text }]}>
+                      Have your goals written down?
+                    </Text>
+                    <Text style={[geStyles.photoRowSub, { color: colors.textTertiary }]}>
+                      We'll pull them in automatically.
+                    </Text>
+                  </View>
+                  <Text style={[geStyles.photoRowLink, { color: colors.primary }]}>
+                    Upload →
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {photoError && (
+              <View style={[geStyles.errorCard, { borderColor: 'rgba(255,68,0,0.3)' }]}>
+                <Text style={geStyles.errorText}>{photoError}</Text>
+                <TouchableOpacity style={geStyles.retryBtn} onPress={handleUploadPhoto} activeOpacity={0.7}>
+                  <RotateCw size={13} color={colors.primary} strokeWidth={2.5} />
+                  <Text style={[geStyles.retryText, { color: colors.primary }]}>Try again</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </Animated.View>
+        </ScrollView>
+
+        <View style={geStyles.bottomBar}>
           <TouchableOpacity
             style={[styles.primaryButton, { backgroundColor: canContinue ? colors.primary : colors.border, opacity: canContinue ? 1 : 0.45 }]}
             onPress={handleContinue}
@@ -464,7 +482,7 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
             <ArrowRight size={20} color="#000" strokeWidth={3} />
           </TouchableOpacity>
         </View>
-      </Animated.View>
+      </KeyboardAvoidingView>
 
       {showSparkSheet && (
         <SparkSheet
@@ -475,7 +493,7 @@ export function GoalsEntryScreen({ onContinue, onBack }: { onContinue: (goals: F
           onClose={() => setShowSparkSheet(false)}
         />
       )}
-    </KeyboardStepWrapper>
+    </View>
   );
 }
 
@@ -496,10 +514,9 @@ function SparkSheet({
 }) {
   const { colors } = useTheme();
 
-  const filtered = useMemo(() => {
-    const pool = filter === 'All' ? SPARK_POOL : SPARK_POOL.filter(s => s.category === filter);
-    return pool.filter(s => !usedNormalized.has(normalizeGoal(s.text)));
-  }, [filter, usedNormalized]);
+  const allInCategory = useMemo(() => {
+    return filter === 'All' ? SPARK_POOL : SPARK_POOL.filter(s => s.category === filter);
+  }, [filter]);
 
   return (
     <View style={geStyles.sheetOverlay}>
@@ -541,22 +558,26 @@ function SparkSheet({
         </ScrollView>
 
         <ScrollView style={geStyles.sheetScroll} showsVerticalScrollIndicator={false}>
-          {filtered.map((spark, i) => (
-            <TouchableOpacity
-              key={i}
-              style={[geStyles.sheetItem, { borderColor: '#222' }]}
-              onPress={() => onAdd(spark.text)}
-              activeOpacity={0.7}
-            >
-              <Text style={[geStyles.sheetItemText, { color: colors.text }]}>{spark.text}</Text>
-              <Plus size={16} color={colors.primary} strokeWidth={2.5} />
-            </TouchableOpacity>
-          ))}
-          {filtered.length === 0 && (
-            <Text style={[geStyles.sheetEmpty, { color: colors.textTertiary }]}>
-              No more suggestions in this category.
-            </Text>
-          )}
+          {allInCategory.map((spark, i) => {
+            const isAdded = usedNormalized.has(normalizeGoal(spark.text));
+            return (
+              <View key={i} style={[geStyles.sheetItem, { borderColor: isAdded ? colors.primary + '30' : '#222' }]}>
+                <Text style={[geStyles.sheetItemText, { color: isAdded ? colors.textTertiary : colors.text }]}>
+                  {spark.text}
+                </Text>
+                {isAdded ? (
+                  <View style={geStyles.sheetAddedTag}>
+                    <Check size={13} color={colors.primary} strokeWidth={3} />
+                    <Text style={[geStyles.sheetAddedText, { color: colors.primary }]}>Added</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity onPress={() => onAdd(spark.text)} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 12, right: 8 }}>
+                    <Plus size={16} color={colors.primary} strokeWidth={2.5} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })}
         </ScrollView>
       </View>
     </View>
@@ -566,143 +587,105 @@ function SparkSheet({
 // ─── GoalsEntry styles ────────────────────────────────────────────────────────
 
 const geStyles = StyleSheet.create({
+  headline: {
+    fontSize: 36,
+    fontWeight: '900',
+    letterSpacing: -1,
+    lineHeight: 40,
+    marginBottom: 8,
+  },
+  subhead: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
   sectionLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   composer: {
     borderWidth: 1.5,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    minHeight: 56,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 76,
   },
   pillWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
     alignItems: 'center',
   },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: '#1C1C1C',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderWidth: 1,
     borderColor: '#333',
   },
   pillText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#FFF',
   },
   draftInput: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
-    minWidth: 120,
+    minWidth: 100,
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   recognizedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 14,
+    gap: 5,
+    marginTop: 10,
   },
   recognizedText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   helperCopy: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
-    lineHeight: 19,
-    marginTop: 6,
-    minHeight: 19,
-  },
-  photoCard: {
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    marginTop: 20,
-    backgroundColor: '#0D0D0D',
-  },
-  photoCardBody: {
-    gap: 4,
-  },
-  photoCardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  photoCardSub: {
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 20,
-  },
-  photoCardLink: {
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    marginTop: 8,
-  },
-  errorCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 14,
-    gap: 10,
-    marginTop: 12,
-    backgroundColor: 'rgba(255,68,0,0.06)',
-  },
-  errorText: {
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 20,
-    color: '#FF4400',
-  },
-  retryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    paddingVertical: 4,
-  },
-  retryText: {
-    fontSize: 14,
-    fontWeight: '700',
+    lineHeight: 17,
+    marginTop: 4,
+    minHeight: 17,
   },
   sparkSection: {
-    marginTop: 28,
+    marginTop: 20,
   },
   sparkHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   sparkHeading: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1,
   },
   sparkMoreLink: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
   sparkHelper: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
-    lineHeight: 20,
-    marginBottom: 14,
+    lineHeight: 18,
+    marginBottom: 10,
   },
-  sparkChipWrap: {
+  sparkGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
@@ -710,23 +693,92 @@ const geStyles = StyleSheet.create({
   sparkChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    justifyContent: 'space-between',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#2A2A2A',
     backgroundColor: '#111111',
+    width: '48%',
+  },
+  sparkChipFull: {
+    width: '100%',
   },
   sparkChipText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
+    flexShrink: 1,
+  },
+  photoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#222',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 16,
+    backgroundColor: '#0D0D0D',
+    minHeight: 64,
+  },
+  photoRowText: {
+    flex: 1,
+    gap: 1,
+  },
+  photoRowTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  photoRowSub: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  photoRowLink: {
+    fontSize: 13,
+    fontWeight: '700',
+    flexShrink: 0,
+  },
+  errorCard: {
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+    gap: 8,
+    marginTop: 10,
+    backgroundColor: 'rgba(255,68,0,0.06)',
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 19,
+    color: '#FF4400',
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
+  },
+  retryText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  bottomBar: {
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    backgroundColor: '#050505',
+    borderTopWidth: 1,
+    borderTopColor: '#1A1A1A',
   },
   // Spark sheet
   sheetOverlay: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.75)',
     justifyContent: 'flex-end',
   },
   sheetCard: {
@@ -734,8 +786,8 @@ const geStyles = StyleSheet.create({
     borderTopRightRadius: 24,
     borderWidth: 1,
     borderBottomWidth: 0,
-    maxHeight: '80%',
-    paddingBottom: 40,
+    height: '72%',
+    paddingBottom: 20,
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -743,7 +795,7 @@ const geStyles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 18,
-    paddingBottom: 10,
+    paddingBottom: 8,
   },
   sheetCloseBtn: {
     width: 36,
@@ -760,7 +812,7 @@ const geStyles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingBottom: 14,
   },
   sheetFilters: {
     paddingHorizontal: 16,
@@ -780,7 +832,7 @@ const geStyles = StyleSheet.create({
   },
   sheetScroll: {
     paddingHorizontal: 20,
-    maxHeight: 400,
+    flex: 1,
   },
   sheetItem: {
     flexDirection: 'row',
@@ -797,6 +849,16 @@ const geStyles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     flex: 1,
+  },
+  sheetAddedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 0,
+  },
+  sheetAddedText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   sheetEmpty: {
     fontSize: 14,
