@@ -1486,7 +1486,12 @@ export function PathNumbersDirect({
   const canReveal = hasValidTarget && !timeframeInputOpen;
   const resolvedTarget = canReveal ? rawTarget : 0;
 
-  const dailyRaw = canReveal ? Math.ceil(resolvedTarget / timeframeDays) : 0;
+  const effectiveTarget = canReveal && goal.dailyTrackingUnit
+    ? resolvedTarget * goal.dailyTrackingUnit.perTargetUnit
+    : resolvedTarget;
+  const effectiveUnit = goal.dailyTrackingUnit?.unit ?? unit;
+
+  const dailyRaw = canReveal ? effectiveTarget / timeframeDays : 0;
   const daily = canReveal ? Math.ceil(dailyRaw * 1.1) : 0;
 
   const doReveal = () => {
@@ -1509,7 +1514,7 @@ export function PathNumbersDirect({
 
   const handleLock = () => {
     if (!canReveal) return;
-    const result = `${fmtNumDirect(daily)} ${unit}/day`;
+    const result = `${fmtNumDirect(daily)} ${effectiveUnit}/day`;
     const targetStr = String(resolvedTarget);
     onDone(result, targetStr);
   };
@@ -1692,8 +1697,13 @@ export function PathNumbersDirect({
             {fmtNumDirect(daily)}
           </Text>
           <Text style={[styles.revealUnit, { color: colors.textSecondary }]}>
-            {unit}/day
+            {effectiveUnit}/day
           </Text>
+          {goal.dailyTrackingUnit && (
+            <Text style={[styles.mathLine, { color: colors.textTertiary, marginTop: 4 }]}>
+              {fmtNumDirect(resolvedTarget)} {unit} ≈ {fmtNumDirect(effectiveTarget)} {effectiveUnit}
+            </Text>
+          )}
           <View
             style={[
               styles.mathBox,
@@ -1704,10 +1714,10 @@ export function PathNumbersDirect({
             ]}
           >
             <Text style={[styles.mathLine, { color: colors.textSecondary }]}>
-              {fmtNumDirect(resolvedTarget)} {unit} ÷ {timeframeDays} days = {fmtNumDirect(dailyRaw)}/{unit}
+              {fmtNumDirect(effectiveTarget)} {effectiveUnit} ÷ {timeframeDays} days = {fmtNumDirect(Math.round(dailyRaw * 100) / 100)}/{effectiveUnit}
             </Text>
             <Text style={[styles.mathLine, { color: colors.textSecondary }]}>
-              with 10% buffer → {fmtNumDirect(daily)} {unit}/day
+              with 10% buffer → {fmtNumDirect(daily)} {effectiveUnit}/day
             </Text>
           </View>
           <TouchableOpacity

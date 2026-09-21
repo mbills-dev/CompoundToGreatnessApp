@@ -1021,7 +1021,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
         return (
           <ClassifyingPhase
             goalLabel={goalLabel}
-            onClassified={(path, extractedTarget, standardAction, estimatedMasteryHours, numbersSubtype, directUnit, targetResolution) => {
+            onClassified={(path, extractedTarget, standardAction, estimatedMasteryHours, numbersSubtype, directUnit, targetResolution, dailyTrackingUnit) => {
               if (path === 'numbers' && extractedTarget) {
                 setGoals(prev => prev.map((g, i) =>
                   i === goalIdx ? { ...g, inheritedTarget: extractedTarget } : g
@@ -1029,7 +1029,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
               }
               if (path === 'numbers' && numbersSubtype) {
                 setGoals(prev => prev.map((g, i) =>
-                  i === goalIdx ? { ...g, numbersSubtype, directUnit: directUnit ?? undefined, targetResolution: targetResolution ?? null } : g
+                  i === goalIdx ? { ...g, numbersSubtype, directUnit: directUnit ?? undefined, targetResolution: targetResolution ?? null, dailyTrackingUnit } : g
                 ));
               }
               if (path === 'starting' && standardAction) {
@@ -1361,7 +1361,7 @@ function ClassifyingPhase({
   onClassified,
 }: {
   goalLabel: string;
-  onClassified: (path: DecodePath, extractedTarget: string | null, standardAction: string | null, estimatedMasteryHours: number | null, numbersSubtype: NumbersSubtype | null, directUnit: string | null, targetResolution: TargetResolution | null) => void;
+  onClassified: (path: DecodePath, extractedTarget: string | null, standardAction: string | null, estimatedMasteryHours: number | null, numbersSubtype: NumbersSubtype | null, directUnit: string | null, targetResolution: TargetResolution | null, dailyTrackingUnit: { unit: string; perTargetUnit: number } | null) => void;
 }) {
   useEffect(() => {
     let cancelled = false;
@@ -1377,7 +1377,7 @@ function ClassifyingPhase({
         if (cancelled) return;
         if (error || !data || (data.path !== 'numbers' && data.path !== 'practice' && data.path !== 'starting')) {
           await logBreadcrumb('classify_fallback', { reason: error ? 'error' : !data ? 'no_data' : 'bad_path' });
-          onClassified('starting', null, null, null, null, null, null);
+          onClassified('starting', null, null, null, null, null, null, null);
           return;
         }
         const extracted = typeof data.extractedTarget === 'string' && data.extractedTarget.trim().length > 0
@@ -1406,12 +1406,22 @@ function ClassifyingPhase({
             tRes = { type: 'ask', question: tr.question.trim(), unit: typeof tr.unit === 'string' ? tr.unit : dUnit ?? 'units', suggestions };
           }
         }
+        let dailyTrackingUnit: { unit: string; perTargetUnit: number } | null = null;
+        if (data.dailyTrackingUnit && typeof data.dailyTrackingUnit === 'object') {
+          const dtu = data.dailyTrackingUnit as Record<string, unknown>;
+          if (
+            typeof dtu.unit === 'string' && dtu.unit.trim().length > 0 &&
+            typeof dtu.perTargetUnit === 'number' && !isNaN(dtu.perTargetUnit) && dtu.perTargetUnit > 0
+          ) {
+            dailyTrackingUnit = { unit: dtu.unit.trim(), perTargetUnit: Math.round(dtu.perTargetUnit) };
+          }
+        }
         await logBreadcrumb('classify_parsed', { path: data.path, numbersSubtype: subType });
         await logBreadcrumb('before_onClassified');
-        onClassified(data.path as DecodePath, extracted, standard, masteryHours, subType, dUnit, tRes);
+        onClassified(data.path as DecodePath, extracted, standard, masteryHours, subType, dUnit, tRes, dailyTrackingUnit);
       } catch (e) {
         await logBreadcrumb('classify_exception', { error: String(e).slice(0, 200) });
-        if (!cancelled) onClassified('starting', null, null, null, null, null, null);
+        if (!cancelled) onClassified('starting', null, null, null, null, null, null, null);
       }
     })();
     return () => { cancelled = true; };

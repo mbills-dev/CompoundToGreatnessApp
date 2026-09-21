@@ -24,6 +24,7 @@ export interface FlowGoal {
   numbersSubtype?: NumbersSubtype;
   directUnit?: string;
   targetResolution?: TargetResolution | null;
+  dailyTrackingUnit?: { unit: string; perTargetUnit: number } | null;
 }
 
 export interface AnchoredInput {

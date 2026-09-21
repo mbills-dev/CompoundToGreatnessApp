@@ -35,6 +35,7 @@ Rules:
       (b) When the target is inherently a personal choice with no objectively correct number — e.g. income goals, savings amounts, personal quantities to produce — keep the current behavior: natural question (e.g. "How much do you want to make per month?" for income, "How much do you want to save?" for savings) and 3-4 short preset amount suggestions.
       Generate the question and suggestions dynamically per-goal based on its context — do not use hardcoded category templates.
 11. If numbersSubtype is "funnel", return null for "unit" and "targetResolution".
+12. If numbersSubtype is "direct", also determine whether "unit" is too coarse to divide meaningfully into a daily practice — i.e. completing even ONE whole unit per day would badly overshoot a sane pace for a typical goal timeframe (roughly 1-12 months). Common coarse units: books, courses, certifications, whole paintings/murals/projects treated as one piece. If the unit IS coarse, return "dailyTrackingUnit" with a finer, naturally-trackable sub-unit and a realistic conversion ratio (how many of the fine unit equal ONE of the stated unit), using real domain knowledge: a book ≈ 275 pages, a course ≈ 20 modules or 40 study hours, a certification ≈ 60 study hours. If the stated unit is already fine enough for daily tracking (dollars, words, pages, reps, sq ft, steps, subscribers), return null for "dailyTrackingUnit".
 
 Output shape (exactly):
 {
@@ -49,6 +50,10 @@ Output shape (exactly):
     "question": "How much do you want to save?",
     "unit": "dollars",
     "suggestions": ["$5,000", "$10,000", "$25,000"]
+  } | null,
+  "dailyTrackingUnit": {
+    "unit": "pages",
+    "perTargetUnit": 275
   } | null
 }
 
@@ -191,7 +196,18 @@ Deno.serve(async (req: Request) => {
       numbersSubtype = "funnel";
     }
 
-    return jsonRes({ path, extractedTarget, standardAction, estimatedMasteryHours, numbersSubtype, unit, targetResolution });
+    let dailyTrackingUnit: { unit: string; perTargetUnit: number } | null = null;
+    if (numbersSubtype === "direct" && typeof obj.dailyTrackingUnit === "object" && obj.dailyTrackingUnit !== null) {
+      const dtu = obj.dailyTrackingUnit as Record<string, unknown>;
+      if (
+        typeof dtu.unit === "string" && dtu.unit.trim().length > 0 &&
+        typeof dtu.perTargetUnit === "number" && !isNaN(dtu.perTargetUnit) && dtu.perTargetUnit > 0
+      ) {
+        dailyTrackingUnit = { unit: dtu.unit.trim(), perTargetUnit: Math.round(dtu.perTargetUnit) };
+      }
+    }
+
+    return jsonRes({ path, extractedTarget, standardAction, estimatedMasteryHours, numbersSubtype, unit, targetResolution, dailyTrackingUnit });
   } catch (e) {
     console.error("handler_error", String(e).slice(0, 400));
     return jsonRes({ error: "bad_request" }, 400);
