@@ -619,6 +619,19 @@ interface Props {
 }
 
 const CHECKPOINT_KEY = 'c2g_identity_builder_checkpoint';
+// Increment when a persisted Phase, FlowGoal, LockedGoal, history, or other
+// checkpoint field changes in a way that makes older saved checkpoints unsafe
+// to restore. NOT required for copy, styling, or layout changes — only changes
+// that would make previously saved checkpoint data incompatible with the
+// current code.
+const CHECKPOINT_SCHEMA_VERSION = 1;
+
+const KNOWN_PHASE_KINDS = new Set([
+  'name-capture', 'goals-entry', 'intro', 'classifying', 'path-select',
+  'goal-done-looks', 'goal-fuel-redirect', 'decode', 'anchor',
+  'ai-daily-inputs', 'add-input', 'locked', 'identity',
+  'compass-story', 'compass-domino', 'compass-mechanism', 'finale', 'signature',
+]);
 
 export default function IdentityBuilder({ onComplete }: Props) {
   const { colors } = useTheme();
@@ -653,26 +666,42 @@ export default function IdentityBuilder({ onComplete }: Props) {
         const raw = await AsyncStorage.getItem(CHECKPOINT_KEY);
         if (raw) {
           const cp = JSON.parse(raw);
-          if (cp && cp.phase && cp.phase.kind) {
-            if (cp.phase.kind === 'name-capture') {
-              setCheckpointLoading(false);
-              return;
-            }
-            setPhase(cp.phase);
-            if (Array.isArray(cp.history)) setHistory(cp.history);
-            if (Array.isArray(cp.goals)) setGoals(cp.goals);
-            if (Array.isArray(cp.locked)) setLocked(cp.locked);
-            if (cp.decodeResults && typeof cp.decodeResults === 'object') setDecodeResults(cp.decodeResults);
-            if (cp.goalLabelOverrides && typeof cp.goalLabelOverrides === 'object') setGoalLabelOverrides(cp.goalLabelOverrides);
-            if (cp.identityOverrides && typeof cp.identityOverrides === 'object') setIdentityOverrides(cp.identityOverrides);
-            if (cp.aiStatements && typeof cp.aiStatements === 'object') setAiStatements(cp.aiStatements);
-            if (typeof cp.compassFilter === 'string') setCompassFilter(cp.compassFilter);
-            if (cp.acceptedIdentity && typeof cp.acceptedIdentity === 'object') setAcceptedIdentity(cp.acceptedIdentity);
-            if (typeof cp.firstName === 'string') setFirstName(cp.firstName);
-            if (typeof cp.lastName === 'string') setLastName(cp.lastName);
+          const isValid =
+            cp && typeof cp === 'object' &&
+            cp.schemaVersion === CHECKPOINT_SCHEMA_VERSION &&
+            cp.phase && typeof cp.phase === 'object' &&
+            typeof cp.phase.kind === 'string' &&
+            KNOWN_PHASE_KINDS.has(cp.phase.kind);
+
+          if (!isValid) {
+            // Legacy (no schemaVersion), version-mismatched, or structurally
+            // invalid checkpoint. Nothing durable to preserve (see note above
+            // CHECKPOINT_SCHEMA_VERSION) — discard and let normal initial
+            // state stand, which is already the safe name-capture boundary.
+            await AsyncStorage.removeItem(CHECKPOINT_KEY).catch(() => {});
+            setCheckpointLoading(false);
+            return;
           }
+
+          if (cp.phase.kind === 'name-capture') {
+            setCheckpointLoading(false);
+            return;
+          }
+          setPhase(cp.phase);
+          if (Array.isArray(cp.history)) setHistory(cp.history);
+          if (Array.isArray(cp.goals)) setGoals(cp.goals);
+          if (Array.isArray(cp.locked)) setLocked(cp.locked);
+          if (cp.decodeResults && typeof cp.decodeResults === 'object') setDecodeResults(cp.decodeResults);
+          if (cp.goalLabelOverrides && typeof cp.goalLabelOverrides === 'object') setGoalLabelOverrides(cp.goalLabelOverrides);
+          if (cp.identityOverrides && typeof cp.identityOverrides === 'object') setIdentityOverrides(cp.identityOverrides);
+          if (cp.aiStatements && typeof cp.aiStatements === 'object') setAiStatements(cp.aiStatements);
+          if (typeof cp.compassFilter === 'string') setCompassFilter(cp.compassFilter);
+          if (cp.acceptedIdentity && typeof cp.acceptedIdentity === 'object') setAcceptedIdentity(cp.acceptedIdentity);
+          if (typeof cp.firstName === 'string') setFirstName(cp.firstName);
+          if (typeof cp.lastName === 'string') setLastName(cp.lastName);
         }
       } catch {
+        await AsyncStorage.removeItem(CHECKPOINT_KEY).catch(() => {});
       }
       setCheckpointLoading(false);
     })();
@@ -684,6 +713,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
     if (checkpointTimer.current) clearTimeout(checkpointTimer.current);
     checkpointTimer.current = setTimeout(() => {
       const snapshot = {
+        schemaVersion: CHECKPOINT_SCHEMA_VERSION,
         phase,
         history,
         goals,
@@ -703,6 +733,38 @@ export default function IdentityBuilder({ onComplete }: Props) {
   }, [phase, history, goals, locked, decodeResults, goalLabelOverrides, identityOverrides, aiStatements, acceptedIdentity, compassFilter, firstName, lastName, checkpointLoading]);
 
   const saveState = (key: string, value: string) => setSavedStates(prev => ({ ...prev, [key]: value }));
+
+  // Defense in depth: if `phase` somehow ends up holding an unrecognized kind
+  // during an active session (not just at checkpoint restore), recover to the
+  // same safe boundary rather than letting the renderer hit an unhandled case.
+  const resetToSafeBoundary = () => {
+    setPhase({ kind: 'name-capture' });
+    setHistory([]);
+    setGoals(HARDCODED_GOALS);
+    setLocked([]);
+    setDecodeResults({});
+    setGoalLabelOverrides({});
+    setIdentityOverrides({});
+    setAiStatements({});
+    setAcceptedIdentity(null);
+    setCompassFilter('');
+    setDominoGoalId(null);
+    setSavedStates({});
+    setDisplayName('');
+    setFirstName('');
+    setLastName('');
+    setIsAiSourced(false);
+    setAiSelectedInputs({});
+    setAiIdentityLines({});
+    AsyncStorage.removeItem(CHECKPOINT_KEY).catch(() => {});
+  };
+
+  useEffect(() => {
+    if (checkpointLoading) return;
+    if (!KNOWN_PHASE_KINDS.has(phase.kind)) {
+      resetToSafeBoundary();
+    }
+  }, [phase.kind, checkpointLoading]);
 
   const phaseKey = (p: Phase): string => {
     switch (p.kind) {
@@ -915,6 +977,19 @@ export default function IdentityBuilder({ onComplete }: Props) {
 
   const renderPhase = () => {
     switch (phase.kind) {
+      default:
+        // Unrecognized phase — the corrective effect above will call
+        // resetToSafeBoundary() on the next tick. This just covers the one
+        // render that happens before that effect runs, so nothing blank
+        // is ever shown even for a single frame.
+        return (
+          <View style={[ibStyles.root, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+            <View style={[{ flex: 1 }, responsiveStyle.container]}>
+              <AiThinkingIndicator phrases={['Loading your progress...']} />
+            </View>
+          </View>
+        );
+
       case 'name-capture':
         return (
           <NameCaptureScreen
