@@ -332,6 +332,339 @@ export function VagueGoalBanner({
   );
 }
 
+export function ClarificationSheet({
+  goalLabel,
+  reason,
+  suggestions,
+  onConfirm,
+  onDismiss,
+  onClose,
+}: {
+  goalLabel: string;
+  reason: string;
+  suggestions: string[];
+  onConfirm: (newLabel: string) => void;
+  onDismiss: () => void;
+  onClose: () => void;
+}) {
+  const { colors, isDark } = useTheme();
+  const [selection, setSelection] = useState<string | null>(null);
+  const [customMode, setCustomMode] = useState(false);
+  const [customText, setCustomText] = useState('');
+
+  const safeSuggestions = Array.isArray(suggestions) ? suggestions : [];
+
+  const handleSelectSuggestion = (value: string) => {
+    setSelection(value);
+    setCustomMode(false);
+    onConfirm(value);
+    setSelection(null);
+  };
+
+  const handleKeepAsIs = () => {
+    onDismiss();
+    setSelection(null);
+  };
+
+  const handleCustomSubmit = () => {
+    const trimmed = customText.trim();
+    if (!trimmed) return;
+    onConfirm(trimmed);
+    setCustomText('');
+    setCustomMode(false);
+    setSelection(null);
+  };
+
+  const handleClose = () => {
+    setCustomMode(false);
+    setCustomText('');
+    setSelection(null);
+    onClose();
+  };
+
+  return (
+    <View style={clarifySheetStyles.overlay}>
+      <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={handleClose} activeOpacity={1} />
+      <View style={[
+        clarifySheetStyles.sheet,
+        {
+          backgroundColor: isDark ? '#0A0A0A' : '#FFFFFF',
+          borderColor: isDark ? '#222' : colors.border,
+        },
+      ]}>
+        <View style={clarifySheetStyles.header}>
+          <TouchableOpacity onPress={handleClose} style={clarifySheetStyles.closeBtn} activeOpacity={0.6}>
+            <X size={20} color={colors.textSecondary} strokeWidth={2.5} />
+          </TouchableOpacity>
+          <Text style={[clarifySheetStyles.headerLabel, { color: colors.textSecondary }]}>
+            MAKE THIS GOAL CLEARER.
+          </Text>
+          <View style={clarifySheetStyles.closeBtn} />
+        </View>
+
+        <View style={clarifySheetStyles.body}>
+          <Text style={[clarifySheetStyles.goalText, { color: colors.text }]}>
+            "{goalLabel}"
+          </Text>
+          <Text style={[clarifySheetStyles.explainer, { color: colors.textSecondary }]}>
+            {reason}
+          </Text>
+
+          {!customMode ? (
+            <>
+              {safeSuggestions.length > 0 && (
+                <Text style={[clarifySheetStyles.sectionLabel, { color: colors.textSecondary }]}>
+                  SUGGESTIONS
+                </Text>
+              )}
+              {safeSuggestions.map((suggestion, i) => (
+                <TouchableOpacity
+                  key={`sug-${i}`}
+                  style={[
+                    clarifySheetStyles.suggestionRow,
+                    {
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  onPress={() => handleSelectSuggestion(suggestion)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[clarifySheetStyles.suggestionText, { color: colors.text }]}>
+                    {suggestion}
+                  </Text>
+                  <View style={clarifySheetStyles.plusBtn}>
+                    <Text style={[clarifySheetStyles.plusText, { color: colors.primary }]}>+</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+              <TouchableOpacity
+                style={[
+                  clarifySheetStyles.writeOwnRow,
+                  { borderColor: colors.primary + '60' },
+                ]}
+                onPress={() => setCustomMode(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={[clarifySheetStyles.writeOwnText, { color: colors.primary }]}>
+                  WRITE MY OWN →
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={clarifySheetStyles.keepAsIsRow}
+                onPress={handleKeepAsIs}
+                activeOpacity={0.6}
+              >
+                <Text style={[clarifySheetStyles.keepAsIsText, { color: colors.textTertiary }]}>
+                  Keep "{goalLabel}" as written
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TextInput
+                style={[
+                  clarifySheetStyles.customInput,
+                  {
+                    color: colors.text,
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
+                    borderColor: colors.primary + '60',
+                  },
+                ]}
+                value={customText}
+                onChangeText={setCustomText}
+                placeholder="Describe what this goal looks like for you..."
+                placeholderTextColor={colors.textTertiary}
+                multiline
+                autoFocus
+                returnKeyType="done"
+                blurOnSubmit
+                textAlignVertical="top"
+              />
+              <View style={clarifySheetStyles.customActions}>
+                <TouchableOpacity
+                  style={[clarifySheetStyles.customCancelBtn, { borderColor: colors.border }]}
+                  onPress={() => { setCustomMode(false); setCustomText(''); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[clarifySheetStyles.customCancelText, { color: colors.textSecondary }]}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    clarifySheetStyles.customConfirmBtn,
+                    { backgroundColor: customText.trim() ? colors.primary : colors.border, opacity: customText.trim() ? 1 : 0.5 },
+                  ]}
+                  onPress={handleCustomSubmit}
+                  disabled={!customText.trim()}
+                  activeOpacity={0.8}
+                >
+                  <Text style={clarifySheetStyles.customConfirmText}>Confirm</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const clarifySheetStyles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'flex-end',
+    zIndex: 200,
+  },
+  sheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    height: '70%',
+    paddingBottom: 20,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 8,
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerLabel: {
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  body: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 4,
+  },
+  goalText: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    lineHeight: 30,
+    marginBottom: 12,
+  },
+  explainer: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 8,
+  },
+  suggestionText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 21,
+  },
+  plusBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  plusText: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  writeOwnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginTop: 6,
+  },
+  writeOwnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  keepAsIsRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    marginTop: 8,
+  },
+  keepAsIsText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontStyle: 'italic',
+  },
+  customInput: {
+    fontSize: 15,
+    fontWeight: '600',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 14,
+    minHeight: 80,
+    lineHeight: 22,
+  },
+  customActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  customCancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  customConfirmBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customConfirmText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#000000',
+  },
+});
+
 function remapRecord<T>(
   prev: Record<number, T>,
   removeSet: Set<number>,

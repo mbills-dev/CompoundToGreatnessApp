@@ -18,7 +18,7 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
 } from 'react-native-reanimated';
-import { ArrowLeft, ArrowRight, Check, Zap, Image as ImageIcon, RotateCw, Plus, X } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Check, Zap, Image as ImageIcon, RotateCw, Plus, X, ChevronRight, AlertCircle } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
@@ -28,7 +28,7 @@ import { supabase } from '@/lib/supabase';
 import { logEdgeFunctionCall } from '@/lib/edgeFunctionLogger';
 import { FlowGoal, DecodePath } from './types';
 import { GoalBadge, formatGoalLabel } from './AnchorScreens';
-import { OverlapGroup, fetchOverlappingGoals, OverlapBanner, MergeEditor, VagueFlag, fetchVagueGoals, VagueGoalBanner, GoalCountNudge, TrimModal } from './AiDailyInputsScreen';
+import { OverlapGroup, fetchOverlappingGoals, OverlapBanner, MergeEditor, VagueFlag, fetchVagueGoals, GoalCountNudge, TrimModal, ClarificationSheet } from './AiDailyInputsScreen';
 import styles from './styles';
 import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID } from './KeyboardStepWrapper';
 import { useInputSpecificity, SpecificityNudgeBanner, logInputFeedback, InputSource } from './InputValidation';
@@ -1199,7 +1199,7 @@ export function IntroScreen({
   onMergeGoals: (keepIndex: number, newLabel: string, removeIndices: number[]) => void;
   onRemoveGoals: (removeIndices: number[]) => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const [overlapGroups, setOverlapGroups] = useState<OverlapGroup[]>([]);
   const [dismissedGroups, setDismissedGroups] = useState<Set<number>>(new Set());
   const [mergeGroupIdx, setMergeGroupIdx] = useState<number | null>(null);
@@ -1209,8 +1209,10 @@ export function IntroScreen({
   const [vagueChecksResolved, setVagueChecksResolved] = useState(false);
   const [showTrimModal, setShowTrimModal] = useState(false);
   const [trimChecked, setTrimChecked] = useState<Set<number>>(new Set());
+  const [clarifyingIdx, setClarifyingIdx] = useState<number | null>(null);
   const overlapFetchedRef = useRef(false);
   const vagueFetchedRef = useRef(false);
+  const autoOpenedRef = useRef(false);
 
   useEffect(() => {
     if (overlapFetchedRef.current) return;
@@ -1233,6 +1235,19 @@ export function IntroScreen({
       });
     });
   }, []);
+
+  const unresolvedVagueIdxs = vagueFlags
+    .filter(f => !dismissedVague.has(f.index))
+    .map(f => f.index);
+
+  useEffect(() => {
+    if (autoOpenedRef.current) return;
+    if (!vagueChecksResolved) return;
+    if (unresolvedVagueIdxs.length > 0) {
+      autoOpenedRef.current = true;
+      setClarifyingIdx(unresolvedVagueIdxs[0]);
+    }
+  }, [vagueChecksResolved]);
 
   const handleConfirmMerge = (groupIdx: number, newLabel: string) => {
     const group = overlapGroups[groupIdx];
@@ -1263,9 +1278,39 @@ export function IntroScreen({
     onRemoveGoals(removeIndices);
   };
 
+  const handleClarifyConfirm = (idx: number, newLabel: string) => {
+    setDismissedVague(prev => new Set(prev).add(idx));
+    setClarifyingIdx(null);
+    onMergeGoals(idx, newLabel, []);
+  };
+
+  const handleClarifyKeepAsIs = (idx: number) => {
+    setDismissedVague(prev => new Set(prev).add(idx));
+    setClarifyingIdx(null);
+  };
+
+  const handleClarifyClose = () => {
+    setClarifyingIdx(null);
+  };
+
+  const handleCtaPress = () => {
+    if (unresolvedVagueIdxs.length > 0) {
+      setClarifyingIdx(unresolvedVagueIdxs[0]);
+    } else {
+      onNext();
+    }
+  };
+
+  const hasUnresolvedVague = unresolvedVagueIdxs.length > 0;
+  const canAdvance = goalCountResolved && vagueChecksResolved && !hasUnresolvedVague;
+
+  const activeVagueFlag = clarifyingIdx !== null
+    ? vagueFlags.find(f => f.index === clarifyingIdx) ?? null
+    : null;
+
   return (
     <KeyboardStepWrapper contentContainerStyle={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={{ flex: 1, justifyContent: 'center' }}>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         <TouchableOpacity onPress={onBack} style={[styles.backBtn, { marginBottom: 20 }]}>
           <ArrowLeft size={20} color={colors.text} strokeWidth={2.5} />
         </TouchableOpacity>
@@ -1285,15 +1330,20 @@ export function IntroScreen({
           </Text>
         </View>
         <Text style={[styles.heroTitle, { color: colors.text }]}>
-          Let's reverse{'\n'}engineer each{'\n'}goal.
+          LET'S MAKE{'\n'}EACH GOAL{'\n'}
+          <Text style={{ color: '#CCFF00' }}>CLEAR.</Text>
         </Text>
         <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
-          Every goal becomes a single daily number — the exact action you
-          repeat until the outcome is inevitable.
+          We'll clarify anything that's vague.{'\n'}Then we'll reverse engineer each one.
         </Text>
 
-        <View style={{ gap: 12, marginTop: 32 }}>
+        <View style={{ gap: 10, marginTop: 32 }}>
           {goals.map((g, i) => {
+            const displayLabel = formatGoalLabel(g, goalLabelOverrides);
+            const hasVagueFlag = vagueFlags.some(f => f.index === i);
+            const isVagueResolved = dismissedVague.has(i);
+            const needsClarification = hasVagueFlag && !isVagueResolved;
+
             const activeGroups = overlapGroups
               .map((grp, gi) => ({ group: grp, groupIdx: gi }))
               .filter(({ group }) =>
@@ -1305,11 +1355,51 @@ export function IntroScreen({
 
             return (
               <View key={g.id}>
-                <GoalBadge
-                  goal={g}
-                  n={i + 1}
-                  resolvedLabel={formatGoalLabel(g, goalLabelOverrides)}
-                />
+                <TouchableOpacity
+                  style={[
+                    introRowStyles.row,
+                    {
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  onPress={() => {
+                    if (needsClarification) {
+                      setClarifyingIdx(i);
+                    }
+                  }}
+                  activeOpacity={needsClarification ? 0.7 : 1}
+                  disabled={!needsClarification}
+                >
+                  <Text style={[introRowStyles.number, { color: colors.textTertiary }]}>
+                    {String(i + 1).padStart(2, '0')}
+                  </Text>
+                  <View style={[introRowStyles.divider, { backgroundColor: colors.border }]} />
+                  <View style={introRowStyles.content}>
+                    <Text style={[introRowStyles.goalText, { color: colors.text }]}>
+                      {displayLabel}
+                    </Text>
+                    <View style={introRowStyles.statusRow}>
+                      {needsClarification ? (
+                        <>
+                          <AlertCircle size={13} color={colors.primary} strokeWidth={2.5} />
+                          <Text style={[introRowStyles.statusText, { color: colors.textSecondary }]}>
+                            Needs a little clarity
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Check size={13} color={colors.primary} strokeWidth={3} />
+                          <Text style={[introRowStyles.statusText, { color: colors.textSecondary }]}>
+                            Ready to reverse engineer
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                  </View>
+                  <ChevronRight size={18} color={colors.textTertiary} strokeWidth={2.5} />
+                </TouchableOpacity>
+
                 {activeGroups.map(({ group, groupIdx }) =>
                   mergeGroupIdx === groupIdx ? (
                     <MergeEditor
@@ -1327,43 +1417,25 @@ export function IntroScreen({
                     />
                   ),
                 )}
-                {vagueFlags
-                  .filter(f => f.index === i && !dismissedVague.has(f.index))
-                  .map(f => (
-                    <VagueGoalBanner
-                      key={`vague-${f.index}`}
-                      reason={f.reason}
-                      suggestions={f.suggestions}
-                      onConfirm={(newLabel) => {
-                        setDismissedVague(prev => new Set(prev).add(f.index));
-                        onMergeGoals(i, newLabel, []);
-                      }}
-                      onDismiss={() => setDismissedVague(prev => new Set(prev).add(f.index))}
-                    />
-                  ))}
               </View>
             );
           })}
         </View>
-      </View>
+      </ScrollView>
 
-      {(() => {
-        const hasUnresolvedVague = vagueFlags.some(f => !dismissedVague.has(f.index));
-        const canAdvance = goalCountResolved && vagueChecksResolved && !hasUnresolvedVague;
-        return (
-      <View style={styles.bottomSection}>
+      <View style={[styles.bottomSection, { backgroundColor: colors.background }]}>
         <TouchableOpacity
           style={[styles.primaryButton, { backgroundColor: canAdvance ? colors.primary : colors.border, opacity: canAdvance ? 1 : 0.45 }]}
-          onPress={onNext}
+          onPress={handleCtaPress}
           activeOpacity={0.85}
-          disabled={!canAdvance}
+          disabled={!goalCountResolved || !vagueChecksResolved}
         >
-          <Text style={styles.primaryButtonText}>Reverse engineer goal 1</Text>
+          <Text style={styles.primaryButtonText}>
+            {hasUnresolvedVague ? 'Clarify goals' : 'Reverse engineer goal 1'}
+          </Text>
           <ArrowRight size={20} color="#000" strokeWidth={3} />
         </TouchableOpacity>
       </View>
-        );
-      })()}
 
       {!goalCountResolved && (
         <GoalCountNudge
@@ -1390,6 +1462,59 @@ export function IntroScreen({
           onCancel={() => setShowTrimModal(false)}
         />
       )}
+
+      {clarifyingIdx !== null && activeVagueFlag && (
+        <ClarificationSheet
+          goalLabel={formatGoalLabel(goals[clarifyingIdx], goalLabelOverrides)}
+          reason={activeVagueFlag.reason}
+          suggestions={activeVagueFlag.suggestions}
+          onConfirm={(newLabel) => handleClarifyConfirm(clarifyingIdx, newLabel)}
+          onDismiss={() => handleClarifyKeepAsIs(clarifyingIdx)}
+          onClose={handleClarifyClose}
+        />
+      )}
     </KeyboardStepWrapper>
   );
 }
+
+const introRowStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 14,
+    minHeight: 72,
+  },
+  number: {
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    width: 32,
+  },
+  divider: {
+    width: 1,
+    alignSelf: 'stretch',
+  },
+  content: {
+    flex: 1,
+    gap: 4,
+  },
+  goalText: {
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 22,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+});
