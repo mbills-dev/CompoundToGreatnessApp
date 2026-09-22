@@ -367,6 +367,7 @@ export function GoalsEntryScreen({ onContinue, onBack, initialGoals }: { onConti
                       onPress={() => removeGoal(i)}
                       hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
                       activeOpacity={0.6}
+                      style={{ flexShrink: 0 }}
                     >
                       <X size={13} color="#888" strokeWidth={2.5} />
                     </TouchableOpacity>
@@ -630,11 +631,13 @@ const geStyles = StyleSheet.create({
     paddingVertical: 6,
     borderWidth: 1,
     borderColor: '#333',
+    maxWidth: '100%',
   },
   pillText: {
     fontSize: 13,
     fontWeight: '600',
     color: '#FFF',
+    flexShrink: 1,
   },
   draftInput: {
     fontSize: 15,
@@ -1468,6 +1471,8 @@ export function IntroScreen({
           goalLabel={formatGoalLabel(goals[clarifyingIdx], goalLabelOverrides)}
           reason={activeVagueFlag.reason}
           suggestions={activeVagueFlag.suggestions}
+          clarificationType={activeVagueFlag.clarificationType}
+          missingFields={activeVagueFlag.missingFields}
           onConfirm={(newLabel) => handleClarifyConfirm(clarifyingIdx, newLabel)}
           onDismiss={() => handleClarifyKeepAsIs(clarifyingIdx)}
           onClose={handleClarifyClose}

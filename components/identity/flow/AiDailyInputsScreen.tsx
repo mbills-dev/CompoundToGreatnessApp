@@ -169,10 +169,19 @@ export function MergeEditor({
   );
 }
 
+export interface MissingField {
+  key: string;
+  label: string;
+  type: 'text' | 'choice';
+  options?: string[];
+}
+
 export interface VagueFlag {
   index: number;
   reason: string;
   suggestions: string[];
+  clarificationType: 'ambiguous' | 'missing_information';
+  missingFields: MissingField[];
 }
 
 export async function fetchVagueGoals(goalLabels: string[]): Promise<VagueFlag[]> {
@@ -197,14 +206,17 @@ export async function fetchVagueGoals(goalLabels: string[]): Promise<VagueFlag[]
     }
     const data = await response.json();
     if (data && Array.isArray(data.flags)) {
-      const isValidFlag = (f: unknown): f is VagueFlag => {
+      const isValidFlag = (f: unknown): f is Record<string, unknown> => {
         if (typeof f !== 'object' || f === null) return false;
         const rec = f as Record<string, unknown>;
         if (typeof rec.reason !== 'string') return false;
-        if (Array.isArray(rec.suggestions) && rec.suggestions.length > 0 &&
-            rec.suggestions.every((s: unknown) => typeof s === 'string')) return true;
-        if (typeof rec.suggestion === 'string' && rec.suggestion.length > 0) return true;
-        return false;
+        const hasSuggestions =
+          (Array.isArray(rec.suggestions) && rec.suggestions.length > 0 &&
+            rec.suggestions.every((s: unknown) => typeof s === 'string')) ||
+          (typeof rec.suggestion === 'string' && rec.suggestion.length > 0);
+        const hasMissingFields =
+          Array.isArray(rec.missingFields) && rec.missingFields.length > 0;
+        return hasSuggestions || hasMissingFields;
       };
       const validFlags = data.flags
         .filter(isValidFlag)
@@ -213,11 +225,33 @@ export async function fetchVagueGoals(goalLabels: string[]): Promise<VagueFlag[]
           const suggestions =
             Array.isArray(rec.suggestions) && rec.suggestions.length > 0
               ? (rec.suggestions as string[])
-              : [rec.suggestion as string];
+              : (typeof rec.suggestion === 'string' && rec.suggestion.length > 0
+                ? [rec.suggestion as string]
+                : []);
+          const rawType = typeof rec.clarificationType === 'string' ? rec.clarificationType : '';
+          const clarificationType: 'ambiguous' | 'missing_information' =
+            rawType === 'missing_information' ? 'missing_information' : 'ambiguous';
+          let missingFields: MissingField[] = [];
+          if (Array.isArray(rec.missingFields)) {
+            missingFields = (rec.missingFields as unknown[])
+              .filter((mf): mf is Record<string, unknown> => typeof mf === 'object' && mf !== null)
+              .map((mf): MissingField => ({
+                key: typeof mf.key === 'string' ? mf.key : '',
+                label: typeof mf.label === 'string' ? mf.label : '',
+                type: mf.type === 'choice' ? 'choice' : 'text',
+                options: Array.isArray(mf.options)
+                  ? (mf.options as unknown[]).filter((o): o is string => typeof o === 'string')
+                  : undefined,
+              }))
+              .filter((mf) => mf.key.length > 0 && mf.label.length > 0)
+              .slice(0, 5);
+          }
           return {
             index: rec.index as number,
             reason: rec.reason as string,
             suggestions,
+            clarificationType,
+            missingFields,
           };
         });
       const rejectedFlags = data.flags.filter((f: unknown) => !isValidFlag(f));
@@ -336,6 +370,8 @@ export function ClarificationSheet({
   goalLabel,
   reason,
   suggestions,
+  clarificationType,
+  missingFields,
   onConfirm,
   onDismiss,
   onClose,
@@ -343,27 +379,27 @@ export function ClarificationSheet({
   goalLabel: string;
   reason: string;
   suggestions: string[];
+  clarificationType: 'ambiguous' | 'missing_information';
+  missingFields: MissingField[];
   onConfirm: (newLabel: string) => void;
   onDismiss: () => void;
   onClose: () => void;
 }) {
   const { colors, isDark } = useTheme();
-  const [selection, setSelection] = useState<string | null>(null);
   const [customMode, setCustomMode] = useState(false);
   const [customText, setCustomText] = useState('');
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
 
   const safeSuggestions = Array.isArray(suggestions) ? suggestions : [];
+  const safeMissingFields = Array.isArray(missingFields) ? missingFields : [];
+  const isMissingInfo = clarificationType === 'missing_information' && safeMissingFields.length > 0;
 
   const handleSelectSuggestion = (value: string) => {
-    setSelection(value);
-    setCustomMode(false);
     onConfirm(value);
-    setSelection(null);
   };
 
   const handleKeepAsIs = () => {
     onDismiss();
-    setSelection(null);
   };
 
   const handleCustomSubmit = () => {
@@ -372,13 +408,29 @@ export function ClarificationSheet({
     onConfirm(trimmed);
     setCustomText('');
     setCustomMode(false);
-    setSelection(null);
   };
+
+  const handleMissingInfoSubmit = () => {
+    const parts: string[] = [goalLabel];
+    for (const field of safeMissingFields) {
+      const val = fieldValues[field.key]?.trim();
+      if (val) parts.push(val);
+    }
+    const clarified = parts.join(' ');
+    if (clarified.trim() && clarified.trim() !== goalLabel) {
+      onConfirm(clarified.trim());
+    }
+  };
+
+  const allFieldsFilled = safeMissingFields.every((f) => {
+    const val = fieldValues[f.key]?.trim();
+    return val && val.length > 0;
+  });
 
   const handleClose = () => {
     setCustomMode(false);
     setCustomText('');
-    setSelection(null);
+    setFieldValues({});
     onClose();
   };
 
@@ -402,7 +454,7 @@ export function ClarificationSheet({
           <View style={clarifySheetStyles.closeBtn} />
         </View>
 
-        <View style={clarifySheetStyles.body}>
+        <ScrollView style={clarifySheetStyles.body} showsVerticalScrollIndicator={false}>
           <Text style={[clarifySheetStyles.goalText, { color: colors.text }]}>
             "{goalLabel}"
           </Text>
@@ -410,7 +462,7 @@ export function ClarificationSheet({
             {reason}
           </Text>
 
-          {!customMode ? (
+          {!customMode && !isMissingInfo && (
             <>
               {safeSuggestions.length > 0 && (
                 <Text style={[clarifySheetStyles.sectionLabel, { color: colors.textSecondary }]}>
@@ -462,7 +514,97 @@ export function ClarificationSheet({
                 </Text>
               </TouchableOpacity>
             </>
-          ) : (
+          )}
+
+          {isMissingInfo && !customMode && (
+            <>
+              {safeMissingFields.map((field, fi) => (
+                <View key={`field-${fi}`} style={clarifySheetStyles.fieldGroup}>
+                  <Text style={[clarifySheetStyles.fieldLabel, { color: colors.textSecondary }]}>
+                    {field.label}
+                  </Text>
+                  {field.type === 'text' ? (
+                    <TextInput
+                      style={[
+                        clarifySheetStyles.fieldInput,
+                        {
+                          color: colors.text,
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
+                          borderColor: fieldValues[field.key]?.trim() ? colors.primary + '60' : colors.border,
+                        },
+                      ]}
+                      value={fieldValues[field.key] ?? ''}
+                      onChangeText={(v) => setFieldValues((prev) => ({ ...prev, [field.key]: v }))}
+                      placeholder=""
+                      placeholderTextColor={colors.textTertiary}
+                      autoFocus={fi === 0}
+                    />
+                  ) : (
+                    <View style={clarifySheetStyles.choiceRow}>
+                      {field.options?.map((opt, oi) => {
+                        const isSelected = fieldValues[field.key] === opt;
+                        return (
+                          <TouchableOpacity
+                            key={`opt-${oi}`}
+                            style={[
+                              clarifySheetStyles.choiceChip,
+                              {
+                                backgroundColor: isSelected ? colors.primary : 'transparent',
+                                borderColor: isSelected ? colors.primary : colors.border,
+                              },
+                            ]}
+                            onPress={() => setFieldValues((prev) => ({ ...prev, [field.key]: opt }))}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[
+                              clarifySheetStyles.choiceChipText,
+                              { color: isSelected ? '#000' : colors.textSecondary },
+                            ]}>
+                              {opt}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              ))}
+
+              <TouchableOpacity
+                style={[
+                  clarifySheetStyles.updateGoalBtn,
+                  { backgroundColor: allFieldsFilled ? colors.primary : colors.border, opacity: allFieldsFilled ? 1 : 0.5 },
+                ]}
+                onPress={handleMissingInfoSubmit}
+                disabled={!allFieldsFilled}
+                activeOpacity={0.8}
+              >
+                <Text style={clarifySheetStyles.updateGoalText}>UPDATE GOAL →</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={clarifySheetStyles.writeOwnRow}
+                onPress={() => setCustomMode(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={[clarifySheetStyles.writeOwnText, { color: colors.textSecondary }]}>
+                  WRITE MY OWN →
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={clarifySheetStyles.keepAsIsRow}
+                onPress={handleKeepAsIs}
+                activeOpacity={0.6}
+              >
+                <Text style={[clarifySheetStyles.keepAsIsText, { color: colors.textTertiary }]}>
+                  Keep "{goalLabel}" as written
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {customMode && (
             <>
               <TextInput
                 style={[
@@ -507,7 +649,7 @@ export function ClarificationSheet({
               </View>
             </>
           )}
-        </View>
+        </ScrollView>
       </View>
     </View>
   );
@@ -660,6 +802,53 @@ const clarifySheetStyles = StyleSheet.create({
   },
   customConfirmText: {
     fontSize: 15,
+    fontWeight: '800',
+    color: '#000000',
+  },
+  fieldGroup: {
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    marginBottom: 8,
+  },
+  fieldInput: {
+    fontSize: 16,
+    fontWeight: '600',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 48,
+  },
+  choiceRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  choiceChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+  },
+  choiceChipText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  updateGoalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 14,
+    marginTop: 8,
+    gap: 8,
+  },
+  updateGoalText: {
+    fontSize: 16,
     fontWeight: '800',
     color: '#000000',
   },

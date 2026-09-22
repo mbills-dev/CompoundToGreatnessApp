@@ -7,36 +7,70 @@ const corsHeaders = {
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const SYSTEM_PROMPT = `You are a goal-clarity checker for a habit-building app. You are given a list of personal goals (each with a 0-based index). Your job is to identify goals that are too vague to confidently act on — broad aspirations without a clear target or scope.
+const SYSTEM_PROMPT = `You are a goal-clarity checker for a habit-building app called CTG (Commit to Greatness). CTG ultimately translates goals into daily controllable inputs. You are given a list of personal goals (each with a 0-based index). Your job is to identify goals that are too vague to confidently act on — broad aspirations without a clear target or scope.
 
-Examples of vague goals that SHOULD be flagged:
-- "learn French" — no target level or context
-- "get in shape" — no concrete outcome
-- "be a better father" — no specific behavior or metric
+THIS SCREEN DEFINES THE DESTINATION. THE DOWNSTREAM PATH DETERMINES HOW TO GET THERE.
+Your job is only to make the desired outcome/intention sufficiently clear for the next stage to reverse engineer it.
 
 Examples of goals that should NOT be flagged (already reasonably specific, even without a number):
 - "walk 10,000 steps a day" — has a clear target and frequency
 - "earn $100k a month" — has a concrete numeric target
 - "run a marathon" — has a concrete outcome
 - "read 20 pages daily" — has a frequency and quantity
+- "run a 5K" — concrete outcome, even though it's not a daily action
+- "speak conversational French" — clear target proficiency level
+- "read 12 books" — clear cumulative numeric target
+- "pay off $20K debt" — clear numeric target
 
-Rules:
-1. Only flag goals that are genuinely vague — broad aspirations where the person could succeed in many conflicting ways.
-2. Do NOT flag goals that are already reasonably specific, even if they lack a number. If a goal has a concrete outcome, target, or action, leave it alone.
-3. For each flagged goal, provide a short "reason" (under 100 characters) explaining why it's vague, and a "suggestions" array of 2-4 tightened, more specific rewrites of that SAME goal (not different goals). Each suggestion should be under 80 characters.
-4. Suggestions should be contextually relevant to the goal's apparent category. Infer the category (fitness, language-learning, financial, creative, career, relationships, mindfulness, health, etc.) and generate options that make sense for that domain at varying levels of ambition. For example:
-   - Language-learning goal: "Conversationally fluent," "Beginner level (A2)," "Pass a certification exam"
-   - Fitness goal: "Lose 15 lbs and run a 5K," "Build a consistent 4-day workout habit," "Hit a specific lift PR"
-   - Financial goal: "Save $10k in 6 months," "Reach $5k/month side income," "Pay off credit card debt"
-   - Creative goal: "Finish a short film draft," "Publish one article per week," "Complete a portfolio of 10 pieces"
-5. Suggestions should be realistic and moderate, not maximal or extreme. Prefer behavioral or consistency-based rewrites over clinical precision. Do NOT add body-fat percentages, exact numeric health targets, or other clinical metrics unless the original goal already implied that level of precision.
-6. If no goals are vague, return an empty flags array.
-7. Each goal index may appear in at most one flag.
+Examples of vague goals that SHOULD be flagged:
+- "learn French" — no target level or context
+- "get in shape" — no concrete outcome
+- "be a better father" — no specific behavior or metric
+- "grow closer to God" — could mean many different things
+- "pay off debt" — missing the amount
+- "save money" — missing the target amount
+- "lose weight" — missing the amount
+
+There are TWO types of unclear goals. Classify each flagged goal as one of them:
+
+TYPE A — "ambiguous": The intention is meaningful but there are multiple reasonable ways to define what the user means. For these, provide 1-3 alternative clarified rewrites of the SAME goal. These are ALTERNATIVES — the user selects ONE. They are NOT three inputs to add together. Only provide multiple suggestions when they represent genuinely useful, meaningfully different interpretations. Do NOT generate filler merely to reach 3.
+
+TYPE B — "missing_information": The meaning is clear but an essential parameter is missing (e.g. dollar amount, weight, quantity). For these, do NOT invent the missing value. Instead, identify what information is missing and ask the user for it via missingFields.
+
+CRITICAL RULES:
+1. NEVER invent user-specific facts. Do NOT fabricate dollar amounts, weights, quantities, dates, deadlines, timeframes, debt types, income levels, book counts, distances, target metrics, frequencies, or personal circumstances when the user did not provide them. If a missing value is necessary to make the goal sufficiently specific, ask the user for it via missingFields — do not guess.
+2. Do NOT refine a goal into a weekly-only, weekdays-only, 5-days-per-week, occasional, or other non-daily execution prescription. However, do NOT generate the eventual daily Success Stack or prescribe the user's daily actions during clarification. Your job is only to make the desired outcome/intention sufficiently clear for the next stage to reverse engineer it.
+3. Do NOT output daily inputs or Success Stack items such as "walk 10,000 steps/day", "make 3 offers/day", "eat 145g protein/day", "read 21 pages/day", or "practice French for 30 minutes/day" UNLESS that behavior is genuinely the user's clarified GOAL itself. Those are downstream inputs produced by the decode paths.
+4. Do NOT add a timeframe if the user did not provide one. The downstream path handles timeframe selection separately.
+5. Suggestions should be realistic and moderate, not maximal or extreme.
+6. For "ambiguous" goals, suggestions should be under 80 characters each.
+7. For "missing_information" goals, set suggestions to an empty array and use missingFields instead.
+8. If no goals are vague, return an empty flags array.
+9. Each goal index may appear in at most one flag.
+
+missingFields format:
+Each missingField has: "key" (snake_case identifier), "label" (human-readable question), "type" ("text" or "choice"), and for type "choice" an "options" array of strings. Only include a field if it is genuinely required to define the goal sufficiently for routing. Do not collect information merely because it might be useful later.
 
 Output ONLY a JSON object matching this shape — no preamble, no markdown fences:
 {
   "flags": [
-    { "index": 0, "reason": "No target level or timeframe specified", "suggestions": ["become conversationally fluent in French", "reach beginner A2 level in French", "pass a French proficiency exam"] }
+    {
+      "index": 0,
+      "clarificationType": "ambiguous",
+      "reason": "This could mean several different things",
+      "suggestions": ["Deepen my relationship with God through daily prayer", "Build a consistent daily Bible-reading practice"],
+      "missingFields": []
+    },
+    {
+      "index": 1,
+      "clarificationType": "missing_information",
+      "reason": "Amount is needed to define this goal",
+      "suggestions": [],
+      "missingFields": [
+        { "key": "amount", "label": "How much debt do you want to pay off?", "type": "text" },
+        { "key": "debt_type", "label": "What kind of debt?", "type": "choice", "options": ["Credit cards", "Student loans", "Car", "Other"] }
+      ]
+    }
   ]
 }`;
 
@@ -90,7 +124,7 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5",
-        max_tokens: 900,
+        max_tokens: 1200,
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: `Goals:\n${goalList}` }],
       }),
@@ -127,7 +161,20 @@ Deno.serve(async (req: Request) => {
     const validIndices = new Set(cleanedGoals.map((_, i) => i));
     const usedIndices = new Set<number>();
 
-    const flags: { index: number; reason: string; suggestions: string[] }[] = [];
+    interface MissingField {
+      key: string;
+      label: string;
+      type: "text" | "choice";
+      options?: string[];
+    }
+
+    const flags: {
+      index: number;
+      clarificationType: "ambiguous" | "missing_information";
+      reason: string;
+      suggestions: string[];
+      missingFields: MissingField[];
+    }[] = [];
 
     for (const flag of rawFlags) {
       if (typeof flag !== "object" || flag === null) continue;
@@ -145,9 +192,12 @@ Deno.serve(async (req: Request) => {
           ? f.reason.trim().slice(0, 200)
           : "This goal could be more specific";
 
+      const rawType = typeof f.clarificationType === "string" ? f.clarificationType : "";
+      const clarificationType: "ambiguous" | "missing_information" =
+        rawType === "missing_information" ? "missing_information" : "ambiguous";
+
       let suggestions: string[] = [];
 
-      // Accept either "suggestions" (array) or fall back to "suggestion" (string) for backwards compat
       if (Array.isArray(f.suggestions)) {
         suggestions = f.suggestions
           .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
@@ -156,10 +206,33 @@ Deno.serve(async (req: Request) => {
         suggestions = [f.suggestion.trim().slice(0, 200)];
       }
 
-      if (suggestions.length === 0) continue;
+      let missingFields: MissingField[] = [];
+      if (Array.isArray(f.missingFields)) {
+        missingFields = (f.missingFields as unknown[])
+          .filter((mf): mf is Record<string, unknown> => typeof mf === "object" && mf !== null)
+          .map((mf) => {
+            const key = typeof mf.key === "string" ? mf.key : "";
+            const label = typeof mf.label === "string" ? mf.label : "";
+            const type = mf.type === "choice" ? "choice" : "text";
+            const options = Array.isArray(mf.options)
+              ? mf.options.filter((o): o is string => typeof o === "string")
+              : undefined;
+            return { key, label, type, options };
+          })
+          .filter((mf) => mf.key.length > 0 && mf.label.length > 0)
+          .slice(0, 5);
+      }
+
+      if (clarificationType === "missing_information" && missingFields.length === 0 && suggestions.length === 0) {
+        continue;
+      }
+
+      if (clarificationType === "ambiguous" && suggestions.length === 0) {
+        continue;
+      }
 
       usedIndices.add(idx);
-      flags.push({ index: idx, reason, suggestions });
+      flags.push({ index: idx, clarificationType, reason, suggestions, missingFields });
     }
 
     return jsonRes({ flags });
