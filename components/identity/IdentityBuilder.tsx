@@ -1642,7 +1642,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
               dailyInput: first.valueDetail || first.dailyInput,
               goalLabel,
               originalGoalLabel: goal.label,
-              decodePath: 'body_composition' as DecodePath,
+              decodePath: 'body_composition',
               what: first.valueDetail || first.dailyInput,
               when: first.when || 'Throughout the day',
               where: first.where || '',

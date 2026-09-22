@@ -96,6 +96,24 @@ export function deriveIdentityLine(lock: LockedGoal): IdentityShape {
       }
       return { kind: 'stacked', finishLine: lock.goalLabel };
     }
+    case 'body_composition': {
+      if (refined) {
+        const transformed = applyBecomeTransform(refined);
+        if (transformed) return { kind: 'sentence', text: transformed };
+        return { kind: 'stacked', finishLine: refined };
+      }
+      if (lock.identityLine) return { kind: 'sentence', text: lock.identityLine };
+      const action = lock.dailyInput?.replace(/\.$/, '').trim();
+      if (action) {
+        const lowerAction = action.charAt(0).toLowerCase() + action.slice(1);
+        return { kind: 'sentence', text: `I ${lowerAction} every day.` };
+      }
+      return { kind: 'stacked', finishLine: lock.goalLabel };
+    }
+    default: {
+      const _exhaustiveCheck: never = lock.decodePath;
+      return { kind: 'stacked', finishLine: lock.goalLabel };
+    }
   }
 }
 
