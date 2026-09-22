@@ -1624,6 +1624,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
         const goalIdx = phase.goalIdx;
         const bcState = bodyCompStates[goalIdx];
         const confirmedInputs = bcState?.confirmedInputs ?? [];
+        const result = bcState?.calculationResult;
         const goal = goals[goalIdx];
         const handleConfirm = () => {
           if (confirmedInputs.length === 0) return;
@@ -1635,6 +1636,9 @@ export default function IdentityBuilder({ onComplete }: Props) {
             where: inp.where,
             schedule: null,
           }));
+          const identityLine = result
+            ? `I weigh ${Math.round(result.targetWeightLbs)} lbs.`
+            : undefined;
           setLocked(prev => [
             ...prev.filter(l => l.goalId !== goal.id),
             {
@@ -1643,6 +1647,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
               goalLabel,
               originalGoalLabel: goal.label,
               decodePath: 'body_composition',
+              identityLine,
               what: first.valueDetail || first.dailyInput,
               when: first.when || 'Throughout the day',
               where: first.where || '',
