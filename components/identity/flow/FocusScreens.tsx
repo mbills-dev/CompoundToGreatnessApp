@@ -564,7 +564,8 @@ export function FocusConfirmScreen({
             YOUR 77-DAY FOCUS
           </Text>
           <Text style={fcStyles.headline}>
-            GO <Text style={fcStyles.headlineLime}>DEEP.</Text>
+            <Text style={{ color: '#FFFFFF' }}>GO </Text>
+            <Text style={fcStyles.headlineLime}>DEEP.</Text>
           </Text>
           <Text style={fcStyles.support}>
             These are the transformations you're focusing on for the next 77 days.
