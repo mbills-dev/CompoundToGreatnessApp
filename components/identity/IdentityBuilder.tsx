@@ -43,6 +43,8 @@ import { IdentityBuilderResult, RawInputEntry, Dimension } from './types';
 import { WhenPickerValue } from './WhenPickerModal';
 import { DecodePath, FlowGoal, AnchoredInput, LockedGoal, NumbersSubtype, TargetResolution } from './flow/types';
 import { GoalsEntryScreen, IntroScreen, GoalDoneLooksScreen, GoalFuelRedirectScreen } from './flow/GoalsEntry';
+import { FocusPhilosophyScreen, FocusSelectScreen, FocusConfirmScreen } from './flow/FocusScreens';
+import type { FocusGoal } from './flow/FocusScreens';
 import { PathSelectorScreen, PathNumbers, PathNumbersDirect, PathPractice, PathStarting } from './flow/PathScreens';
 import { AnchorScreen, AddInputScreen, GoalLockedScreen, GoalBadge, formatGoalLabel, displayGoalLabel } from './flow/AnchorScreens';
 import { AiDailyInputsScreen } from './flow/AiDailyInputsScreen';
@@ -596,6 +598,9 @@ type Phase =
   | { kind: 'name-capture' }
   | { kind: 'goals-entry' }
   | { kind: 'intro' }
+  | { kind: 'focus-philosophy' }
+  | { kind: 'focus-select' }
+  | { kind: 'focus-confirm' }
   | { kind: 'classifying'; goalIdx: number }
   | { kind: 'path-select'; goalIdx: number }
   | { kind: 'goal-done-looks'; goalIdx: number; chosenPath: DecodePath; doneLooksInitial?: string }
@@ -624,10 +629,12 @@ const CHECKPOINT_KEY = 'c2g_identity_builder_checkpoint';
 // to restore. NOT required for copy, styling, or layout changes — only changes
 // that would make previously saved checkpoint data incompatible with the
 // current code.
-const CHECKPOINT_SCHEMA_VERSION = 1;
+const CHECKPOINT_SCHEMA_VERSION = 2;
 
 const KNOWN_PHASE_KINDS = new Set([
-  'name-capture', 'goals-entry', 'intro', 'classifying', 'path-select',
+  'name-capture', 'goals-entry', 'intro',
+  'focus-philosophy', 'focus-select', 'focus-confirm',
+  'classifying', 'path-select',
   'goal-done-looks', 'goal-fuel-redirect', 'decode', 'anchor',
   'ai-daily-inputs', 'add-input', 'locked', 'identity',
   'compass-story', 'compass-domino', 'compass-mechanism', 'finale', 'signature',
@@ -657,6 +664,10 @@ export default function IdentityBuilder({ onComplete }: Props) {
   const [isAiSourced, setIsAiSourced] = useState(false);
   const [aiSelectedInputs, setAiSelectedInputs] = useState<Record<number, string[]>>({});
   const [aiIdentityLines, setAiIdentityLines] = useState<Record<number, string>>({});
+  const [challengeGoalIds, setChallengeGoalIds] = useState<Set<number>>(new Set());
+  const [savedForLaterIds, setSavedForLaterIds] = useState<Set<number>>(new Set());
+  const [focusOverrideAcknowledged, setFocusOverrideAcknowledged] = useState(false);
+  const [focusSelected, setFocusSelected] = useState<Set<number>>(new Set());
 
 
 
@@ -699,6 +710,10 @@ export default function IdentityBuilder({ onComplete }: Props) {
           if (cp.acceptedIdentity && typeof cp.acceptedIdentity === 'object') setAcceptedIdentity(cp.acceptedIdentity);
           if (typeof cp.firstName === 'string') setFirstName(cp.firstName);
           if (typeof cp.lastName === 'string') setLastName(cp.lastName);
+          if (Array.isArray(cp.challengeGoalIds)) setChallengeGoalIds(new Set(cp.challengeGoalIds));
+          if (Array.isArray(cp.savedForLaterIds)) setSavedForLaterIds(new Set(cp.savedForLaterIds));
+          if (typeof cp.focusOverrideAcknowledged === 'boolean') setFocusOverrideAcknowledged(cp.focusOverrideAcknowledged);
+          if (Array.isArray(cp.focusSelected)) setFocusSelected(new Set(cp.focusSelected));
         }
       } catch {
         await AsyncStorage.removeItem(CHECKPOINT_KEY).catch(() => {});
@@ -726,11 +741,15 @@ export default function IdentityBuilder({ onComplete }: Props) {
         compassFilter,
         firstName,
         lastName,
+        challengeGoalIds: Array.from(challengeGoalIds),
+        savedForLaterIds: Array.from(savedForLaterIds),
+        focusOverrideAcknowledged,
+        focusSelected: Array.from(focusSelected),
       };
       AsyncStorage.setItem(CHECKPOINT_KEY, JSON.stringify(snapshot)).catch(() => {});
     }, 400);
     return () => { if (checkpointTimer.current) clearTimeout(checkpointTimer.current); };
-  }, [phase, history, goals, locked, decodeResults, goalLabelOverrides, identityOverrides, aiStatements, acceptedIdentity, compassFilter, firstName, lastName, checkpointLoading]);
+  }, [phase, history, goals, locked, decodeResults, goalLabelOverrides, identityOverrides, aiStatements, acceptedIdentity, compassFilter, firstName, lastName, challengeGoalIds, savedForLaterIds, focusOverrideAcknowledged, focusSelected, checkpointLoading]);
 
   const saveState = (key: string, value: string) => setSavedStates(prev => ({ ...prev, [key]: value }));
 
@@ -756,6 +775,10 @@ export default function IdentityBuilder({ onComplete }: Props) {
     setIsAiSourced(false);
     setAiSelectedInputs({});
     setAiIdentityLines({});
+    setChallengeGoalIds(new Set());
+    setSavedForLaterIds(new Set());
+    setFocusOverrideAcknowledged(false);
+    setFocusSelected(new Set());
     AsyncStorage.removeItem(CHECKPOINT_KEY).catch(() => {});
   };
 
@@ -935,9 +958,15 @@ export default function IdentityBuilder({ onComplete }: Props) {
     navigate({ kind: 'locked', goalIdx, dailyInput: inp.dailyInput });
   };
 
+  const challengeGoalIndices = goals
+    .map((g, i) => challengeGoalIds.has(g.id) ? i : -1)
+    .filter(i => i >= 0);
+
   const handleLockedNext = (goalIdx: number) => {
-    const nextIdx = goalIdx + 1;
-    if (nextIdx < goals.length) {
+    const currentPosInChallenge = challengeGoalIndices.indexOf(goalIdx);
+    const nextPos = currentPosInChallenge + 1;
+    if (nextPos < challengeGoalIndices.length) {
+      const nextIdx = challengeGoalIndices[nextPos];
       if (isAiSourced) {
         const nextInput = (aiSelectedInputs[nextIdx] ?? [])[0];
         if (nextInput) {
@@ -1128,7 +1157,13 @@ export default function IdentityBuilder({ onComplete }: Props) {
           <IntroScreen
             goals={goals}
             goalLabelOverrides={goalLabelOverrides}
-            onNext={() => navigate({ kind: 'classifying', goalIdx: 0 })}
+            onNext={() => {
+              if (goals.length >= 4) {
+                navigate({ kind: 'focus-philosophy' });
+              } else {
+                navigate({ kind: 'classifying', goalIdx: 0 });
+              }
+            }}
             onBack={goBack}
             onMergeGoals={(keepIndex, newLabel, removeIndices) => {
               const removeSet = new Set(removeIndices);
@@ -1172,6 +1207,63 @@ export default function IdentityBuilder({ onComplete }: Props) {
           />
         );
 
+      case 'focus-philosophy':
+        return (
+          <FocusPhilosophyScreen
+            goalCount={goals.length}
+            onNext={() => navigate({ kind: 'focus-select' })}
+            onBack={goBack}
+          />
+        );
+
+      case 'focus-select':
+        return (
+          <FocusSelectScreen
+            goals={goals}
+            goalLabelOverrides={goalLabelOverrides}
+            initialSelected={focusSelected}
+            overrideAcknowledged={focusOverrideAcknowledged}
+            onConfirm={(selectedIds, overrideAck) => {
+              setFocusSelected(selectedIds);
+              setFocusOverrideAcknowledged(overrideAck);
+              const selectedGoalIds = new Set<number>();
+              const savedIds = new Set<number>();
+              for (const g of goals) {
+                if (selectedIds.has(g.id)) selectedGoalIds.add(g.id);
+                else savedIds.add(g.id);
+              }
+              setChallengeGoalIds(selectedGoalIds);
+              setSavedForLaterIds(savedIds);
+              navigate({ kind: 'focus-confirm' });
+            }}
+            onBack={goBack}
+          />
+        );
+
+      case 'focus-confirm': {
+        const selectedGoals: FocusGoal[] = goals
+          .filter(g => challengeGoalIds.has(g.id))
+          .map(g => ({ id: g.id, label: goalLabelOverrides[g.id] ?? g.label }));
+        const savedGoals: FocusGoal[] = goals
+          .filter(g => savedForLaterIds.has(g.id))
+          .map(g => ({ id: g.id, label: goalLabelOverrides[g.id] ?? g.label }));
+        const firstChallengeIdx = goals.findIndex(g => challengeGoalIds.has(g.id));
+        return (
+          <FocusConfirmScreen
+            selectedGoals={selectedGoals}
+            savedGoals={savedGoals}
+            onNext={() => {
+              if (firstChallengeIdx >= 0) {
+                navigate({ kind: 'classifying', goalIdx: firstChallengeIdx });
+              } else {
+                navigate({ kind: 'classifying', goalIdx: 0 });
+              }
+            }}
+            onBack={goBack}
+          />
+        );
+      }
+
       case 'path-select':
         return (
           <PathSelectorScreen
@@ -1190,7 +1282,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
           <GoalDoneLooksScreen
             goal={goals[goalIdx]}
             goalIdx={goalIdx}
-            total={goals.length}
+            total={challengeGoalIndices.length || goals.length}
             chosenPath={chosenPath}
             initialText={savedStates[phaseKey(phase)]}
             onBack={goBack}
@@ -1296,7 +1388,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
         return (
           <GoalLockedScreen
             n={phase.goalIdx + 1}
-            total={goals.length}
+            total={challengeGoalIndices.length || goals.length}
             goal={goals[phase.goalIdx]}
             resolvedLabel={formatGoalLabel(goals[phase.goalIdx], goalLabelOverrides)}
             lockedGoal={lockedGoalData}
