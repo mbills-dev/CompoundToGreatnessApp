@@ -1281,15 +1281,26 @@ export function IntroScreen({
     onRemoveGoals(removeIndices);
   };
 
+  const findNextUnresolvedVague = (dismissed: Set<number>): number | null => {
+    const remaining = vagueFlags
+      .filter(f => !dismissed.has(f.index))
+      .map(f => f.index);
+    return remaining.length > 0 ? remaining[0] : null;
+  };
+
   const handleClarifyConfirm = (idx: number, newLabel: string) => {
-    setDismissedVague(prev => new Set(prev).add(idx));
-    setClarifyingIdx(null);
+    const newDismissed = new Set(dismissedVague).add(idx);
+    setDismissedVague(newDismissed);
     onMergeGoals(idx, newLabel, []);
+    const next = findNextUnresolvedVague(newDismissed);
+    setClarifyingIdx(next);
   };
 
   const handleClarifyKeepAsIs = (idx: number) => {
-    setDismissedVague(prev => new Set(prev).add(idx));
-    setClarifyingIdx(null);
+    const newDismissed = new Set(dismissedVague).add(idx);
+    setDismissedVague(newDismissed);
+    const next = findNextUnresolvedVague(newDismissed);
+    setClarifyingIdx(next);
   };
 
   const handleClarifyClose = () => {
@@ -1434,7 +1445,9 @@ export function IntroScreen({
           disabled={!goalCountResolved || !vagueChecksResolved}
         >
           <Text style={styles.primaryButtonText}>
-            {hasUnresolvedVague ? 'Clarify goals' : 'Reverse engineer goal 1'}
+            {hasUnresolvedVague
+              ? `Clarify ${unresolvedVagueIdxs.length} goal${unresolvedVagueIdxs.length > 1 ? 's' : ''}`
+              : 'Continue'}
           </Text>
           <ArrowRight size={20} color="#000" strokeWidth={3} />
         </TouchableOpacity>
@@ -1468,11 +1481,13 @@ export function IntroScreen({
 
       {clarifyingIdx !== null && activeVagueFlag && (
         <ClarificationSheet
+          key={clarifyingIdx}
           goalLabel={formatGoalLabel(goals[clarifyingIdx], goalLabelOverrides)}
           reason={activeVagueFlag.reason}
           suggestions={activeVagueFlag.suggestions}
           clarificationType={activeVagueFlag.clarificationType}
           missingFields={activeVagueFlag.missingFields}
+          progressLabel={vagueFlags.length > 1 ? `GOAL ${dismissedVague.size + 1} OF ${vagueFlags.length}` : undefined}
           onConfirm={(newLabel) => handleClarifyConfirm(clarifyingIdx, newLabel)}
           onDismiss={() => handleClarifyKeepAsIs(clarifyingIdx)}
           onClose={handleClarifyClose}

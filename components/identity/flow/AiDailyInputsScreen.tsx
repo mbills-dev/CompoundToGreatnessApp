@@ -372,6 +372,7 @@ export function ClarificationSheet({
   suggestions,
   clarificationType,
   missingFields,
+  progressLabel,
   onConfirm,
   onDismiss,
   onClose,
@@ -381,6 +382,7 @@ export function ClarificationSheet({
   suggestions: string[];
   clarificationType: 'ambiguous' | 'missing_information';
   missingFields: MissingField[];
+  progressLabel?: string;
   onConfirm: (newLabel: string) => void;
   onDismiss: () => void;
   onClose: () => void;
@@ -449,7 +451,7 @@ export function ClarificationSheet({
             <X size={20} color={colors.textSecondary} strokeWidth={2.5} />
           </TouchableOpacity>
           <Text style={[clarifySheetStyles.headerLabel, { color: colors.textSecondary }]}>
-            MAKE THIS GOAL CLEARER.
+            {progressLabel ?? 'MAKE THIS GOAL CLEARER.'}
           </Text>
           <View style={clarifySheetStyles.closeBtn} />
         </View>
