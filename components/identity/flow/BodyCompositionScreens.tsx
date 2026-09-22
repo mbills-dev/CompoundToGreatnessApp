@@ -23,10 +23,13 @@ import Animated, {
   withTiming,
   withDelay,
   withSequence,
+  withRepeat,
   Easing,
   runOnJS,
+  cancelAnimation,
 } from 'react-native-reanimated';
-import { ArrowLeft, ArrowRight, Check, Plus, X } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Check, Plus, X, Zap } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -46,6 +49,32 @@ const DARK = '#0A0A0A';
 const CARD_BORDER = '#222';
 const FAINT = '#555';
 const MUTED = '#888';
+
+// ─── Haptics helper (platform-safe) ──────────────────────────────────────────
+
+function hapticSelection(): void {
+  if (Platform.OS !== 'web') {
+    Haptics.selectionAsync().catch(() => {});
+  }
+}
+
+function hapticLight(): void {
+  if (Platform.OS !== 'web') {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  }
+}
+
+function hapticSuccess(): void {
+  if (Platform.OS !== 'web') {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  }
+}
+
+function hapticMedium(): void {
+  if (Platform.OS !== 'web') {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+  }
+}
 
 // ─── Reusable Reverse Engineering Component ─────────────────────────────────
 
@@ -74,25 +103,160 @@ export function ReverseEngineeringScreen({
   const headlineOpacity = useSharedValue(0);
   const ctaOpacity = useSharedValue(0);
 
+  // Circular progress — driven by stage completion (0..1)
+  const progress = useSharedValue(0);
+  // Ring color transition from gray track to lime
+  const ringColorR = useSharedValue(85);
+  const ringColorG = useSharedValue(85);
+  const ringColorB = useSharedValue(85);
+  // Completion burst
+  const boltScale = useSharedValue(0);
+  const glowScale = useSharedValue(0);
+  const glowOpacity = useSharedValue(0);
+
+  // Energy wave animation values
+  const wave1X = useSharedValue(0);
+  const wave2X = useSharedValue(0);
+  const wave3X = useSharedValue(0);
+  const waveAmplitude = useSharedValue(1);
+  const waveOpacity = useSharedValue(0.15);
+
   useEffect(() => {
     headlineOpacity.value = withTiming(1, { duration: 600 });
+
+    // Start energy wave loops — noisy at first, stabilize as progress increases
+    wave1X.value = withRepeat(withTiming(-60, { duration: 1800 }), -1, true);
+    wave2X.value = withRepeat(withTiming(40, { duration: 2200 }), -1, true);
+    wave3X.value = withRepeat(withTiming(-30, { duration: 2800 }), -1, true);
+
     let currentStage = 0;
+
     const advance = () => {
       if (currentStage >= stages.length) {
-        setAllDone(true);
-        ctaOpacity.value = withDelay(400, withTiming(1, { duration: 500 }));
+        // ── Completion moment ──
+        progress.value = withTiming(1, { duration: 500, easing: Easing.bezier(0.22, 1, 0.36, 1) });
+
+        // Ring transitions to full lime
+        ringColorR.value = withTiming(204, { duration: 500 });
+        ringColorG.value = withTiming(255, { duration: 500 });
+        ringColorB.value = withTiming(0, { duration: 500 });
+
+        // Energy wave stabilizes and concentrates
+        waveAmplitude.value = withTiming(0.3, { duration: 600 });
+        waveOpacity.value = withTiming(0.05, { duration: 600 });
+
+        // Brief pause, then bolt + glow burst
+        setTimeout(() => {
+          boltScale.value = withSequence(
+            withTiming(0, { duration: 0 }),
+            withTiming(1.3, { duration: 250, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+            withTiming(1, { duration: 150 }),
+          );
+          glowScale.value = withSequence(
+            withTiming(0, { duration: 0 }),
+            withTiming(1.8, { duration: 600, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+          );
+          glowOpacity.value = withSequence(
+            withTiming(0.6, { duration: 200 }),
+            withTiming(0, { duration: 500 }),
+          );
+
+          // Stabilize wave after burst
+          waveAmplitude.value = withDelay(300, withTiming(0.15, { duration: 400 }));
+
+          hapticSuccess();
+
+          setTimeout(() => {
+            runOnJS(setAllDone)(true);
+            ctaOpacity.value = withDelay(300, withTiming(1, { duration: 500 }));
+          }, 700);
+        }, 400);
+
         return;
       }
+
       setCompletedStages(currentStage);
+
+      // Advance circular progress by ~1/stages
+      const targetProgress = (currentStage + 1) / stages.length;
+      progress.value = withTiming(targetProgress, {
+        duration: 600,
+        easing: Easing.bezier(0.22, 1, 0.36, 1),
+      });
+
+      // Gradually shift ring color toward lime as progress increases
+      const intensity = targetProgress;
+      ringColorR.value = withTiming(85 + (204 - 85) * intensity * 0.6, { duration: 600 });
+      ringColorG.value = withTiming(85 + (255 - 85) * intensity * 0.6, { duration: 600 });
+      ringColorB.value = withTiming(85 - 85 * intensity * 0.6, { duration: 600 });
+
+      // Wave gradually organizes
+      waveAmplitude.value = withTiming(1 - intensity * 0.5, { duration: 600 });
+
+      // Subtle haptic per stage
+      hapticLight();
+
       currentStage++;
       setTimeout(advance, 1100);
     };
+
     const timer = setTimeout(advance, 800);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      cancelAnimation(wave1X);
+      cancelAnimation(wave2X);
+      cancelAnimation(wave3X);
+    };
   }, []);
 
   const fadeStyle = useAnimatedStyle(() => ({ opacity: headlineOpacity.value }));
   const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
+
+  // Circular progress animated styles
+  const ringStyle = useAnimatedStyle(() => {
+    const color = `rgb(${Math.round(ringColorR.value)}, ${Math.round(ringColorG.value)}, ${Math.round(ringColorB.value)})`;
+    return {
+      borderColor: color,
+      transform: [{ rotate: `${progress.value * 360}deg` }],
+    };
+  });
+
+  // Conic-gradient-style progress using rotation + masked arc
+  // We simulate circular progress with a rotating half-ring overlay
+  const progressArcStyle = useAnimatedStyle(() => {
+    const pct = progress.value;
+    return {
+      opacity: pct > 0 ? 1 : 0,
+      transform: [{ rotate: `${pct * 360}deg` }],
+    };
+  });
+
+  const boltStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: boltScale.value }],
+    opacity: boltScale.value,
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: glowScale.value }],
+    opacity: glowOpacity.value,
+  }));
+
+  // Energy wave animated styles
+  const wave1Style = useAnimatedStyle(() => ({
+    transform: [{ translateX: wave1X.value }],
+    opacity: waveOpacity.value,
+  }));
+  const wave2Style = useAnimatedStyle(() => ({
+    transform: [{ translateX: wave2X.value }],
+    opacity: waveOpacity.value,
+  }));
+  const wave3Style = useAnimatedStyle(() => ({
+    transform: [{ translateX: wave3X.value }],
+    opacity: waveOpacity.value,
+  }));
+  const waveAmpStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleY: waveAmplitude.value }],
+  }));
 
   return (
     <View style={[reStyles.container, { backgroundColor: DARK, paddingTop: insets.top }]}>
@@ -105,7 +269,47 @@ export function ReverseEngineeringScreen({
               <Text style={reStyles.headlineLime}>YOUR GOAL...</Text>
             </Text>
 
-            <View style={{ marginTop: 36, gap: 20 }}>
+            {/* Energy wave + circular progress */}
+            <View style={reStyles.vizContainer}>
+              <View style={reStyles.vizInner}>
+                {/* Energy wave bars */}
+                <Animated.View style={[reStyles.waveWrap, waveAmpStyle]} >
+                  <Animated.View style={[reStyles.waveBar, reStyles.waveBar1, wave1Style]} />
+                  <Animated.View style={[reStyles.waveBar, reStyles.waveBar2, wave2Style]} />
+                  <Animated.View style={[reStyles.waveBar, reStyles.waveBar3, wave3Style]} />
+                  <Animated.View style={[reStyles.waveBar, reStyles.waveBar4, wave1Style]} />
+                  <Animated.View style={[reStyles.waveBar, reStyles.waveBar5, wave3Style]} />
+                </Animated.View>
+
+                {/* Circular progress ring */}
+                <View style={reStyles.ringOuter}>
+                  {/* Glow burst on completion */}
+                  <Animated.View style={[reStyles.glowBurst, glowStyle]} />
+
+                  {/* Track (dark gray) */}
+                  <View style={reStyles.ringTrack} />
+
+                  {/* Progress arc (lime, rotates) */}
+                  <Animated.View style={[reStyles.ringProgress, progressArcStyle]} />
+
+                  {/* Center content: stage count or bolt on completion */}
+                  <View style={reStyles.ringCenter}>
+                    {completedStages >= stages.length - 1 ? (
+                      <Animated.View style={boltStyle}>
+                        <Zap size={28} color={LIME} fill={LIME} strokeWidth={1.5} />
+                      </Animated.View>
+                    ) : (
+                      <Text style={reStyles.ringPercent}>
+                        {Math.round(((completedStages + 1) / stages.length) * 100)}%
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Stage list */}
+            <View style={{ marginTop: 24, gap: 18 }}>
               {stages.map((stage, idx) => {
                 const isComplete = completedStages >= idx;
                 const isActive = completedStages === idx - 1 || (idx === 0 && completedStages === -1);
@@ -133,7 +337,11 @@ export function ReverseEngineeringScreen({
 
       <Animated.View style={[ctaStyle, { paddingHorizontal: 28, paddingBottom: insets.bottom + 24 }]}>
         {allDone && (
-          <TouchableOpacity style={reStyles.cta} onPress={onReveal} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={reStyles.cta}
+            onPress={() => { hapticMedium(); onReveal(); }}
+            activeOpacity={0.85}
+          >
             <Text style={reStyles.ctaText}>Reveal My Success Stack</Text>
             <ArrowRight size={20} color="#000" strokeWidth={3} />
           </TouchableOpacity>
@@ -229,6 +437,78 @@ const reStyles = StyleSheet.create({
     color: MUTED,
     marginTop: 12,
     lineHeight: 24,
+  },
+  vizContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 28,
+    height: 140,
+  },
+  vizInner: {
+    width: 120,
+    height: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  waveWrap: {
+    position: 'absolute',
+    width: 120,
+    height: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  waveBar: {
+    width: 3,
+    borderRadius: 1.5,
+    backgroundColor: LIME,
+  },
+  waveBar1: { height: 28 },
+  waveBar2: { height: 44 },
+  waveBar3: { height: 20 },
+  waveBar4: { height: 36 },
+  waveBar5: { height: 16 },
+  ringOuter: {
+    width: 100,
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  glowBurst: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: LIME,
+  },
+  ringTrack: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: '#222',
+  },
+  ringProgress: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderTopColor: LIME,
+    borderRightColor: LIME,
+    borderBottomColor: 'transparent',
+    borderLeftColor: 'transparent',
+  },
+  ringCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringPercent: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#AAA',
   },
   stageRow: {
     flexDirection: 'row',
@@ -332,7 +612,7 @@ export function BodyCompIntroScreen({
       </Animated.View>
 
       <View style={[bcStyles.footer, { paddingBottom: insets.bottom + 24 }]}>
-        <TouchableOpacity style={bcStyles.cta} onPress={onNext} activeOpacity={0.85}>
+        <TouchableOpacity style={bcStyles.cta} onPress={() => { hapticLight(); onNext(); }} activeOpacity={0.85}>
           <Text style={bcStyles.ctaText}>Let's do it</Text>
           <ArrowRight size={20} color="#000" strokeWidth={3} />
         </TouchableOpacity>
@@ -536,7 +816,7 @@ function QuestionnaireCTA({
   return (
     <TouchableOpacity
       style={[qStyles.cta, !canContinue && qStyles.ctaDisabled]}
-      onPress={canContinue ? onNext : undefined}
+      onPress={canContinue ? () => { hapticLight(); onNext(); } : undefined}
       disabled={!canContinue}
       activeOpacity={0.85}
     >
@@ -555,7 +835,7 @@ function WeightStep({ state, onStateChange }: { state: QuestionnaireState; onSta
       <Support text="This gives us a starting point for your plan." />
       <NumericInput
         value={state.currentWeightLbs}
-        onChangeText={v => onStateChange({ currentWeightLbs: v })}
+        onChangeText={v => { hapticSelection(); onStateChange({ currentWeightLbs: v }); }}
         placeholder="180"
         unit="lbs"
         keyboardType="numeric"
@@ -570,20 +850,20 @@ function HeightStep({ state, onStateChange }: { state: QuestionnaireState; onSta
       <Headline title="WHAT'S YOUR" highlight="HEIGHT?" />
       <Support text="We'll use this to estimate your daily energy needs." />
       <View style={qStyles.dualInputRow}>
-        <View style={{ flex: 1 }}>
+        <View style={qStyles.dualInputCol}>
           <Text style={qStyles.inputLabel}>FT</Text>
           <NumericInput
             value={state.heightFeet}
-            onChangeText={v => onStateChange({ heightFeet: v })}
+            onChangeText={v => { hapticSelection(); onStateChange({ heightFeet: v }); }}
             placeholder="5"
             keyboardType="numeric"
           />
         </View>
-        <View style={{ flex: 1 }}>
+        <View style={qStyles.dualInputCol}>
           <Text style={qStyles.inputLabel}>IN</Text>
           <NumericInput
             value={state.heightInches}
-            onChangeText={v => onStateChange({ heightInches: v })}
+            onChangeText={v => { hapticSelection(); onStateChange({ heightInches: v }); }}
             placeholder="10"
             keyboardType="numeric"
           />
@@ -600,7 +880,7 @@ function AgeStep({ state, onStateChange }: { state: QuestionnaireState; onStateC
       <Support text="This helps us estimate your daily energy needs." />
       <NumericInput
         value={state.age}
-        onChangeText={v => onStateChange({ age: v })}
+        onChangeText={v => { hapticSelection(); onStateChange({ age: v }); }}
         placeholder="32"
         keyboardType="numeric"
       />
@@ -617,12 +897,12 @@ function SexStep({ state, onStateChange }: { state: QuestionnaireState; onStateC
         <OptionButton
           label="Male"
           selected={state.sex === 'male'}
-          onPress={() => onStateChange({ sex: 'male' })}
+          onPress={() => { hapticLight(); onStateChange({ sex: 'male' }); }}
         />
         <OptionButton
           label="Female"
           selected={state.sex === 'female'}
-          onPress={() => onStateChange({ sex: 'female' })}
+          onPress={() => { hapticLight(); onStateChange({ sex: 'female' }); }}
         />
       </View>
     </>
@@ -647,7 +927,7 @@ function ActivityStep({ state, onStateChange }: { state: QuestionnaireState; onS
             title={opt.title}
             desc={opt.desc}
             selected={state.activityLevel === opt.value}
-            onPress={() => onStateChange({ activityLevel: opt.value })}
+            onPress={() => { hapticLight(); onStateChange({ activityLevel: opt.value }); }}
           />
         ))}
       </View>
@@ -673,7 +953,7 @@ function PaceStep({ state, onStateChange }: { state: QuestionnaireState; onState
             desc={opt.desc}
             badge={opt.badge}
             selected={state.pace === opt.value}
-            onPress={() => onStateChange({ pace: opt.value })}
+            onPress={() => { hapticLight(); onStateChange({ pace: opt.value }); }}
           />
         ))}
       </View>
@@ -828,6 +1108,7 @@ const qStyles = StyleSheet.create({
   },
   input: {
     flex: 1,
+    minWidth: 0,
     fontSize: 22,
     fontWeight: '700',
     paddingVertical: 16,
@@ -851,6 +1132,11 @@ const qStyles = StyleSheet.create({
   dualInputRow: {
     flexDirection: 'row',
     gap: 12,
+    alignItems: 'stretch',
+  },
+  dualInputCol: {
+    flex: 1,
+    minWidth: 0,
   },
   optionGroup: {
     gap: 10,
@@ -1021,7 +1307,7 @@ export function BodyCompPlanScreen({
       </Animated.View>
 
       <View style={[planStyles.footer, { paddingBottom: insets.bottom + 24 }]}>
-        <TouchableOpacity style={planStyles.cta} onPress={onReveal} activeOpacity={0.85}>
+        <TouchableOpacity style={planStyles.cta} onPress={() => { hapticLight(); onReveal(); }} activeOpacity={0.85}>
           <Text style={planStyles.ctaText}>Reveal My Success Stack</Text>
           <ArrowRight size={20} color="#000" strokeWidth={3} />
         </TouchableOpacity>
@@ -1132,6 +1418,7 @@ export function BodyCompStackScreen({
   const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
 
   const toggleInput = (id: string) => {
+    hapticLight();
     onInputsChange(inputs.map(inp => inp.id === id ? { ...inp, selected: !inp.selected } : inp));
   };
 
@@ -1191,7 +1478,7 @@ export function BodyCompStackScreen({
       </Animated.View>
 
       <View style={[stackStyles.footer, { paddingBottom: insets.bottom + 24 }]}>
-        <TouchableOpacity style={stackStyles.cta} onPress={onCommit} activeOpacity={0.85}>
+        <TouchableOpacity style={stackStyles.cta} onPress={() => { hapticLight(); onCommit(); }} activeOpacity={0.85}>
           <Text style={stackStyles.ctaText}>Continue →</Text>
         </TouchableOpacity>
       </View>
@@ -1210,9 +1497,6 @@ function StackTile({
   onToggle: () => void;
   onDetailChange: (detail: string) => void;
 }) {
-  const isCustomizable = input.category === 'steps' || input.category === 'exercise';
-  const [editing, setEditing] = useState(false);
-
   return (
     <TouchableOpacity
       style={[stackStyles.tile, { borderColor: input.selected ? LIME : CARD_BORDER, backgroundColor: input.selected ? 'rgba(204,255,0,0.04)' : 'rgba(255,255,255,0.02)' }]}
@@ -1248,11 +1532,13 @@ function OptionalTile({
   const [detail, setDetail] = useState(input.valueDetail || '');
 
   const handleAdd = () => {
+    hapticLight();
     setExpanded(true);
     onToggle();
   };
 
   const handleConfirm = () => {
+    hapticLight();
     onDetailChange(detail);
     setExpanded(false);
   };
@@ -1272,7 +1558,7 @@ function OptionalTile({
         <Text style={[stackStyles.optionalLabel, { color: input.selected ? '#FFF' : '#888' }]}>
           {input.label}
         </Text>
-        <TouchableOpacity onPress={() => { onToggle(); setExpanded(false); setDetail(''); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity onPress={() => { hapticLight(); onToggle(); setExpanded(false); setDetail(''); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <X size={18} color="#555" strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
@@ -1347,13 +1633,13 @@ const stackStyles = StyleSheet.create({
     marginBottom: 24,
   },
   coreGroup: {
-    gap: 10,
+    gap: 12,
   },
   tile: {
     borderRadius: 14,
     borderWidth: 1.5,
-    padding: 18,
-    gap: 8,
+    padding: 12,
+    gap: 4,
   },
   tileHeader: {
     flexDirection: 'row',
@@ -1361,26 +1647,26 @@ const stackStyles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   tileNumber: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.8,
     color: FAINT,
   },
   tileCheck: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tileLabel: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    lineHeight: 22,
+    lineHeight: 20,
   },
   tileDetail: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: LIME,
   },
@@ -1389,7 +1675,7 @@ const stackStyles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.5,
     color: '#666',
-    marginTop: 28,
+    marginTop: 24,
   },
   optionalSupport: {
     fontSize: 14,
@@ -1527,10 +1813,18 @@ export function BodyCompCommitScreen({
       </Animated.View>
 
       <View style={[commitStyles.footer, { paddingBottom: insets.bottom + 24 }]}>
-        <TouchableOpacity style={commitStyles.primaryCta} onPress={onConfirm} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={commitStyles.primaryCta}
+          onPress={() => { hapticSuccess(); onConfirm(); }}
+          activeOpacity={0.85}
+        >
           <Text style={commitStyles.primaryCtaText}>Yes — lock it in →</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={commitStyles.secondaryCta} onPress={onAdjust} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={commitStyles.secondaryCta}
+          onPress={() => { hapticLight(); onAdjust(); }}
+          activeOpacity={0.85}
+        >
           <Text style={commitStyles.secondaryCtaText}>I want to adjust my Stack</Text>
         </TouchableOpacity>
       </View>
