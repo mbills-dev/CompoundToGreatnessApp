@@ -1,6 +1,50 @@
 import { WhenPickerValue } from '../WhenPickerModal';
 
-export type DecodePath = 'numbers' | 'practice' | 'starting';
+export type DecodePath = 'numbers' | 'practice' | 'starting' | 'body_composition';
+
+export type BodyCompositionSubtype = 'fat_loss' | 'muscle_gain' | 'recomposition';
+
+export interface FatLossGoalAmount {
+  type: 'lose' | 'reach';
+  lbs: number;
+}
+
+export interface BodyCompositionData {
+  subtype: BodyCompositionSubtype;
+  goalAmount?: FatLossGoalAmount;
+  currentWeightLbs?: number;
+  heightInches?: number;
+  age?: number;
+  sex?: 'male' | 'female';
+  activityLevel?: 'sedentary' | 'light' | 'moderate' | 'very';
+  pace?: 'steady' | 'recommended' | 'faster';
+  calculationResult?: FatLossCalculationResult;
+  selectedInputs?: BodyCompStackInput[];
+  confirmedInputs?: BodyCompStackInput[];
+}
+
+export interface FatLossCalculationResult {
+  bmr: number;
+  maintenanceCalories: number;
+  suggestedCalorieTarget: number;
+  suggestedProteinGrams: number;
+  estimatedWeeklyRateLbs: number;
+  estimatedWeeks: number;
+  startingWeightLbs: number;
+  targetWeightLbs: number;
+  warnings: string[];
+}
+
+export interface BodyCompStackInput {
+  id: string;
+  label: string;
+  dailyInput: string;
+  when: string;
+  where: string;
+  category: 'calories' | 'protein' | 'steps' | 'exercise' | 'nutrition_rule' | 'hydration' | 'bedtime';
+  selected: boolean;
+  valueDetail?: string;
+}
 
 export type NumbersSubtype = 'funnel' | 'direct';
 
@@ -25,6 +69,7 @@ export interface FlowGoal {
   directUnit?: string;
   targetResolution?: TargetResolution | null;
   dailyTrackingUnit?: { unit: string; perTargetUnit: number } | null;
+  bodyCompData?: BodyCompositionData;
 }
 
 export interface AnchoredInput {

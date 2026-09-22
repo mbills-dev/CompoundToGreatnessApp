@@ -46,6 +46,21 @@ import { GoalsEntryScreen, IntroScreen, GoalDoneLooksScreen, GoalFuelRedirectScr
 import { FocusPhilosophyScreen, FocusSelectScreen, FocusConfirmScreen } from './flow/FocusScreens';
 import type { FocusGoal } from './flow/FocusScreens';
 import { PathSelectorScreen, PathNumbers, PathNumbersDirect, PathPractice, PathStarting } from './flow/PathScreens';
+import {
+  BodyCompIntroScreen,
+  BodyCompQuestionnaire,
+  BodyCompPlanScreen,
+  BodyCompStackScreen,
+  BodyCompCommitScreen,
+  ReverseEngineeringScreen,
+  buildDefaultStackInputs,
+  QuestionnaireState,
+  QuestionnaireStep,
+  ReverseEngineeringStage,
+} from './flow/BodyCompositionScreens';
+import { calculateFatLoss, parseFatLossGoal, deriveTargetWeight, detectBodyCompositionSubtype } from '@/lib/bodyComposition';
+import type { FatLossInput } from '@/lib/bodyComposition';
+import type { BodyCompositionData, BodyCompStackInput, FatLossCalculationResult } from './flow/types';
 import { AnchorScreen, AddInputScreen, GoalLockedScreen, GoalBadge, formatGoalLabel, displayGoalLabel } from './flow/AnchorScreens';
 import { AiDailyInputsScreen } from './flow/AiDailyInputsScreen';
 import { logInputFeedback, InputSource } from './flow/InputValidation';
@@ -610,6 +625,12 @@ type Phase =
   | { kind: 'ai-daily-inputs' }
   | { kind: 'add-input'; goalIdx: number; prefillText?: string }
   | { kind: 'locked'; goalIdx: number; dailyInput: string }
+  | { kind: 'body-comp-intro'; goalIdx: number }
+  | { kind: 'body-comp-questionnaire'; goalIdx: number; step: QuestionnaireStep }
+  | { kind: 'body-comp-reverse'; goalIdx: number }
+  | { kind: 'body-comp-plan'; goalIdx: number }
+  | { kind: 'body-comp-stack'; goalIdx: number }
+  | { kind: 'body-comp-commit'; goalIdx: number }
   | { kind: 'identity' }
   | { kind: 'compass-story' }
   | { kind: 'compass-domino' }
@@ -629,7 +650,7 @@ const CHECKPOINT_KEY = 'c2g_identity_builder_checkpoint';
 // to restore. NOT required for copy, styling, or layout changes — only changes
 // that would make previously saved checkpoint data incompatible with the
 // current code.
-const CHECKPOINT_SCHEMA_VERSION = 2;
+const CHECKPOINT_SCHEMA_VERSION = 3;
 
 const KNOWN_PHASE_KINDS = new Set([
   'name-capture', 'goals-entry', 'intro',
@@ -637,6 +658,8 @@ const KNOWN_PHASE_KINDS = new Set([
   'classifying', 'path-select',
   'goal-done-looks', 'goal-fuel-redirect', 'decode', 'anchor',
   'ai-daily-inputs', 'add-input', 'locked', 'identity',
+  'body-comp-intro', 'body-comp-questionnaire', 'body-comp-reverse',
+  'body-comp-plan', 'body-comp-stack', 'body-comp-commit',
   'compass-story', 'compass-domino', 'compass-mechanism', 'finale', 'signature',
 ]);
 
@@ -668,6 +691,12 @@ export default function IdentityBuilder({ onComplete }: Props) {
   const [savedForLaterIds, setSavedForLaterIds] = useState<Set<number>>(new Set());
   const [focusOverrideAcknowledged, setFocusOverrideAcknowledged] = useState(false);
   const [focusSelected, setFocusSelected] = useState<Set<number>>(new Set());
+  const [bodyCompStates, setBodyCompStates] = useState<Record<number, {
+    questionnaire: QuestionnaireState;
+    calculationResult?: FatLossCalculationResult;
+    selectedInputs: BodyCompStackInput[];
+    confirmedInputs: BodyCompStackInput[];
+  }>>({});
 
 
 
@@ -714,6 +743,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
           if (Array.isArray(cp.savedForLaterIds)) setSavedForLaterIds(new Set(cp.savedForLaterIds));
           if (typeof cp.focusOverrideAcknowledged === 'boolean') setFocusOverrideAcknowledged(cp.focusOverrideAcknowledged);
           if (Array.isArray(cp.focusSelected)) setFocusSelected(new Set(cp.focusSelected));
+          if (cp.bodyCompStates && typeof cp.bodyCompStates === 'object') setBodyCompStates(cp.bodyCompStates);
         }
       } catch {
         await AsyncStorage.removeItem(CHECKPOINT_KEY).catch(() => {});
@@ -745,11 +775,12 @@ export default function IdentityBuilder({ onComplete }: Props) {
         savedForLaterIds: Array.from(savedForLaterIds),
         focusOverrideAcknowledged,
         focusSelected: Array.from(focusSelected),
+        bodyCompStates,
       };
       AsyncStorage.setItem(CHECKPOINT_KEY, JSON.stringify(snapshot)).catch(() => {});
     }, 400);
     return () => { if (checkpointTimer.current) clearTimeout(checkpointTimer.current); };
-  }, [phase, history, goals, locked, decodeResults, goalLabelOverrides, identityOverrides, aiStatements, acceptedIdentity, compassFilter, firstName, lastName, challengeGoalIds, savedForLaterIds, focusOverrideAcknowledged, focusSelected, checkpointLoading]);
+  }, [phase, history, goals, locked, decodeResults, goalLabelOverrides, identityOverrides, aiStatements, acceptedIdentity, compassFilter, firstName, lastName, challengeGoalIds, savedForLaterIds, focusOverrideAcknowledged, focusSelected, bodyCompStates, checkpointLoading]);
 
   const saveState = (key: string, value: string) => setSavedStates(prev => ({ ...prev, [key]: value }));
 
@@ -779,6 +810,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
     setSavedForLaterIds(new Set());
     setFocusOverrideAcknowledged(false);
     setFocusSelected(new Set());
+    setBodyCompStates({});
     AsyncStorage.removeItem(CHECKPOINT_KEY).catch(() => {});
   };
 
@@ -791,6 +823,12 @@ export default function IdentityBuilder({ onComplete }: Props) {
 
   const phaseKey = (p: Phase): string => {
     switch (p.kind) {
+      case 'body-comp-questionnaire': return `body-comp-q-${p.goalIdx}-${p.step}`;
+      case 'body-comp-intro': return `body-comp-intro-${p.goalIdx}`;
+      case 'body-comp-reverse': return `body-comp-reverse-${p.goalIdx}`;
+      case 'body-comp-plan': return `body-comp-plan-${p.goalIdx}`;
+      case 'body-comp-stack': return `body-comp-stack-${p.goalIdx}`;
+      case 'body-comp-commit': return `body-comp-commit-${p.goalIdx}`;
       case 'path-select': return `path-select-${p.goalIdx}`;
       case 'goal-done-looks': return `done-looks-${p.goalIdx}-${p.chosenPath}`;
       case 'goal-fuel-redirect': return `fuel-redirect-${p.goalIdx}`;
@@ -1125,7 +1163,23 @@ export default function IdentityBuilder({ onComplete }: Props) {
         return (
           <ClassifyingPhase
             goalLabel={goalLabel}
-            onClassified={(path, extractedTarget, standardAction, estimatedMasteryHours, numbersSubtype, directUnit, targetResolution, dailyTrackingUnit) => {
+            onClassified={(path, extractedTarget, standardAction, estimatedMasteryHours, numbersSubtype, directUnit, targetResolution, dailyTrackingUnit, bodyCompSubtype) => {
+              if (path === 'body_composition') {
+                const subtype = bodyCompSubtype ?? 'fat_loss';
+                if (subtype === 'fat_loss') {
+                  const goal = goals[goalIdx];
+                  const goalLabel = goalLabelOverrides[goal.id] ?? goal.label;
+                  const parsedGoal = parseFatLossGoal(goalLabel);
+                  setGoals(prev => prev.map((g, i) =>
+                    i === goalIdx ? { ...g, bodyCompData: { subtype, goalAmount: parsedGoal ?? undefined } } : g
+                  ));
+                  navigateReplace({ kind: 'body-comp-intro', goalIdx });
+                } else {
+                  // muscle_gain / recomposition — not yet implemented, fall back to starting
+                  navigateReplace({ kind: 'decode', goalIdx, path: 'starting' });
+                }
+                return;
+              }
               if (path === 'numbers' && extractedTarget) {
                 setGoals(prev => prev.map((g, i) =>
                   i === goalIdx ? { ...g, inheritedTarget: extractedTarget } : g
@@ -1419,6 +1473,196 @@ export default function IdentityBuilder({ onComplete }: Props) {
         );
       }
 
+      case 'body-comp-intro': {
+        const goalIdx = phase.goalIdx;
+        const goal = goals[goalIdx];
+        const goalLabel = goalLabelOverrides[goal.id] ?? goal.label;
+        return (
+          <BodyCompIntroScreen
+            goalLabel={goalLabel}
+            onNext={() => navigate({ kind: 'body-comp-questionnaire', goalIdx, step: 'weight' })}
+            onBack={goBack}
+          />
+        );
+      }
+
+      case 'body-comp-questionnaire': {
+        const goalIdx = phase.goalIdx;
+        const bcState = bodyCompStates[goalIdx] ?? {
+          questionnaire: { currentWeightLbs: '', heightFeet: '', heightInches: '', age: '', sex: null, activityLevel: null, pace: null },
+          selectedInputs: [],
+          confirmedInputs: [],
+        };
+        const stepOrder: QuestionnaireStep[] = ['weight', 'height', 'age', 'sex', 'activity', 'pace'];
+        const onStateChange = (partial: Partial<QuestionnaireState>) => {
+          setBodyCompStates(prev => ({
+            ...prev,
+            [goalIdx]: {
+              ...bcState,
+              questionnaire: { ...bcState.questionnaire, ...partial },
+            },
+          }));
+        };
+        const stepIdx = stepOrder.indexOf(phase.step);
+        const goNext = () => {
+          if (stepIdx < stepOrder.length - 1) {
+            navigate({ kind: 'body-comp-questionnaire', goalIdx, step: stepOrder[stepIdx + 1] });
+          } else {
+            const goal = goals[goalIdx];
+            const goalLabel = goalLabelOverrides[goal.id] ?? goal.label;
+            const parsedGoal = parseFatLossGoal(goalLabel);
+            const heightInches = (parseInt(bcState.questionnaire.heightFeet) || 0) * 12 + (parseInt(bcState.questionnaire.heightInches) || 0);
+            const calcInput: FatLossInput = {
+              goalAmount: parsedGoal ?? { type: 'lose', lbs: 10 },
+              currentWeightLbs: parseFloat(bcState.questionnaire.currentWeightLbs) || 0,
+              heightInches,
+              age: parseInt(bcState.questionnaire.age) || 0,
+              sex: bcState.questionnaire.sex ?? 'male',
+              activityLevel: bcState.questionnaire.activityLevel ?? 'sedentary',
+              pace: bcState.questionnaire.pace ?? 'recommended',
+            };
+            const result = calculateFatLoss(calcInput);
+            setBodyCompStates(prev => ({
+              ...prev,
+              [goalIdx]: { ...bcState, calculationResult: result },
+            }));
+            navigate({ kind: 'body-comp-reverse', goalIdx });
+          }
+        };
+        return (
+          <BodyCompQuestionnaire
+            step={phase.step}
+            state={bcState.questionnaire}
+            onStateChange={onStateChange}
+            onNext={goNext}
+            onBack={goBack}
+          />
+        );
+      }
+
+      case 'body-comp-reverse': {
+        const goalIdx = phase.goalIdx;
+        const goal = goals[goalIdx];
+        const goalLabel = goalLabelOverrides[goal.id] ?? goal.label;
+        const bcState = bodyCompStates[goalIdx];
+        const result = bcState?.calculationResult;
+        const stages: ReverseEngineeringStage[] = [
+          { number: '01', title: 'YOUR GOAL', description: goalLabel, resultValue: goalLabel },
+          { number: '02', title: 'UNDERSTANDING YOUR BODY', description: 'Estimating your baseline energy needs...', resultValue: result ? `Maintenance ~${result.maintenanceCalories} cal` : undefined },
+          { number: '03', title: 'FINDING THE GAP', description: 'Calculating a sustainable starting target...', resultValue: result ? `Target ~${result.suggestedCalorieTarget} cal/day` : undefined },
+          { number: '04', title: 'YOUR TARGET', description: 'Determining your daily nutrition target...', resultValue: result ? `Protein ~${result.suggestedProteinGrams}g/day` : undefined },
+          { number: '05', title: 'BUILDING YOUR SYSTEM', description: 'Turning the plan into daily inputs...', resultValue: 'Ready' },
+        ];
+        return (
+          <ReverseEngineeringScreen
+            stages={stages}
+            finalTitle="YOUR SYSTEM IS READY."
+            finalSubtitle="Your personalized Success Stack is built. Let's see it."
+            onReveal={() => navigate({ kind: 'body-comp-plan', goalIdx })}
+          />
+        );
+      }
+
+      case 'body-comp-plan': {
+        const goalIdx = phase.goalIdx;
+        const goal = goals[goalIdx];
+        const goalLabel = goalLabelOverrides[goal.id] ?? goal.label;
+        const result = bodyCompStates[goalIdx]?.calculationResult;
+        if (!result) {
+          navigate({ kind: 'body-comp-questionnaire', goalIdx, step: 'weight' });
+          return null;
+        }
+        return (
+          <BodyCompPlanScreen
+            result={result}
+            goalLabel={goalLabel}
+            onReveal={() => {
+              const defaultInputs = buildDefaultStackInputs(result);
+              setBodyCompStates(prev => ({
+                ...prev,
+                [goalIdx]: { ...prev[goalIdx], selectedInputs: defaultInputs },
+              }));
+              navigate({ kind: 'body-comp-stack', goalIdx });
+            }}
+            onBack={goBack}
+          />
+        );
+      }
+
+      case 'body-comp-stack': {
+        const goalIdx = phase.goalIdx;
+        const result = bodyCompStates[goalIdx]?.calculationResult;
+        if (!result) {
+          navigate({ kind: 'body-comp-questionnaire', goalIdx, step: 'weight' });
+          return null;
+        }
+        const inputs = bodyCompStates[goalIdx]?.selectedInputs ?? buildDefaultStackInputs(result);
+        return (
+          <BodyCompStackScreen
+            result={result}
+            inputs={inputs}
+            onInputsChange={(newInputs) => {
+              setBodyCompStates(prev => ({
+                ...prev,
+                [goalIdx]: { ...prev[goalIdx], selectedInputs: newInputs },
+              }));
+            }}
+            onCommit={() => {
+              const confirmed = inputs.filter(i => i.selected && i.valueDetail);
+              setBodyCompStates(prev => ({
+                ...prev,
+                [goalIdx]: { ...prev[goalIdx], confirmedInputs: confirmed },
+              }));
+              navigate({ kind: 'body-comp-commit', goalIdx });
+            }}
+            onBack={goBack}
+          />
+        );
+      }
+
+      case 'body-comp-commit': {
+        const goalIdx = phase.goalIdx;
+        const bcState = bodyCompStates[goalIdx];
+        const confirmedInputs = bcState?.confirmedInputs ?? [];
+        const goal = goals[goalIdx];
+        const handleConfirm = () => {
+          if (confirmedInputs.length === 0) return;
+          const goalLabel = formatGoalLabel(goal, goalLabelOverrides);
+          const first = confirmedInputs[0];
+          const additionalInputs: AnchoredInput[] = confirmedInputs.slice(1).map(inp => ({
+            dailyInput: inp.valueDetail || inp.dailyInput,
+            when: inp.when,
+            where: inp.where,
+            schedule: null,
+          }));
+          setLocked(prev => [
+            ...prev.filter(l => l.goalId !== goal.id),
+            {
+              goalId: goal.id,
+              dailyInput: first.valueDetail || first.dailyInput,
+              goalLabel,
+              originalGoalLabel: goal.label,
+              decodePath: 'body_composition' as DecodePath,
+              what: first.valueDetail || first.dailyInput,
+              when: first.when || 'Throughout the day',
+              where: first.where || '',
+              schedule: null,
+              additionalInputs,
+            },
+          ]);
+          setDecodeResults(prev => ({ ...prev, [goalIdx]: first.valueDetail || first.dailyInput }));
+          navigate({ kind: 'locked', goalIdx, dailyInput: first.valueDetail || first.dailyInput });
+        };
+        return (
+          <BodyCompCommitScreen
+            confirmedInputs={confirmedInputs}
+            onConfirm={handleConfirm}
+            onAdjust={() => navigate({ kind: 'body-comp-stack', goalIdx })}
+            onBack={goBack}
+          />
+        );
+      }
+
       case 'identity':
         return (
           <IdentityScreen
@@ -1528,7 +1772,7 @@ function ClassifyingPhase({
   onClassified,
 }: {
   goalLabel: string;
-  onClassified: (path: DecodePath, extractedTarget: string | null, standardAction: string | null, estimatedMasteryHours: number | null, numbersSubtype: NumbersSubtype | null, directUnit: string | null, targetResolution: TargetResolution | null, dailyTrackingUnit: { unit: string; perTargetUnit: number } | null) => void;
+  onClassified: (path: DecodePath, extractedTarget: string | null, standardAction: string | null, estimatedMasteryHours: number | null, numbersSubtype: NumbersSubtype | null, directUnit: string | null, targetResolution: TargetResolution | null, dailyTrackingUnit: { unit: string; perTargetUnit: number } | null, bodyCompSubtype: 'fat_loss' | 'muscle_gain' | 'recomposition' | null) => void;
 }) {
   useEffect(() => {
     let cancelled = false;
@@ -1542,9 +1786,9 @@ function ClassifyingPhase({
         });
         await logBreadcrumb('classify_fetch_resolved', { elapsedMs: Date.now() - startTime, hasError: !!error, hasData: !!data });
         if (cancelled) return;
-        if (error || !data || (data.path !== 'numbers' && data.path !== 'practice' && data.path !== 'starting')) {
+        if (error || !data || (data.path !== 'numbers' && data.path !== 'practice' && data.path !== 'starting' && data.path !== 'body_composition')) {
           await logBreadcrumb('classify_fallback', { reason: error ? 'error' : !data ? 'no_data' : 'bad_path' });
-          onClassified('starting', null, null, null, null, null, null, null);
+          onClassified('starting', null, null, null, null, null, null, null, null);
           return;
         }
         const extracted = typeof data.extractedTarget === 'string' && data.extractedTarget.trim().length > 0
@@ -1583,12 +1827,15 @@ function ClassifyingPhase({
             dailyTrackingUnit = { unit: dtu.unit.trim(), perTargetUnit: Math.round(dtu.perTargetUnit) };
           }
         }
+        const bcSub: 'fat_loss' | 'muscle_gain' | 'recomposition' | null =
+          data.bodyCompSubtype === 'fat_loss' || data.bodyCompSubtype === 'muscle_gain' || data.bodyCompSubtype === 'recomposition'
+            ? data.bodyCompSubtype : null;
         await logBreadcrumb('classify_parsed', { path: data.path, numbersSubtype: subType });
         await logBreadcrumb('before_onClassified');
-        onClassified(data.path as DecodePath, extracted, standard, masteryHours, subType, dUnit, tRes, dailyTrackingUnit);
+        onClassified(data.path as DecodePath, extracted, standard, masteryHours, subType, dUnit, tRes, dailyTrackingUnit, bcSub);
       } catch (e) {
         await logBreadcrumb('classify_exception', { error: String(e).slice(0, 200) });
-        if (!cancelled) onClassified('starting', null, null, null, null, null, null, null);
+        if (!cancelled) onClassified('starting', null, null, null, null, null, null, null, null);
       }
     })();
     return () => { cancelled = true; };

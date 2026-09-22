@@ -7,18 +7,25 @@ const corsHeaders = {
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const SYSTEM_PROMPT = `You classify personal goals into one of three approaches for a habit-building app.
+const SYSTEM_PROMPT = `You classify personal goals into one of four approaches for a habit-building app.
 
 Paths:
 - "numbers": a goal reached through volume or measurable output — income, revenue, deals, clients, sales, referrals, subscribers, followers, downloads, leads, etc.
 - "practice": a goal built through skill or time invested — crafts, languages, instruments, technical skills, creative mastery, etc.
 - "starting": a goal built through daily habits, character, or health — or anything that doesn't clearly fit "numbers" or "practice".
+- "body_composition": a fat-loss, weight-loss, muscle-gain, or recomposition goal that requires specialized physiological calculations. This includes goals like "Lose 20 lbs", "Drop 15 pounds", "Get down to 160 lbs", "Lose fat", "Weight loss". Do NOT classify a goal as "body_composition" merely because it mentions a number — only weight/body composition goals belong here. Goals like "Read 20 books" or "Pay off $20,000 debt" are NOT body composition.
 
 Rules:
 1. Choose exactly one path.
-2. If the goal mentions earning, making, saving, or hitting a specific financial or count-based target, classify as "numbers".
-3. If the goal is about building a skill through deliberate practice over time, classify as "practice".
-4. When in doubt, choose "starting" — it is the safe default for habit-based goals.
+2. If the goal is about losing weight, dropping pounds, fat loss, or reaching a specific body weight, classify as "body_composition".
+3. If the goal mentions earning, making, saving, or hitting a specific financial or count-based target, classify as "numbers".
+4. If the goal is about building a skill through deliberate practice over time, classify as "practice".
+5. When in doubt, choose "starting" — it is the safe default for habit-based goals.
+6. If path is "body_composition", also determine "bodyCompSubtype":
+   - "fat_loss": the goal is about losing weight, losing fat, or reaching a lower body weight.
+   - "muscle_gain": the goal is about building or gaining muscle/lean mass.
+   - "recomposition": the goal explicitly mentions both losing fat AND building muscle.
+   Default to "fat_loss" if the goal is ambiguous but clearly body-composition related.
 5. If path is "numbers" AND the goal text confidently states a specific numeric target (e.g. "$100k a month", "300,000 subscribers", "$1,000,000 this year", "50 clients"), extract just the plain number as a string — strip dollar signs, commas, and suffixes like k/m (expand them: 100k → 100000). Return it as "extractedTarget".
 6. If path is not "numbers", or if no specific number is confidently stated in the goal text, return null for "extractedTarget". Do NOT guess or invent a number that isn't explicitly in the goal.
 7. If path is "starting", check whether the goal text is ALREADY a complete, specific, measurable daily action — it must contain a number or an explicit frequency or a clear done/not-done criterion (e.g. "walk 10,000 steps a day", "read 20 pages daily", "drink a gallon of water", "no phone before noon", "meditate 10 minutes every morning"). If it IS already such an action, return it verbatim (trimmed) as "standardAction". If the goal is vague or needs breaking down (e.g. "walk more", "learn French", "be a better father", "get fit"), return null for "standardAction".
@@ -39,7 +46,8 @@ Rules:
 
 Output shape (exactly):
 {
-  "path": "numbers" | "practice" | "starting",
+  "path": "numbers" | "practice" | "starting" | "body_composition",
+  "bodyCompSubtype": "fat_loss" | "muscle_gain" | "recomposition" | null,
   "extractedTarget": "string | null",
   "standardAction": "string | null",
   "estimatedMasteryHours": "number | null",
@@ -139,8 +147,18 @@ Deno.serve(async (req: Request) => {
 
     const obj = parsed as Record<string, unknown>;
     const path = obj.path;
-    if (path !== "numbers" && path !== "practice" && path !== "starting") {
+    if (path !== "numbers" && path !== "practice" && path !== "starting" && path !== "body_composition") {
       return jsonRes({ error: "shape_mismatch" }, 502);
+    }
+
+    let bodyCompSubtype: "fat_loss" | "muscle_gain" | "recomposition" | null = null;
+    if (path === "body_composition") {
+      const rawSub = (obj as Record<string, unknown>).bodyCompSubtype;
+      if (rawSub === "fat_loss" || rawSub === "muscle_gain" || rawSub === "recomposition") {
+        bodyCompSubtype = rawSub;
+      } else {
+        bodyCompSubtype = "fat_loss";
+      }
     }
 
     let extractedTarget: string | null = null;
@@ -207,7 +225,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return jsonRes({ path, extractedTarget, standardAction, estimatedMasteryHours, numbersSubtype, unit, targetResolution, dailyTrackingUnit });
+    return jsonRes({ path, bodyCompSubtype, extractedTarget, standardAction, estimatedMasteryHours, numbersSubtype, unit, targetResolution, dailyTrackingUnit });
   } catch (e) {
     console.error("handler_error", String(e).slice(0, 400));
     return jsonRes({ error: "bad_request" }, 400);

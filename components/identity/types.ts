@@ -6,7 +6,7 @@ export interface Dimension {
   icon: string;
   originalInput?: string;
   // Additive decode fields — only present for goals decoded via the new flow.
-  decodePath?: 'numbers' | 'practice' | 'starting';
+  decodePath?: 'numbers' | 'practice' | 'starting' | 'body_composition';
   resolvedTargetStr?: string;
   periodSuffix?: 'week' | 'month' | 'year';
   dailyNumber?: number;
