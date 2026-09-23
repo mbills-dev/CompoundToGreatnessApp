@@ -928,10 +928,10 @@ export function OptionalAdditionSheet({
     }
   }, [visible]);
 
-  if (!visible || !type) return null;
-
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdropOpacity.value }));
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sheetTranslate.value }] }));
+
+  if (!visible || !type) return null;
 
   const presets: Record<OptionalAdditionType, string[]> = {
     nutrition_rule: ['No added sugar', 'Whole foods only', 'No food after 8 PM'],
