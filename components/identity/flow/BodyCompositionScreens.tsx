@@ -4,7 +4,7 @@
  * commitment screen. Uses the existing CTG onboarding visual system.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,20 +16,22 @@ import {
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
   Keyboard,
+  useWindowDimensions,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedProps,
   withTiming,
   withDelay,
   withSequence,
-  withRepeat,
   Easing,
   runOnJS,
   cancelAnimation,
 } from 'react-native-reanimated';
 import { ArrowLeft, ArrowRight, Check, Plus, X, Zap } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import Svg, { Circle as SvgCircle, Line as SvgLine } from 'react-native-svg';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -46,9 +48,15 @@ import {
 
 const LIME = '#CCFF00';
 const DARK = '#0A0A0A';
-const CARD_BORDER = '#222';
+const CARD_BORDER = '#1C1C1C';
+const CARD_BG = '#0F0F0F';
 const FAINT = '#555';
 const MUTED = '#888';
+
+const RING_SIZE = 160;
+const STROKE_WIDTH = 6;
+const RING_RADIUS = (RING_SIZE - STROKE_WIDTH) / 2;
+const CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 // ─── Haptics helper (platform-safe) ──────────────────────────────────────────
 
@@ -64,15 +72,21 @@ function hapticLight(): void {
   }
 }
 
-function hapticSuccess(): void {
-  if (Platform.OS !== 'web') {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-  }
-}
-
 function hapticMedium(): void {
   if (Platform.OS !== 'web') {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+  }
+}
+
+function hapticHeavy(): void {
+  if (Platform.OS !== 'web') {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+  }
+}
+
+function hapticSuccess(): void {
+  if (Platform.OS !== 'web') {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
   }
 }
 
@@ -87,254 +101,240 @@ export interface ReverseEngineeringStage {
 
 export function ReverseEngineeringScreen({
   stages,
-  finalTitle,
-  finalSubtitle,
+  result,
+  goalLabel,
   onReveal,
 }: {
   stages: ReverseEngineeringStage[];
-  finalTitle: string;
-  finalSubtitle: string;
+  result: FatLossCalculationResult | null;
+  goalLabel: string;
   onReveal: () => void;
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const [completedStages, setCompletedStages] = useState<number>(-1);
+  const { width: screenWidth } = useWindowDimensions();
+
+  const [completedStages, setCompletedStages] = useState(-1);
   const [allDone, setAllDone] = useState(false);
+
   const headlineOpacity = useSharedValue(0);
   const ctaOpacity = useSharedValue(0);
-
-  // Circular progress — driven by stage completion (0..1)
   const progress = useSharedValue(0);
-  // Ring color transition from gray track to lime
-  const ringColorR = useSharedValue(85);
-  const ringColorG = useSharedValue(85);
-  const ringColorB = useSharedValue(85);
-  // Completion burst
-  const boltScale = useSharedValue(0);
-  const glowScale = useSharedValue(0);
   const glowOpacity = useSharedValue(0);
-
-  // Energy wave animation values
-  const wave1X = useSharedValue(0);
-  const wave2X = useSharedValue(0);
-  const wave3X = useSharedValue(0);
-  const waveAmplitude = useSharedValue(1);
-  const waveOpacity = useSharedValue(0.15);
+  const glowScale = useSharedValue(0.8);
+  const boltScale = useSharedValue(0);
+  const boltOpacity = useSharedValue(0);
+  const bottomProgressWidth = useSharedValue(0);
+  const stageDescOpacity = useSharedValue(0);
 
   useEffect(() => {
     headlineOpacity.value = withTiming(1, { duration: 600 });
 
-    // Start energy wave loops — noisy at first, stabilize as progress increases
-    wave1X.value = withRepeat(withTiming(-60, { duration: 1800 }), -1, true);
-    wave2X.value = withRepeat(withTiming(40, { duration: 2200 }), -1, true);
-    wave3X.value = withRepeat(withTiming(-30, { duration: 2800 }), -1, true);
-
     let currentStage = 0;
+    const stageProgresses = [0.25, 0.5, 0.75, 1.0];
 
     const advance = () => {
       if (currentStage >= stages.length) {
         // ── Completion moment ──
-        progress.value = withTiming(1, { duration: 500, easing: Easing.bezier(0.22, 1, 0.36, 1) });
+        progress.value = withTiming(1, { duration: 400, easing: Easing.bezier(0.22, 1, 0.36, 1) });
+        bottomProgressWidth.value = withTiming(1, { duration: 400, easing: Easing.bezier(0.22, 1, 0.36, 1) });
+        hapticMedium();
 
-        // Ring transitions to full lime
-        ringColorR.value = withTiming(204, { duration: 500 });
-        ringColorG.value = withTiming(255, { duration: 500 });
-        ringColorB.value = withTiming(0, { duration: 500 });
-
-        // Energy wave stabilizes and concentrates
-        waveAmplitude.value = withTiming(0.3, { duration: 600 });
-        waveOpacity.value = withTiming(0.05, { duration: 600 });
-
-        // Brief pause, then bolt + glow burst
         setTimeout(() => {
+          // Glow pulse
+          glowOpacity.value = withSequence(
+            withTiming(0.4, { duration: 200 }),
+            withTiming(0, { duration: 600 }),
+          );
+          glowScale.value = withSequence(
+            withTiming(0.8, { duration: 0 }),
+            withTiming(1.5, { duration: 500, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+          );
+
+          // Bolt reveal
+          boltOpacity.value = withTiming(1, { duration: 100 });
           boltScale.value = withSequence(
             withTiming(0, { duration: 0 }),
             withTiming(1.3, { duration: 250, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
             withTiming(1, { duration: 150 }),
           );
-          glowScale.value = withSequence(
-            withTiming(0, { duration: 0 }),
-            withTiming(1.8, { duration: 600, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
-          );
-          glowOpacity.value = withSequence(
-            withTiming(0.6, { duration: 200 }),
-            withTiming(0, { duration: 500 }),
-          );
-
-          // Stabilize wave after burst
-          waveAmplitude.value = withDelay(300, withTiming(0.15, { duration: 400 }));
 
           hapticSuccess();
 
           setTimeout(() => {
             runOnJS(setAllDone)(true);
             ctaOpacity.value = withDelay(300, withTiming(1, { duration: 500 }));
-          }, 700);
-        }, 400);
+          }, 900);
+        }, 350);
 
         return;
       }
 
       setCompletedStages(currentStage);
+      stageDescOpacity.value = withSequence(
+        withTiming(0, { duration: 150 }),
+        withTiming(1, { duration: 300 }),
+      );
 
-      // Advance circular progress by ~1/stages
-      const targetProgress = (currentStage + 1) / stages.length;
+      const targetProgress = stageProgresses[currentStage] ?? ((currentStage + 1) / stages.length);
       progress.value = withTiming(targetProgress, {
-        duration: 600,
+        duration: 700,
+        easing: Easing.bezier(0.22, 1, 0.36, 1),
+      });
+      bottomProgressWidth.value = withTiming(targetProgress, {
+        duration: 700,
         easing: Easing.bezier(0.22, 1, 0.36, 1),
       });
 
-      // Gradually shift ring color toward lime as progress increases
-      const intensity = targetProgress;
-      ringColorR.value = withTiming(85 + (204 - 85) * intensity * 0.6, { duration: 600 });
-      ringColorG.value = withTiming(85 + (255 - 85) * intensity * 0.6, { duration: 600 });
-      ringColorB.value = withTiming(85 - 85 * intensity * 0.6, { duration: 600 });
-
-      // Wave gradually organizes
-      waveAmplitude.value = withTiming(1 - intensity * 0.5, { duration: 600 });
-
-      // Subtle haptic per stage
       hapticLight();
 
       currentStage++;
-      setTimeout(advance, 1100);
+      setTimeout(advance, 1200);
     };
 
-    const timer = setTimeout(advance, 800);
-    return () => {
-      clearTimeout(timer);
-      cancelAnimation(wave1X);
-      cancelAnimation(wave2X);
-      cancelAnimation(wave3X);
-    };
+    const timer = setTimeout(advance, 700);
+    return () => clearTimeout(timer);
   }, []);
 
   const fadeStyle = useAnimatedStyle(() => ({ opacity: headlineOpacity.value }));
   const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
 
-  // Circular progress animated styles
-  const ringStyle = useAnimatedStyle(() => {
-    const color = `rgb(${Math.round(ringColorR.value)}, ${Math.round(ringColorG.value)}, ${Math.round(ringColorB.value)})`;
+  // SVG circle strokeDashoffset driven by progress
+  const animatedCircleProps = useAnimatedProps(() => {
+    const offset = CIRCUMFERENCE * (1 - progress.value);
     return {
-      borderColor: color,
-      transform: [{ rotate: `${progress.value * 360}deg` }],
+      strokeDashoffset: offset,
     };
   });
 
-  // Conic-gradient-style progress using rotation + masked arc
-  // We simulate circular progress with a rotating half-ring overlay
-  const progressArcStyle = useAnimatedStyle(() => {
-    const pct = progress.value;
-    return {
-      opacity: pct > 0 ? 1 : 0,
-      transform: [{ rotate: `${pct * 360}deg` }],
-    };
-  });
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+    transform: [{ scale: glowScale.value }],
+  }));
 
   const boltStyle = useAnimatedStyle(() => ({
     transform: [{ scale: boltScale.value }],
-    opacity: boltScale.value,
+    opacity: boltOpacity.value,
   }));
 
-  const glowStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: glowScale.value }],
-    opacity: glowOpacity.value,
+  const bottomProgressStyle = useAnimatedStyle(() => ({
+    width: `${bottomProgressWidth.value * 100}%`,
   }));
 
-  // Energy wave animated styles
-  const wave1Style = useAnimatedStyle(() => ({
-    transform: [{ translateX: wave1X.value }],
-    opacity: waveOpacity.value,
-  }));
-  const wave2Style = useAnimatedStyle(() => ({
-    transform: [{ translateX: wave2X.value }],
-    opacity: waveOpacity.value,
-  }));
-  const wave3Style = useAnimatedStyle(() => ({
-    transform: [{ translateX: wave3X.value }],
-    opacity: waveOpacity.value,
-  }));
-  const waveAmpStyle = useAnimatedStyle(() => ({
-    transform: [{ scaleY: waveAmplitude.value }],
-  }));
+  const stageDescStyle = useAnimatedStyle(() => ({ opacity: stageDescOpacity.value }));
+
+  const displayPercent = Math.round(((completedStages + 1) / stages.length) * 100);
+  const currentStageData = completedStages >= 0 && completedStages < stages.length ? stages[completedStages] : null;
 
   return (
     <View style={[reStyles.container, { backgroundColor: DARK, paddingTop: insets.top }]}>
-      <Animated.View style={[fadeStyle, { flex: 1, paddingHorizontal: 28 }]}>
+      <Animated.View style={[fadeStyle, { flex: 1 }]}>
         {!allDone ? (
-          <>
+          <ScrollView
+            style={{ flex: 1 }}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 120, flexGrow: 1 }}
+          >
+            {/* Heading */}
             <Text style={reStyles.eyebrow}>REVERSE ENGINEERING</Text>
             <Text style={reStyles.headline}>
               <Text style={reStyles.headlineWhite}>REVERSE ENGINEERING{'\n'}</Text>
               <Text style={reStyles.headlineLime}>YOUR GOAL...</Text>
             </Text>
 
-            {/* Energy wave + circular progress */}
-            <View style={reStyles.vizContainer}>
-              <View style={reStyles.vizInner}>
-                {/* Energy wave bars */}
-                <Animated.View style={[reStyles.waveWrap, waveAmpStyle]} >
-                  <Animated.View style={[reStyles.waveBar, reStyles.waveBar1, wave1Style]} />
-                  <Animated.View style={[reStyles.waveBar, reStyles.waveBar2, wave2Style]} />
-                  <Animated.View style={[reStyles.waveBar, reStyles.waveBar3, wave3Style]} />
-                  <Animated.View style={[reStyles.waveBar, reStyles.waveBar4, wave1Style]} />
-                  <Animated.View style={[reStyles.waveBar, reStyles.waveBar5, wave3Style]} />
-                </Animated.View>
+            {/* Circular progress ring */}
+            <View style={reStyles.ringContainer}>
+              {/* Glow behind ring */}
+              <Animated.View style={[reStyles.ringGlow, glowStyle]} />
 
-                {/* Circular progress ring */}
-                <View style={reStyles.ringOuter}>
-                  {/* Glow burst on completion */}
-                  <Animated.View style={[reStyles.glowBurst, glowStyle]} />
+              <Svg width={RING_SIZE} height={RING_SIZE} style={reStyles.svgRing}>
+                {/* Track */}
+                <SvgCircle
+                  cx={RING_SIZE / 2}
+                  cy={RING_SIZE / 2}
+                  r={RING_RADIUS}
+                  stroke="#1A1A1A"
+                  strokeWidth={STROKE_WIDTH}
+                  fill="none"
+                />
+                {/* Progress arc */}
+                <AnimatedCircle
+                  cx={RING_SIZE / 2}
+                  cy={RING_SIZE / 2}
+                  r={RING_RADIUS}
+                  stroke={LIME}
+                  strokeWidth={STROKE_WIDTH}
+                  strokeLinecap="round"
+                  fill="none"
+                  strokeDasharray={CIRCUMFERENCE}
+                  animatedProps={animatedCircleProps}
+                  transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
+                />
+              </Svg>
 
-                  {/* Track (dark gray) */}
-                  <View style={reStyles.ringTrack} />
-
-                  {/* Progress arc (lime, rotates) */}
-                  <Animated.View style={[reStyles.ringProgress, progressArcStyle]} />
-
-                  {/* Center content: stage count or bolt on completion */}
-                  <View style={reStyles.ringCenter}>
-                    {completedStages >= stages.length - 1 ? (
-                      <Animated.View style={boltStyle}>
-                        <Zap size={28} color={LIME} fill={LIME} strokeWidth={1.5} />
-                      </Animated.View>
-                    ) : (
-                      <Text style={reStyles.ringPercent}>
-                        {Math.round(((completedStages + 1) / stages.length) * 100)}%
-                      </Text>
+              {/* Center content */}
+              <View style={reStyles.ringCenter}>
+                {completedStages >= stages.length - 1 ? (
+                  <Animated.View style={boltStyle}>
+                    <Zap size={36} color={LIME} fill={LIME} strokeWidth={1.5} />
+                  </Animated.View>
+                ) : (
+                  <>
+                    <Text style={reStyles.ringPercent}>{displayPercent}%</Text>
+                    {currentStageData && (
+                      <Animated.Text style={[reStyles.ringStageTitle, stageDescStyle]} numberOfLines={1}>
+                        {currentStageData.title}
+                      </Animated.Text>
                     )}
-                  </View>
-                </View>
+                    {currentStageData && (
+                      <Animated.Text style={[reStyles.ringStageDesc, stageDescStyle]} numberOfLines={2}>
+                        {currentStageData.description}
+                      </Animated.Text>
+                    )}
+                  </>
+                )}
               </View>
             </View>
 
             {/* Stage list */}
-            <View style={{ marginTop: 24, gap: 18 }}>
+            <View style={reStyles.stageList}>
               {stages.map((stage, idx) => {
                 const isComplete = completedStages >= idx;
-                const isActive = completedStages === idx - 1 || (idx === 0 && completedStages === -1);
+                const isCurrent = completedStages === idx;
+                const isUpcoming = completedStages < idx;
                 return (
                   <StageRow
                     key={idx}
                     stage={stage}
                     isComplete={isComplete}
-                    isActive={isActive && !isComplete}
+                    isCurrent={isCurrent}
+                    isUpcoming={isUpcoming}
                   />
                 );
               })}
             </View>
-          </>
+          </ScrollView>
         ) : (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'flex-start' }}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'flex-start', paddingHorizontal: 28 }}>
             <Text style={reStyles.finalTitle}>
               <Text style={reStyles.headlineWhite}>YOUR SYSTEM{'\n'}</Text>
               <Text style={reStyles.headlineLime}>IS READY.</Text>
             </Text>
-            <Text style={reStyles.finalSubtitle}>{finalSubtitle}</Text>
+            <Text style={reStyles.finalSubtitle}>
+              Your personalized Success Stack is built. Let's see it.
+            </Text>
           </View>
         )}
       </Animated.View>
 
+      {/* Bottom thin progress line (visible during processing) */}
+      {!allDone && (
+        <View style={[reStyles.bottomProgressTrack, { marginBottom: insets.bottom + 20, marginHorizontal: 28 }]}>
+          <Animated.View style={[reStyles.bottomProgressFill, bottomProgressStyle]} />
+        </View>
+      )}
+
+      {/* CTA */}
       <Animated.View style={[ctaStyle, { paddingHorizontal: 28, paddingBottom: insets.bottom + 24 }]}>
         {allDone && (
           <TouchableOpacity
@@ -342,7 +342,7 @@ export function ReverseEngineeringScreen({
             onPress={() => { hapticMedium(); onReveal(); }}
             activeOpacity={0.85}
           >
-            <Text style={reStyles.ctaText}>Reveal My Success Stack</Text>
+            <Text style={reStyles.ctaText}>See My Success Stack</Text>
             <ArrowRight size={20} color="#000" strokeWidth={3} />
           </TouchableOpacity>
         )}
@@ -351,17 +351,22 @@ export function ReverseEngineeringScreen({
   );
 }
 
+// Animated SVG Circle wrapper
+const AnimatedCircle = Animated.createAnimatedComponent(SvgCircle);
+
 function StageRow({
   stage,
   isComplete,
-  isActive,
+  isCurrent,
+  isUpcoming,
 }: {
   stage: ReverseEngineeringStage;
   isComplete: boolean;
-  isActive: boolean;
+  isCurrent: boolean;
+  isUpcoming: boolean;
 }) {
   const checkScale = useSharedValue(0);
-  const textOpacity = useSharedValue(0);
+  const dotOpacity = useSharedValue(0.3);
 
   useEffect(() => {
     if (isComplete) {
@@ -369,41 +374,56 @@ function StageRow({
         withTiming(0, { duration: 0 }),
         withTiming(1, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
       );
-      textOpacity.value = withTiming(1, { duration: 400 });
-    } else if (isActive) {
-      textOpacity.value = withTiming(0.6, { duration: 400 });
+      dotOpacity.value = withTiming(1, { duration: 300 });
+    } else if (isCurrent) {
+      dotOpacity.value = withTiming(0.6, { duration: 300 });
     } else {
-      textOpacity.value = withTiming(0.2, { duration: 300 });
+      dotOpacity.value = withTiming(0.25, { duration: 300 });
     }
-  }, [isComplete, isActive]);
+  }, [isComplete, isCurrent]);
 
   const checkStyle = useAnimatedStyle(() => ({
     transform: [{ scale: checkScale.value }],
     opacity: checkScale.value,
   }));
-  const textStyle = useAnimatedStyle(() => ({ opacity: textOpacity.value }));
+  const dotStyle = useAnimatedStyle(() => ({ opacity: dotOpacity.value }));
 
   return (
-    <Animated.View style={[reStyles.stageRow, textStyle]}>
-      <View style={reStyles.stageNumberWrap}>
-        <Text style={[reStyles.stageNumber, { color: isComplete ? LIME : FAINT }]}>
-          {stage.number}
-        </Text>
-        <Animated.View style={[reStyles.checkWrap, checkStyle]}>
-          <View style={reStyles.checkCircle}>
-            <Check size={14} color="#000" strokeWidth={3} />
-          </View>
-        </Animated.View>
+    <View style={reStyles.stageRow}>
+      {/* Left indicator */}
+      <View style={reStyles.stageIndicatorWrap}>
+        {isComplete ? (
+          <Animated.View style={[reStyles.stageCheckCircle, checkStyle]}>
+            <Check size={12} color="#000" strokeWidth={3} />
+          </Animated.View>
+        ) : (
+          <Animated.View style={[reStyles.stageDot, dotStyle, isCurrent && { backgroundColor: LIME }]} />
+        )}
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[reStyles.stageTitle, { color: isComplete ? '#FFF' : MUTED }]}>
+
+      {/* Text content */}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text
+          style={[
+            reStyles.stageTitle,
+            { color: isComplete ? '#FFF' : isCurrent ? '#DDD' : '#444' },
+            isCurrent && { fontWeight: '800' },
+          ]}
+          numberOfLines={1}
+        >
           {stage.title}
         </Text>
-        <Text style={[reStyles.stageDesc, { color: isComplete ? '#AAA' : '#444' }]}>
+        <Text
+          style={[
+            reStyles.stageDesc,
+            { color: isComplete ? '#888' : isCurrent ? LIME : '#333' },
+          ]}
+          numberOfLines={2}
+        >
           {isComplete && stage.resultValue ? stage.resultValue : stage.description}
         </Text>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -414,22 +434,112 @@ const reStyles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.5,
     color: FAINT,
-    marginTop: 24,
+    marginTop: 20,
   },
   headline: {
-    fontSize: 38,
+    fontSize: 32,
     fontWeight: '900',
     letterSpacing: -1,
-    lineHeight: 44,
-    marginTop: 8,
+    lineHeight: 38,
+    marginTop: 6,
+    marginBottom: 8,
   },
   headlineWhite: { color: '#FFFFFF' },
   headlineLime: { color: LIME },
+  ringContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    marginBottom: 24,
+  },
+  ringGlow: {
+    position: 'absolute',
+    width: RING_SIZE + 40,
+    height: RING_SIZE + 40,
+    borderRadius: (RING_SIZE + 40) / 2,
+    backgroundColor: LIME,
+  },
+  svgRing: {
+    position: 'relative',
+    zIndex: 1,
+  },
+  ringCenter: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: RING_SIZE,
+    height: RING_SIZE,
+    paddingHorizontal: 12,
+    zIndex: 2,
+  },
+  ringPercent: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#FFF',
+    letterSpacing: -1,
+  },
+  ringStageTitle: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    color: LIME,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  ringStageDesc: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#666',
+    marginTop: 2,
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  stageList: {
+    gap: 14,
+  },
+  stageRow: {
+    flexDirection: 'row',
+    gap: 14,
+    alignItems: 'flex-start',
+  },
+  stageIndicatorWrap: {
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  stageCheckCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: LIME,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stageDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#333',
+  },
+  stageTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 19,
+    letterSpacing: 0.3,
+  },
+  stageDesc: {
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 17,
+    marginTop: 1,
+  },
   finalTitle: {
-    fontSize: 40,
+    fontSize: 36,
     fontWeight: '900',
     letterSpacing: -1.5,
-    lineHeight: 46,
+    lineHeight: 42,
   },
   finalSubtitle: {
     fontSize: 16,
@@ -438,114 +548,16 @@ const reStyles = StyleSheet.create({
     marginTop: 12,
     lineHeight: 24,
   },
-  vizContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 28,
-    height: 140,
+  bottomProgressTrack: {
+    height: 2,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 1,
+    overflow: 'hidden',
   },
-  vizInner: {
-    width: 120,
-    height: 120,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  waveWrap: {
-    position: 'absolute',
-    width: 120,
-    height: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
-  },
-  waveBar: {
-    width: 3,
-    borderRadius: 1.5,
+  bottomProgressFill: {
+    height: '100%',
     backgroundColor: LIME,
-  },
-  waveBar1: { height: 28 },
-  waveBar2: { height: 44 },
-  waveBar3: { height: 20 },
-  waveBar4: { height: 36 },
-  waveBar5: { height: 16 },
-  ringOuter: {
-    width: 100,
-    height: 100,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  glowBurst: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: LIME,
-  },
-  ringTrack: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 3,
-    borderColor: '#222',
-  },
-  ringProgress: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 3,
-    borderTopColor: LIME,
-    borderRightColor: LIME,
-    borderBottomColor: 'transparent',
-    borderLeftColor: 'transparent',
-  },
-  ringCenter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ringPercent: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#AAA',
-  },
-  stageRow: {
-    flexDirection: 'row',
-    gap: 16,
-    alignItems: 'flex-start',
-  },
-  stageNumberWrap: {
-    width: 32,
-    alignItems: 'center',
-    paddingTop: 2,
-  },
-  stageNumber: {
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  checkWrap: {
-    marginTop: 4,
-  },
-  checkCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: LIME,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stageTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    lineHeight: 22,
-  },
-  stageDesc: {
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 20,
-    marginTop: 2,
+    borderRadius: 1,
   },
   cta: {
     flexDirection: 'row',
@@ -632,7 +644,7 @@ function FlowNode({ label }: { label: string }) {
 function FlowArrow() {
   return (
     <View style={bcStyles.flowArrow}>
-      <Text style={bcStyles.flowArrowText}>→</Text>
+      <Text style={bcStyles.flowArrowText}>↓</Text>
     </View>
   );
 }
@@ -649,10 +661,10 @@ const bcStyles = StyleSheet.create({
     marginTop: 24,
   },
   headline: {
-    fontSize: 42,
+    fontSize: 40,
     fontWeight: '900',
     letterSpacing: -1.5,
-    lineHeight: 48,
+    lineHeight: 46,
     marginTop: 8,
   },
   headlineWhite: { color: '#FFFFFF' },
@@ -1085,10 +1097,10 @@ const qStyles = StyleSheet.create({
   header: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 },
   backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   headline: {
-    fontSize: 36,
+    fontSize: 34,
     fontWeight: '900',
     letterSpacing: -1,
-    lineHeight: 42,
+    lineHeight: 40,
     marginTop: 16,
   },
   headlineWhite: { color: '#FFFFFF' },
@@ -1241,7 +1253,7 @@ const qStyles = StyleSheet.create({
   },
 });
 
-// ─── Plan Screen ──────────────────────────────────────────────────────────────
+// ─── Plan Screen → "YOUR PATH" ───────────────────────────────────────────────
 
 export function BodyCompPlanScreen({
   result,
@@ -1256,19 +1268,24 @@ export function BodyCompPlanScreen({
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const fade = useSharedValue(0);
-  useEffect(() => { fade.value = withTiming(1, { duration: 500 }); }, []);
-  const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
+  const pathDraw = useSharedValue(0);
 
-  const planRows = [
-    { label: 'GOAL', value: goalLabel },
-    { label: 'STARTING WEIGHT', value: `${result.startingWeightLbs} lbs` },
-    { label: 'TARGET WEIGHT', value: `${result.targetWeightLbs} lbs` },
-    { label: 'ESTIMATED CALORIE TARGET', value: `~${result.suggestedCalorieTarget} / day` },
-    { label: 'ESTIMATED PROTEIN TARGET', value: `~${result.suggestedProteinGrams}g / day` },
-    { label: 'ESTIMATED PACE', value: `~${result.estimatedWeeklyRateLbs} lbs / week` },
-    { label: 'ESTIMATED TIMEFRAME', value: result.estimatedWeeks > 0 ? `~${result.estimatedWeeks} weeks` : 'N/A' },
-  ];
+  useEffect(() => {
+    fade.value = withTiming(1, { duration: 500 });
+    pathDraw.value = withDelay(300, withTiming(1, { duration: 800, easing: Easing.bezier(0.22, 1, 0.36, 1) }));
+  }, []);
+
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
+  const pathStyle = useAnimatedProps(() => ({
+    strokeDashoffset: (screenWidth - 80) * (1 - pathDraw.value),
+  }));
+
+  const pathWidth = Math.max(0, screenWidth - 80);
+  const useStacked = screenWidth < 380;
+  const timeframeLabel = result.estimatedWeeks > 0 ? `≈ ${result.estimatedWeeks} weeks` : 'N/A';
+  const paceLabel = `at your selected pace of ≈${result.estimatedWeeklyRateLbs} lb/week`;
 
   return (
     <View style={[planStyles.container, { backgroundColor: DARK, paddingTop: insets.top }]}>
@@ -1280,23 +1297,87 @@ export function BodyCompPlanScreen({
 
       <Animated.View style={[fadeStyle, { flex: 1 }]}>
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 120 }}>
+          {/* Heading */}
           <Text style={planStyles.headline}>
             <Text style={planStyles.headlineWhite}>YOUR{'\n'}</Text>
-            <Text style={planStyles.headlineLime}>PLAN</Text>
+            <Text style={planStyles.headlineLime}>PATH</Text>
           </Text>
           <Text style={planStyles.support}>
-            Here's the starting plan we built from your goal and the information you gave us.
+            Here's the starting plan we built around your goal.
           </Text>
 
-          <View style={planStyles.cardGroup}>
-            {planRows.map((row, i) => (
-              <View key={i} style={[planStyles.cardRow, i < planRows.length - 1 && planStyles.cardRowBorder]}>
-                <Text style={planStyles.cardLabel}>{row.label}</Text>
-                <Text style={planStyles.cardValue}>{row.value}</Text>
+          {/* Journey visualization */}
+          <View style={planStyles.journeySection}>
+            <View style={planStyles.journeyLabelsRow}>
+              <View style={planStyles.journeyLabelLeft}>
+                <Text style={planStyles.journeyWeight}>{Math.round(result.startingWeightLbs)} lbs</Text>
+                <Text style={planStyles.journeyLabel}>YOU ARE HERE</Text>
               </View>
-            ))}
+              <View style={planStyles.journeyLabelRight}>
+                <Text style={[planStyles.journeyWeight, { color: LIME }]}>{Math.round(result.targetWeightLbs)} lbs</Text>
+                <Text style={[planStyles.journeyLabel, { color: LIME }]}>YOUR GOAL</Text>
+              </View>
+            </View>
+
+            {/* Path line with dots */}
+            <View style={planStyles.pathContainer}>
+              <Svg width={pathWidth} height={40} style={planStyles.pathSvg}>
+                {/* Dashed track */}
+                <SvgLine
+                  x1="6" y1="20"
+                  x2={pathWidth - 6} y2="20"
+                  stroke="#222"
+                  strokeWidth="2"
+                  strokeDasharray="4 4"
+                />
+                {/* Animated progress line */}
+                <AnimatedLine
+                  x1="6" y1="20"
+                  x2={pathWidth - 6} y2="20"
+                  stroke={LIME}
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeDasharray={pathWidth}
+                  animatedProps={pathStyle}
+                />
+              </Svg>
+              {/* Start dot */}
+              <View style={planStyles.pathDotLeft} />
+              {/* End dot */}
+              <View style={planStyles.pathDotRight} />
+            </View>
+
+            <View style={planStyles.journeyBottomRow}>
+              <Text style={planStyles.journeyToday}>Today</Text>
+              <Text style={planStyles.journeyTimeframe}>{timeframeLabel}</Text>
+            </View>
           </View>
 
+          {/* Pace subtitle */}
+          <Text style={planStyles.paceSubtitle}>{paceLabel}</Text>
+
+          {/* Daily targets */}
+          <Text style={planStyles.sectionHeader}>YOUR DAILY TARGETS</Text>
+
+          <View style={[planStyles.targetsRow, useStacked && { flexDirection: 'column' }]}>
+            <View style={[planStyles.targetCard, useStacked && { width: '100%' }]}>
+              <Text style={planStyles.targetValue}>{result.suggestedCalorieTarget.toLocaleString()}</Text>
+              <Text style={planStyles.targetLabel}>CALORIES / DAY</Text>
+            </View>
+            {!useStacked && <View style={planStyles.targetGap} />}
+            <View style={[planStyles.targetCard, useStacked && { width: '100%' }]}>
+              <Text style={planStyles.targetValue}>{result.suggestedProteinGrams}g</Text>
+              <Text style={planStyles.targetLabel}>PROTEIN / DAY</Text>
+            </View>
+          </View>
+
+          {/* Pace row */}
+          <View style={planStyles.paceRow}>
+            <Text style={planStyles.paceValue}>≈{result.estimatedWeeklyRateLbs} lb/week</Text>
+            <Text style={planStyles.paceRowLabel}>YOUR ESTIMATED PACE</Text>
+          </View>
+
+          {/* Disclaimer */}
           <Text style={planStyles.disclaimer}>
             These are estimates, not guarantees. Real-world progress varies.
           </Text>
@@ -1308,13 +1389,15 @@ export function BodyCompPlanScreen({
 
       <View style={[planStyles.footer, { paddingBottom: insets.bottom + 24 }]}>
         <TouchableOpacity style={planStyles.cta} onPress={() => { hapticLight(); onReveal(); }} activeOpacity={0.85}>
-          <Text style={planStyles.ctaText}>Reveal My Success Stack</Text>
+          <Text style={planStyles.ctaText}>See My Success Stack</Text>
           <ArrowRight size={20} color="#000" strokeWidth={3} />
         </TouchableOpacity>
       </View>
     </View>
   );
 }
+
+const AnimatedLine = Animated.createAnimatedComponent(SvgLine);
 
 const planStyles = StyleSheet.create({
   container: { flex: 1 },
@@ -1335,48 +1418,161 @@ const planStyles = StyleSheet.create({
     color: MUTED,
     marginTop: 12,
     lineHeight: 24,
-    marginBottom: 24,
+    marginBottom: 28,
   },
-  cardGroup: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: CARD_BORDER,
-    overflow: 'hidden',
+  journeySection: {
+    alignItems: 'center',
   },
-  cardRow: {
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    gap: 4,
+  journeyLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 12,
   },
-  cardRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: CARD_BORDER,
+  journeyLabelLeft: {
+    alignItems: 'flex-start',
   },
-  cardLabel: {
+  journeyLabelRight: {
+    alignItems: 'flex-end',
+  },
+  journeyWeight: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#FFF',
+    letterSpacing: -0.5,
+  },
+  journeyLabel: {
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 1.2,
+    letterSpacing: 1,
     color: FAINT,
+    marginTop: 2,
   },
-  cardValue: {
-    fontSize: 18,
+  pathContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 40,
+    position: 'relative',
+  },
+  pathSvg: {
+    position: 'absolute',
+  },
+  pathDotLeft: {
+    position: 'absolute',
+    left: 0,
+    top: 14,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#FFF',
+    borderWidth: 2,
+    borderColor: DARK,
+  },
+  pathDotRight: {
+    position: 'absolute',
+    right: 0,
+    top: 14,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: LIME,
+    borderWidth: 2,
+    borderColor: DARK,
+  },
+  journeyBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 8,
+  },
+  journeyToday: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  journeyTimeframe: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#FFF',
+    color: LIME,
   },
-  disclaimer: {
+  paceSubtitle: {
     fontSize: 13,
     fontWeight: '500',
     color: '#666',
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 28,
+  },
+  sectionHeader: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    color: FAINT,
+    marginBottom: 14,
+  },
+  targetsRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  targetGap: {
+    width: 12,
+  },
+  targetCard: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: CARD_BG,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    paddingVertical: 20,
+    alignItems: 'center',
+    gap: 4,
+  },
+  targetValue: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#FFF',
+    letterSpacing: -1,
+  },
+  targetLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: FAINT,
+  },
+  paceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
     marginTop: 20,
-    lineHeight: 20,
+    flexWrap: 'wrap',
+  },
+  paceValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: LIME,
+  },
+  paceRowLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: FAINT,
+  },
+  disclaimer: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#555',
+    marginTop: 28,
+    lineHeight: 18,
     fontStyle: 'italic',
   },
   medicalNote: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
     color: '#444',
-    marginTop: 12,
-    lineHeight: 18,
+    marginTop: 10,
+    lineHeight: 16,
   },
   footer: { paddingHorizontal: 28 },
   cta: {
@@ -1499,21 +1695,33 @@ function StackTile({
 }) {
   return (
     <TouchableOpacity
-      style={[stackStyles.tile, { borderColor: input.selected ? LIME : CARD_BORDER, backgroundColor: input.selected ? 'rgba(204,255,0,0.04)' : 'rgba(255,255,255,0.02)' }]}
+      style={[
+        stackStyles.tile,
+        {
+          borderColor: input.selected ? 'rgba(204,255,0,0.25)' : CARD_BORDER,
+          backgroundColor: input.selected ? 'rgba(204,255,0,0.03)' : CARD_BG,
+        },
+      ]}
       onPress={onToggle}
       activeOpacity={0.85}
     >
-      <View style={stackStyles.tileHeader}>
+      <View style={stackStyles.tileRow}>
         <Text style={stackStyles.tileNumber}>{String(index).padStart(2, '0')}</Text>
+        <Text
+          style={[
+            stackStyles.tileLabel,
+            { color: input.selected ? '#FFF' : '#888' },
+          ]}
+          numberOfLines={1}
+        >
+          {input.label}
+        </Text>
         <View style={[stackStyles.tileCheck, { borderColor: input.selected ? LIME : '#333', backgroundColor: input.selected ? LIME : 'transparent' }]}>
-          {input.selected && <Check size={14} color="#000" strokeWidth={3} />}
+          {input.selected && <Check size={12} color="#000" strokeWidth={3} />}
         </View>
       </View>
-      <Text style={[stackStyles.tileLabel, { color: input.selected ? '#FFF' : '#888' }]}>
-        {input.label}
-      </Text>
       {input.valueDetail && (
-        <Text style={stackStyles.tileDetail}>{input.valueDetail}</Text>
+        <Text style={stackStyles.tileDetail} numberOfLines={1}>{input.valueDetail}</Text>
       )}
     </TouchableOpacity>
   );
@@ -1633,42 +1841,47 @@ const stackStyles = StyleSheet.create({
     marginBottom: 24,
   },
   coreGroup: {
-    gap: 12,
+    gap: 10,
   },
   tile: {
-    borderRadius: 14,
-    borderWidth: 1.5,
-    padding: 12,
-    gap: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 2,
   },
-  tileHeader: {
+  tileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 10,
   },
   tileNumber: {
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 0.8,
-    color: FAINT,
+    letterSpacing: 0.5,
+    color: '#444',
+    minWidth: 20,
+  },
+  tileLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 20,
   },
   tileCheck: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    borderWidth: 2,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  tileLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    lineHeight: 20,
+    flexShrink: 0,
   },
   tileDetail: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: LIME,
+    marginLeft: 30,
   },
   optionalHeader: {
     fontSize: 11,
@@ -1716,6 +1929,7 @@ const stackStyles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   optionalLabel: {
+    flex: 1,
     fontSize: 15,
     fontWeight: '700',
   },

@@ -1547,17 +1547,16 @@ export default function IdentityBuilder({ onComplete }: Props) {
         const bcState = bodyCompStates[goalIdx];
         const result = bcState?.calculationResult;
         const stages: ReverseEngineeringStage[] = [
-          { number: '01', title: 'YOUR GOAL', description: goalLabel, resultValue: goalLabel },
-          { number: '02', title: 'UNDERSTANDING YOUR BODY', description: 'Estimating your baseline energy needs...', resultValue: result ? `Maintenance ~${result.maintenanceCalories} cal` : undefined },
-          { number: '03', title: 'FINDING THE GAP', description: 'Calculating a sustainable starting target...', resultValue: result ? `Target ~${result.suggestedCalorieTarget} cal/day` : undefined },
-          { number: '04', title: 'YOUR TARGET', description: 'Determining your daily nutrition target...', resultValue: result ? `Protein ~${result.suggestedProteinGrams}g/day` : undefined },
-          { number: '05', title: 'BUILDING YOUR SYSTEM', description: 'Turning the plan into daily inputs...', resultValue: 'Ready' },
+          { number: '01', title: 'UNDERSTANDING YOUR BODY', description: 'Estimating your baseline energy needs...', resultValue: result ? `Maintenance ~${result.maintenanceCalories} cal` : undefined },
+          { number: '02', title: 'FINDING THE GAP', description: 'Calculating a sustainable target...', resultValue: result ? `Target ~${result.suggestedCalorieTarget} cal/day` : undefined },
+          { number: '03', title: 'BUILDING YOUR SYSTEM', description: 'Turning your target into daily inputs...', resultValue: result ? `Protein ~${result.suggestedProteinGrams}g/day` : undefined },
+          { number: '04', title: 'ASSEMBLING YOUR SUCCESS STACK', description: 'Putting it all together...', resultValue: 'Ready' },
         ];
         return (
           <ReverseEngineeringScreen
             stages={stages}
-            finalTitle="YOUR SYSTEM IS READY."
-            finalSubtitle="Your personalized Success Stack is built. Let's see it."
+            result={result ?? null}
+            goalLabel={goalLabel}
             onReveal={() => navigate({ kind: 'body-comp-plan', goalIdx })}
           />
         );
