@@ -1533,7 +1533,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
           { number: '01', title: 'UNDERSTANDING YOUR BODY', description: 'Estimating your baseline energy needs...', resultValue: result ? `Maintenance ~${result.maintenanceCalories} cal` : undefined },
           { number: '02', title: 'FINDING THE GAP', description: 'Calculating a sustainable target...', resultValue: result ? `Target ~${result.suggestedCalorieTarget} cal/day` : undefined },
           { number: '03', title: 'BUILDING YOUR SYSTEM', description: 'Turning your target into daily inputs...', resultValue: result ? `Protein ~${result.suggestedProteinGrams}g/day` : undefined },
-          { number: '04', title: 'ASSEMBLING YOUR SUCCESS STACK', description: 'Putting it all together...', resultValue: 'Ready' },
+          { number: '04', title: 'ASSEMBLING YOUR DAILY INPUTS', description: 'Putting it all together...', resultValue: 'Ready' },
         ];
         return (
           <ReverseEngineeringScreen
@@ -1590,26 +1590,27 @@ export default function IdentityBuilder({ onComplete }: Props) {
           const bcInputs = bcState!.selectedInputs ?? buildDefaultStackInputs(bcState!.calculationResult!);
           planInputs = bcInputs.map(inp => ({
             id: inp.id,
-            label: inp.dailyInput,
-            detail: inp.valueDetail || '',
+            title: inp.label,
+            target: inp.valueDetail || '',
             selected: inp.selected,
             editable: inp.category === 'calories' || inp.category === 'protein' || inp.category === 'steps' || inp.category === 'exercise',
             category: inp.category,
+            optional: inp.category === 'nutrition_rule' || inp.category === 'hydration' || inp.category === 'bedtime',
           }));
         } else {
           // Standard path: build from locked goal + additional inputs
           const lockedGoal = locked.find(l => l.goalId === goal.id);
           const primary: GoalPlanInput = {
             id: 'primary',
-            label: lockedGoal?.dailyInput || decodeResults[goalIdx] || '',
-            detail: '',
+            title: lockedGoal?.what || lockedGoal?.dailyInput || decodeResults[goalIdx] || '',
+            target: '',
             selected: true,
             editable: false,
           };
           const additional: GoalPlanInput[] = (lockedGoal?.additionalInputs ?? []).map((inp, i) => ({
             id: `add-${i}`,
-            label: inp.dailyInput,
-            detail: '',
+            title: inp.dailyInput,
+            target: '',
             selected: true,
             editable: false,
           }));
@@ -1683,7 +1684,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
 
         // AI-suggested inputs remaining for the add-input prefill
         const aiRemaining = (aiSelectedInputs[goalIdx] ?? []).filter(
-          inp => !planInputs.some(pi => pi.label === inp)
+          inp => !planInputs.some(pi => pi.title === inp)
         );
 
         return (

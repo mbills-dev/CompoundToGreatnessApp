@@ -115,7 +115,6 @@ export function ReverseEngineeringScreen({
 
   const [currentStageIdx, setCurrentStageIdx] = useState(-1);
   const [phase, setPhase] = useState<'processing' | 'complete'>('processing');
-  const [displayPercent, setDisplayPercent] = useState(0);
 
   const headlineOpacity = useSharedValue(0);
   const ctaOpacity = useSharedValue(0);
@@ -126,7 +125,7 @@ export function ReverseEngineeringScreen({
   const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0);
   const bottomProgressWidth = useSharedValue(0);
-  const stageDescOpacity = useSharedValue(0);
+  const percentOpacity = useSharedValue(1);
   const processingUIOpacity = useSharedValue(1);
   const completionHeadlineOpacity = useSharedValue(0);
   const completionHeadlineTranslateY = useSharedValue(20);
@@ -137,44 +136,38 @@ export function ReverseEngineeringScreen({
   useEffect(() => {
     headlineOpacity.value = withTiming(1, { duration: 600 });
 
-    // ONE continuous animation from 0 → 100% over ~4.5s.
-    // All segments are plain withTiming chained in a single withSequence.
-    // No withDelay inside withSequence — nested delayed animations can produce
-    // invalid onFrame callbacks in Reanimated, causing the "Cannot read
-    // properties of undefined (reading 'onFrame')" crash.
-    const INITIAL_DELAY = 700;
-    const SUSPENSE_HOLD = 300;
+    // ONE uninterrupted animation 0 → 1 over ~4.8s.
+    // No withSequence, no segmented timing, no stage-controlled restarts.
+    // Stages merely observe progress via useAnimatedReaction.
+    const DURATION = 4800;
+    const INITIAL_DELAY = 600;
 
     progress.value = withDelay(
       INITIAL_DELAY,
-      withSequence(
-        withTiming(0.25, { duration: 1100, easing: Easing.bezier(0.4, 0, 0.6, 1) }),
-        withTiming(0.50, { duration: 1000, easing: Easing.bezier(0.25, 0.1, 0.25, 1) }),
-        withTiming(0.75, { duration: 1000, easing: Easing.bezier(0.2, 0.0, 0.3, 1) }),
-        withTiming(0.99, { duration: 1100, easing: Easing.bezier(0.15, 0.0, 0.15, 1) }),
-        withTiming(0.99, { duration: SUSPENSE_HOLD }),
-        withTiming(1, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
-      ),
+      withTiming(1, { duration: DURATION, easing: Easing.bezier(0.45, 0.05, 0.35, 1) }),
     );
     bottomProgressWidth.value = progress.value;
 
-    const totalDuration = INITIAL_DELAY + 1100 + 1000 + 1000 + 1100 + SUSPENSE_HOLD + 300;
+    const totalDuration = INITIAL_DELAY + DURATION;
 
     // Completion sequence fires after ring reaches 100%
     const completionTimer = setTimeout(() => {
       hapticSuccess();
+
+      // Fade percentage out first, then bring bolt in — never overlap
+      percentOpacity.value = withTiming(0, { duration: 200 });
 
       ringGlowOpacity.value = withSequence(
         withTiming(0.5, { duration: 200 }),
         withTiming(0.15, { duration: 600 }),
       );
 
-      boltOpacity.value = withTiming(1, { duration: 200 });
-      boltScale.value = withSequence(
+      boltOpacity.value = withDelay(200, withTiming(1, { duration: 200 }));
+      boltScale.value = withDelay(200, withSequence(
         withTiming(0.01, { duration: 1 }),
         withTiming(1.3, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
         withTiming(1, { duration: 200 }),
-      );
+      ));
 
       pulseOpacity.value = withSequence(
         withTiming(0.3, { duration: 200 }),
@@ -203,30 +196,23 @@ export function ReverseEngineeringScreen({
   const onStageChange = (idx: number) => {
     if (idx < 0 || idx >= stages.length) return;
     setCurrentStageIdx(idx);
-    stageDescOpacity.value = withSequence(
-      withTiming(0, { duration: 150 }),
-      withTiming(1, { duration: 300 }),
-    );
     if (idx > 0) hapticLight();
   };
 
-  // Continuous percentage display — update state from shared value
+  // Stage changes merely observe progress — never modify it.
+  // Only fire runOnJS when crossing a threshold (not every frame).
   useAnimatedReaction(
-    () => progress.value,
-    (p) => {
-      runOnJS(setDisplayPercent)(Math.round(p * 100));
-      // Determine current stage from continuous progress
+    () => {
+      const p = progress.value;
       let stageIdx = -1;
       for (let i = 0; i < stageBoundaries.length; i++) {
-        if (p < stageBoundaries[i]) {
-          stageIdx = i;
-          break;
-        }
-        if (i === stageBoundaries.length - 1) {
-          stageIdx = i;
-        }
+        if (p < stageBoundaries[i]) { stageIdx = i; break; }
+        if (i === stageBoundaries.length - 1) stageIdx = i;
       }
-      if (stageIdx !== lastStageFired.current && stageIdx >= 0) {
+      return stageIdx;
+    },
+    (stageIdx, prevStageIdx) => {
+      if (stageIdx !== prevStageIdx && stageIdx >= 0) {
         lastStageFired.current = stageIdx;
         runOnJS(onStageChange)(stageIdx);
       }
@@ -261,8 +247,6 @@ export function ReverseEngineeringScreen({
     width: `${bottomProgressWidth.value * 100}%`,
   }));
 
-  const stageDescStyle = useAnimatedStyle(() => ({ opacity: stageDescOpacity.value }));
-
   const processingUIStyle = useAnimatedStyle(() => ({ opacity: processingUIOpacity.value }));
 
   const completionHeadlineStyle = useAnimatedStyle(() => ({
@@ -270,7 +254,12 @@ export function ReverseEngineeringScreen({
     transform: [{ translateY: completionHeadlineTranslateY.value }],
   }));
 
-  // Progressive glow — intensifies more from 80-99% to build anticipation
+  // Percentage text — derive from the same progress shared value.
+  // Use useAnimatedProps to set text on UI thread without per-frame runOnJS.
+  const percentProps = useAnimatedProps(() => ({
+    text: `${Math.round(progress.value * 100)}%`,
+  } as { text: string }));
+  const percentStyle = useAnimatedStyle(() => ({ opacity: percentOpacity.value }));
   const progressiveGlowStyle = useAnimatedStyle(() => {
     const p = progress.value;
     const intensity = p < 0.8 ? p * 0.12 : 0.096 + (p - 0.8) * 0.77;
@@ -284,6 +273,8 @@ export function ReverseEngineeringScreen({
     currentStageIdx >= 0 && currentStageIdx < stages.length
       ? stages[currentStageIdx]
       : null;
+
+  // No longer used in ring center — kept for stage list below.
 
   return (
     <View style={[reStyles.container, { backgroundColor: DARK, paddingTop: insets.top }]}>
@@ -346,25 +337,19 @@ export function ReverseEngineeringScreen({
               </Svg>
             </Animated.View>
 
-            {/* Center content */}
+            {/* Center content — ONLY percentage during processing, bolt on completion */}
             <View style={reStyles.ringCenter}>
               {phase === 'complete' ? (
                 <Animated.View style={boltStyle}>
                   <Zap size={36} color={LIME} fill={LIME} strokeWidth={1.5} />
                 </Animated.View>
               ) : (
-                <Animated.View style={processingUIStyle}>
-                  <Text style={reStyles.ringPercent}>{displayPercent}%</Text>
-                  {currentStageData && (
-                    <Animated.Text style={[reStyles.ringStageTitle, stageDescStyle]} numberOfLines={1}>
-                      {currentStageData.title}
-                    </Animated.Text>
-                  )}
-                  {currentStageData && (
-                    <Animated.Text style={[reStyles.ringStageDesc, stageDescStyle]} numberOfLines={2}>
-                      {currentStageData.description}
-                    </Animated.Text>
-                  )}
+                <Animated.View style={[reStyles.ringPercentWrap, percentStyle]}>
+                  <AnimatedTextInput
+                    editable={false}
+                    style={reStyles.ringPercent}
+                    animatedProps={percentProps as any}
+                  />
                 </Animated.View>
               )}
             </View>
@@ -417,6 +402,7 @@ export function ReverseEngineeringScreen({
 const AnimatedCircle = Animated.createAnimatedComponent(SvgCircle);
 const AnimatedPath = Animated.createAnimatedComponent(SvgPath);
 const AnimatedRect = Animated.createAnimatedComponent(SvgRect);
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 function StageRow({
   stage,
@@ -550,27 +536,16 @@ const reStyles = StyleSheet.create({
     paddingHorizontal: 12,
     zIndex: 2,
   },
+  ringPercentWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   ringPercent: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '900',
     color: '#FFF',
     letterSpacing: -1,
-  },
-  ringStageTitle: {
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    color: LIME,
-    marginTop: 4,
     textAlign: 'center',
-  },
-  ringStageDesc: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: '#666',
-    marginTop: 2,
-    textAlign: 'center',
-    lineHeight: 14,
   },
   stageList: {
     gap: 14,

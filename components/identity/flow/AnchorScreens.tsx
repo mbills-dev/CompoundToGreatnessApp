@@ -554,11 +554,12 @@ export function AddInputScreen({
 
 export interface GoalPlanInput {
   id: string;
-  label: string;
-  detail: string;
+  title: string;
+  target: string;
   selected: boolean;
   editable: boolean;
   category?: string;
+  optional?: boolean;
 }
 
 // ─── GoalPlanScreen (universal goal finalization) ────────────────────────────
@@ -585,7 +586,6 @@ export function GoalPlanScreen({
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const fade = useSharedValue(0);
-  const lockProgress = useSharedValue(0);
   const lockScale = useSharedValue(1);
   const lockLabelOpacity = useSharedValue(1);
   const lockedBadgeOpacity = useSharedValue(0);
@@ -608,6 +608,8 @@ export function GoalPlanScreen({
     transform: [{ scale: lockedBadgeScale.value }],
   }));
 
+  const coreInputs = inputs.filter(i => !i.optional);
+  const optionalInputs = inputs.filter(i => i.optional);
   const selectedInputs = inputs.filter(i => i.selected);
   const canAddMore = selectedInputs.length < 5;
   const canLock = selectedInputs.length > 0;
@@ -631,12 +633,37 @@ export function GoalPlanScreen({
     setTimeout(() => onLock(), 900);
   };
 
+  const renderInputCard = (inp: GoalPlanInput, idx: number) => (
+    <GoalPlanInputCard
+      key={inp.id}
+      index={idx + 1}
+      input={inp}
+      colors={colors}
+      isDark={isDark ?? true}
+      onToggle={() => onToggleInput(inp.id)}
+      onEditDetail={(detail) => onEditInputDetail(inp.id, detail)}
+    />
+  );
+
   return (
     <View style={[goalPlanStyles.container, { backgroundColor: isDark ? '#0A0A0A' : '#FAFAFA', paddingTop: insets.top }]}>
       <Animated.View style={[fadeStyle, { flex: 1 }]}>
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 120 }}>
-          {/* Eyebrow */}
-          <Text style={goalPlanStyles.eyebrow}>GOAL {n}</Text>
+          {/* Eyebrow with goal count */}
+          <View style={goalPlanStyles.eyebrowRow}>
+            <Text style={goalPlanStyles.eyebrow}>GOAL {n} OF {total}</Text>
+            <View style={goalPlanStyles.progressDots}>
+              {Array.from({ length: total }).map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    goalPlanStyles.progressDot,
+                    i < n && { backgroundColor: '#CCFF00' },
+                  ]}
+                />
+              ))}
+            </View>
+          </View>
 
           {/* Headline */}
           <Text style={goalPlanStyles.headline}>
@@ -649,22 +676,12 @@ export function GoalPlanScreen({
             These are the daily inputs designed to move you toward this goal.
           </Text>
 
-          {/* Input cards */}
+          {/* Core input cards — only actual inputs, no empty slots */}
           <View style={goalPlanStyles.inputList}>
-            {inputs.map((inp, idx) => (
-              <GoalPlanInputCard
-                key={inp.id}
-                index={idx + 1}
-                input={inp}
-                colors={colors}
-                isDark={isDark ?? true}
-                onToggle={() => onToggleInput(inp.id)}
-                onEditDetail={(detail) => onEditInputDetail(inp.id, detail)}
-              />
-            ))}
+            {coreInputs.map(renderInputCard)}
           </View>
 
-          {/* Add another */}
+          {/* Add another daily input */}
           {canAddMore && (
             <TouchableOpacity
               style={goalPlanStyles.addBtn}
@@ -674,6 +691,15 @@ export function GoalPlanScreen({
               <Plus size={16} color={colors.textTertiary} strokeWidth={2} />
               <Text style={goalPlanStyles.addBtnText}>Add another daily input</Text>
             </TouchableOpacity>
+          )}
+
+          {/* Optional additions */}
+          {optionalInputs.length > 0 && (
+            <View style={goalPlanStyles.optionalSection}>
+              <Text style={goalPlanStyles.optionalTitle}>OPTIONAL ADDITIONS</Text>
+              <Text style={goalPlanStyles.optionalSub}>Add only what you're ready to own every day.</Text>
+              {optionalInputs.map((inp, idx) => renderInputCard(inp, coreInputs.length + idx))}
+            </View>
           )}
 
           {!isLocked && total > n && (
@@ -724,34 +750,65 @@ function GoalPlanInputCard({
   onEditDetail: (detail: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [detailDraft, setDetailDraft] = useState(input.detail);
+  const [targetDraft, setTargetDraft] = useState(input.target);
 
   const handleDoneEdit = () => {
     setEditing(false);
-    if (detailDraft.trim() !== input.detail) {
-      onEditDetail(detailDraft.trim());
+    if (targetDraft.trim() !== input.target) {
+      onEditDetail(targetDraft.trim());
     }
   };
 
   const cardBg = isDark ? '#0F0F0F' : '#F5F5F5';
   const cardBorder = input.selected
-    ? (isDark ? 'rgba(204,255,0,0.25)' : 'rgba(180,220,0,0.35)')
-    : (isDark ? '#1C1C1C' : '#E0E0E0');
+    ? (isDark ? '#1F1F1F' : '#E0E0E0')
+    : (isDark ? '#161616' : '#ECECEC');
   const lime = '#CCFF00';
 
   return (
     <View style={[goalPlanStyles.inputCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
       <View style={goalPlanStyles.inputCardRow}>
         <Text style={goalPlanStyles.inputNumber}>{String(index).padStart(2, '0')}</Text>
-        <Text
-          style={[
-            goalPlanStyles.inputLabel,
-            { color: input.selected ? (isDark ? '#FFF' : '#000') : (isDark ? '#555' : '#999') },
-          ]}
-          numberOfLines={2}
-        >
-          {input.label}
-        </Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            style={[
+              goalPlanStyles.inputTitle,
+              { color: input.selected ? (isDark ? '#FFF' : '#000') : (isDark ? '#555' : '#999') },
+            ]}
+            numberOfLines={2}
+          >
+            {input.title}
+          </Text>
+          {input.selected && input.target ? (
+            input.editable && editing ? (
+              <View style={goalPlanStyles.editRow}>
+                <TextInput
+                  style={[goalPlanStyles.editInput, { color: isDark ? '#FFF' : '#000', borderColor: lime + '80', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}
+                  value={targetDraft}
+                  onChangeText={setTargetDraft}
+                  autoFocus
+                  returnKeyType="done"
+                  blurOnSubmit={true}
+                  onSubmitEditing={handleDoneEdit}
+                />
+                <TouchableOpacity style={[goalPlanStyles.editConfirm, { backgroundColor: lime }]} onPress={handleDoneEdit}>
+                  <Check size={14} color="#000" strokeWidth={3} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={goalPlanStyles.targetRow}>
+                <Text style={goalPlanStyles.targetText}>
+                  {input.target}
+                </Text>
+                {input.editable && (
+                  <TouchableOpacity onPress={() => { setTargetDraft(input.target); setEditing(true); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Pencil size={12} color={isDark ? '#555' : '#999'} strokeWidth={2} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )
+          ) : null}
+        </View>
         <TouchableOpacity onPress={onToggle} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <View style={[
             goalPlanStyles.inputCheckbox,
@@ -764,35 +821,6 @@ function GoalPlanInputCard({
           </View>
         </TouchableOpacity>
       </View>
-
-      {/* Detail line */}
-      {input.selected && input.editable && editing ? (
-        <View style={goalPlanStyles.editRow}>
-          <TextInput
-            style={[goalPlanStyles.editInput, { color: isDark ? '#FFF' : '#000', borderColor: lime + '80', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}
-            value={detailDraft}
-            onChangeText={setDetailDraft}
-            autoFocus
-            returnKeyType="done"
-            blurOnSubmit={true}
-            onSubmitEditing={handleDoneEdit}
-          />
-          <TouchableOpacity style={[goalPlanStyles.editConfirm, { backgroundColor: lime }]} onPress={handleDoneEdit}>
-            <Check size={14} color="#000" strokeWidth={3} />
-          </TouchableOpacity>
-        </View>
-      ) : input.selected && input.detail ? (
-        <View style={goalPlanStyles.detailRow}>
-          <Text style={[goalPlanStyles.detailText, { color: lime }]}>
-            {input.detail}
-          </Text>
-          {input.editable && (
-            <TouchableOpacity onPress={() => { setDetailDraft(input.detail); setEditing(true); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Pencil size={12} color={isDark ? '#555' : '#999'} strokeWidth={2} />
-            </TouchableOpacity>
-          )}
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -801,12 +829,27 @@ function GoalPlanInputCard({
 
 const goalPlanStyles = StyleSheet.create({
   container: { flex: 1 },
+  eyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+  },
   eyebrow: {
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.5,
     color: '#555',
-    marginTop: 16,
+  },
+  progressDots: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  progressDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#222',
   },
   headline: {
     fontSize: 36,
@@ -845,11 +888,22 @@ const goalPlanStyles = StyleSheet.create({
     color: '#444',
     minWidth: 18,
   },
-  inputLabel: {
-    flex: 1,
+  inputTitle: {
     fontSize: 15,
     fontWeight: '700',
     lineHeight: 20,
+  },
+  targetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 2,
+  },
+  targetText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#CCFF00',
   },
   inputCheckbox: {
     width: 20,
@@ -860,38 +914,22 @@ const goalPlanStyles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginLeft: 30,
-    marginTop: 6,
+  optionalSection: {
+    marginTop: 24,
   },
-  detailText: {
-    flex: 1,
+  optionalTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    color: '#555',
+    marginBottom: 4,
+  },
+  optionalSub: {
     fontSize: 13,
-    fontWeight: '700',
-  },
-  editRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginLeft: 30,
-    marginTop: 6,
-  },
-  editInput: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  editConfirm: {
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    fontWeight: '500',
+    color: '#666',
+    marginBottom: 12,
+    lineHeight: 18,
   },
   addBtn: {
     flexDirection: 'row',
@@ -909,6 +947,26 @@ const goalPlanStyles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#888',
+  },
+  editRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  editInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  editConfirm: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   moreHint: {
     fontSize: 13,
