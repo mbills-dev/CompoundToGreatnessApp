@@ -4,7 +4,7 @@
  * commitment screen. Uses the existing CTG onboarding visual system.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   useAnimatedProps,
+  useAnimatedReaction,
   withTiming,
   withDelay,
   withSequence,
@@ -31,7 +32,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { ArrowLeft, ArrowRight, Check, Plus, X, Zap } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import Svg, { Circle as SvgCircle, Line as SvgLine } from 'react-native-svg';
+import Svg, { Circle as SvgCircle, Line as SvgLine, Path as SvgPath } from 'react-native-svg';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -112,109 +113,179 @@ export function ReverseEngineeringScreen({
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { width: screenWidth } = useWindowDimensions();
 
-  const [completedStages, setCompletedStages] = useState(-1);
-  const [allDone, setAllDone] = useState(false);
+  const [currentStageIdx, setCurrentStageIdx] = useState(-1);
+  const [phase, setPhase] = useState<'processing' | 'complete'>('processing');
+  const [displayPercent, setDisplayPercent] = useState(0);
 
   const headlineOpacity = useSharedValue(0);
   const ctaOpacity = useSharedValue(0);
   const progress = useSharedValue(0);
-  const glowOpacity = useSharedValue(0);
-  const glowScale = useSharedValue(0.8);
+  const ringGlowOpacity = useSharedValue(0);
+  const ringScaleSV = useSharedValue(1);
   const boltScale = useSharedValue(0);
   const boltOpacity = useSharedValue(0);
+  const pulseScale = useSharedValue(1);
+  const pulseOpacity = useSharedValue(0);
   const bottomProgressWidth = useSharedValue(0);
   const stageDescOpacity = useSharedValue(0);
+  const processingUIOpacity = useSharedValue(1);
+  const completionHeadlineOpacity = useSharedValue(0);
+  const completionHeadlineTranslateY = useSharedValue(20);
+
+  const stageBoundaries = [0.25, 0.5, 0.75, 1.0];
+  const lastStageFired = useRef(-1);
 
   useEffect(() => {
     headlineOpacity.value = withTiming(1, { duration: 600 });
 
-    let currentStage = 0;
-    const stageProgresses = [0.25, 0.5, 0.75, 1.0];
+    // Continuous progress with emotional pacing via keyframe segments
+    const segments: { to: number; duration: number; easing: ReturnType<typeof Easing.bezier> }[] = [
+      { to: 0.2, duration: 1200, easing: Easing.bezier(0.4, 0, 0.6, 1) },
+      { to: 0.55, duration: 1800, easing: Easing.bezier(0.25, 0.1, 0.25, 1) },
+      { to: 0.85, duration: 2200, easing: Easing.bezier(0.2, 0.0, 0.3, 1) },
+      { to: 0.99, duration: 1800, easing: Easing.bezier(0.15, 0.0, 0.15, 1) },
+    ];
 
-    const advance = () => {
-      if (currentStage >= stages.length) {
-        // ── Completion moment ──
-        progress.value = withTiming(1, { duration: 400, easing: Easing.bezier(0.22, 1, 0.36, 1) });
-        bottomProgressWidth.value = withTiming(1, { duration: 400, easing: Easing.bezier(0.22, 1, 0.36, 1) });
-        hapticMedium();
+    let elapsed = 700;
 
-        setTimeout(() => {
-          // Glow pulse
-          glowOpacity.value = withSequence(
-            withTiming(0.4, { duration: 200 }),
-            withTiming(0, { duration: 600 }),
-          );
-          glowScale.value = withSequence(
-            withTiming(0.8, { duration: 0 }),
-            withTiming(1.5, { duration: 500, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
-          );
+    segments.forEach((seg) => {
+      progress.value = withDelay(
+        elapsed,
+        withTiming(seg.to, { duration: seg.duration, easing: seg.easing }),
+      );
+      bottomProgressWidth.value = withDelay(
+        elapsed,
+        withTiming(seg.to, { duration: seg.duration, easing: seg.easing }),
+      );
+      elapsed += seg.duration;
+    });
 
-          // Bolt reveal
-          boltOpacity.value = withTiming(1, { duration: 100 });
-          boltScale.value = withSequence(
-            withTiming(0, { duration: 0 }),
-            withTiming(1.3, { duration: 250, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
-            withTiming(1, { duration: 150 }),
-          );
+    // Brief suspense hold at 99%, then final push to 100
+    const SUSPENSE_HOLD = 350;
+    const finalDelay = elapsed + SUSPENSE_HOLD;
 
-          hapticSuccess();
+    progress.value = withDelay(
+      finalDelay,
+      withTiming(1, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+    );
+    bottomProgressWidth.value = withDelay(
+      finalDelay,
+      withTiming(1, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+    );
 
-          setTimeout(() => {
-            runOnJS(setAllDone)(true);
-            ctaOpacity.value = withDelay(300, withTiming(1, { duration: 500 }));
-          }, 900);
-        }, 350);
+    const totalDuration = finalDelay + 300;
 
-        return;
-      }
+    // Completion sequence fires after ring reaches 100%
+    const completionTimer = setTimeout(() => {
+      // C. Strong success haptic
+      hapticSuccess();
 
-      setCompletedStages(currentStage);
-      stageDescOpacity.value = withSequence(
-        withTiming(0, { duration: 150 }),
-        withTiming(1, { duration: 300 }),
+      // D. Intensify ring glow
+      ringGlowOpacity.value = withSequence(
+        withTiming(0.5, { duration: 200 }),
+        withTiming(0.15, { duration: 600 }),
       );
 
-      const targetProgress = stageProgresses[currentStage] ?? ((currentStage + 1) / stages.length);
-      progress.value = withTiming(targetProgress, {
-        duration: 700,
-        easing: Easing.bezier(0.22, 1, 0.36, 1),
-      });
-      bottomProgressWidth.value = withTiming(targetProgress, {
-        duration: 700,
-        easing: Easing.bezier(0.22, 1, 0.36, 1),
-      });
+      // E. Inward compression pulse on the ring
+      ringScaleSV.value = withSequence(
+        withTiming(0.92, { duration: 200, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+        withTiming(1, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+      );
 
-      hapticLight();
+      // F. Reveal CTG bolt in center
+      boltOpacity.value = withTiming(1, { duration: 100 });
+      boltScale.value = withSequence(
+        withTiming(0, { duration: 0 }),
+        withTiming(1.4, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+        withTiming(1, { duration: 200 }),
+      );
 
-      currentStage++;
-      setTimeout(advance, 1200);
-    };
+      // G. One restrained outward lime pulse
+      pulseOpacity.value = withSequence(
+        withTiming(0.35, { duration: 200 }),
+        withTiming(0, { duration: 700 }),
+      );
+      pulseScale.value = withSequence(
+        withTiming(1, { duration: 0 }),
+        withTiming(1.8, { duration: 700, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+      );
 
-    const timer = setTimeout(advance, 700);
-    return () => clearTimeout(timer);
+      // H. Resolve completion headline — transform processing UI into completion
+      processingUIOpacity.value = withTiming(0, { duration: 400 });
+      completionHeadlineOpacity.value = withDelay(200, withTiming(1, { duration: 500 }));
+      completionHeadlineTranslateY.value = withDelay(
+        200,
+        withTiming(0, { duration: 500, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+      );
+
+      runOnJS(setPhase)('complete');
+
+      // Reveal CTA
+      ctaOpacity.value = withDelay(700, withTiming(1, { duration: 500 }));
+    }, totalDuration);
+
+    return () => clearTimeout(completionTimer);
   }, []);
+
+  // Continuous percentage display — update state from shared value
+  useAnimatedReaction(
+    () => progress.value,
+    (p) => {
+      runOnJS(setDisplayPercent)(Math.round(p * 100));
+      // Determine current stage from continuous progress
+      let stageIdx = -1;
+      for (let i = 0; i < stageBoundaries.length; i++) {
+        if (p < stageBoundaries[i]) {
+          stageIdx = i;
+          break;
+        }
+        if (i === stageBoundaries.length - 1) {
+          stageIdx = i;
+        }
+      }
+      if (stageIdx !== lastStageFired.current && stageIdx >= 0) {
+        lastStageFired.current = stageIdx;
+        runOnJS(onStageChange)(stageIdx);
+      }
+    },
+  );
+
+  const onStageChange = (idx: number) => {
+    if (idx < 0 || idx >= stages.length) return;
+    setCurrentStageIdx(idx);
+    stageDescOpacity.value = withSequence(
+      withTiming(0, { duration: 150 }),
+      withTiming(1, { duration: 300 }),
+    );
+    if (idx > 0) hapticLight();
+  };
 
   const fadeStyle = useAnimatedStyle(() => ({ opacity: headlineOpacity.value }));
   const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
 
-  // SVG circle strokeDashoffset driven by progress
   const animatedCircleProps = useAnimatedProps(() => {
     const offset = CIRCUMFERENCE * (1 - progress.value);
-    return {
-      strokeDashoffset: offset,
-    };
+    return { strokeDashoffset: offset };
   });
 
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value,
-    transform: [{ scale: glowScale.value }],
+  const ringGlowStyle = useAnimatedStyle(() => ({
+    opacity: ringGlowOpacity.value,
+    transform: [{ scale: ringScaleSV.value }],
+  }));
+
+  const ringWrapStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: ringScaleSV.value }],
   }));
 
   const boltStyle = useAnimatedStyle(() => ({
     transform: [{ scale: boltScale.value }],
     opacity: boltOpacity.value,
+  }));
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    opacity: pulseOpacity.value,
+    transform: [{ scale: pulseScale.value }],
   }));
 
   const bottomProgressStyle = useAnimatedStyle(() => ({
@@ -223,30 +294,62 @@ export function ReverseEngineeringScreen({
 
   const stageDescStyle = useAnimatedStyle(() => ({ opacity: stageDescOpacity.value }));
 
-  const displayPercent = Math.round(((completedStages + 1) / stages.length) * 100);
-  const currentStageData = completedStages >= 0 && completedStages < stages.length ? stages[completedStages] : null;
+  const processingUIStyle = useAnimatedStyle(() => ({ opacity: processingUIOpacity.value }));
+
+  const completionHeadlineStyle = useAnimatedStyle(() => ({
+    opacity: completionHeadlineOpacity.value,
+    transform: [{ translateY: completionHeadlineTranslateY.value }],
+  }));
+
+  // Progressive glow intensity based on progress
+  const progressiveGlowStyle = useAnimatedStyle(() => {
+    const intensity = progress.value;
+    return {
+      opacity: intensity * 0.25,
+      transform: [{ scale: 1 + intensity * 0.15 }],
+    };
+  });
+
+  const currentStageData =
+    currentStageIdx >= 0 && currentStageIdx < stages.length
+      ? stages[currentStageIdx]
+      : null;
 
   return (
     <View style={[reStyles.container, { backgroundColor: DARK, paddingTop: insets.top }]}>
       <Animated.View style={[fadeStyle, { flex: 1 }]}>
-        {!allDone ? (
-          <ScrollView
-            style={{ flex: 1 }}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 120, flexGrow: 1 }}
-          >
-            {/* Heading */}
+        <ScrollView
+          style={{ flex: 1 }}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 120, flexGrow: 1 }}
+        >
+          {/* Processing heading */}
+          <Animated.View style={processingUIStyle}>
             <Text style={reStyles.eyebrow}>REVERSE ENGINEERING</Text>
             <Text style={reStyles.headline}>
               <Text style={reStyles.headlineWhite}>REVERSE ENGINEERING{'\n'}</Text>
               <Text style={reStyles.headlineLime}>YOUR GOAL...</Text>
             </Text>
+          </Animated.View>
 
-            {/* Circular progress ring */}
-            <View style={reStyles.ringContainer}>
-              {/* Glow behind ring */}
-              <Animated.View style={[reStyles.ringGlow, glowStyle]} />
+          {/* Completion headline — appears in same location */}
+          <Animated.View style={[reStyles.completionHeadlineWrap, completionHeadlineStyle]} pointerEvents="none">
+            <Text style={reStyles.headline}>
+              <Text style={reStyles.headlineWhite}>YOUR PLAN{'\n'}</Text>
+              <Text style={reStyles.headlineLime}>IS READY.</Text>
+            </Text>
+          </Animated.View>
 
+          {/* Circular progress ring — stays mounted through completion */}
+          <View style={reStyles.ringContainer}>
+            {/* Outward pulse on completion */}
+            <Animated.View style={[reStyles.ringPulse, pulseStyle]} />
+            {/* Progressive ambient glow */}
+            <Animated.View style={[reStyles.ringGlow, progressiveGlowStyle]} />
+            {/* Completion burst glow */}
+            <Animated.View style={[reStyles.ringGlow, ringGlowStyle]} />
+
+            <Animated.View style={ringWrapStyle}>
               <Svg width={RING_SIZE} height={RING_SIZE} style={reStyles.svgRing}>
                 {/* Track */}
                 <SvgCircle
@@ -271,72 +374,61 @@ export function ReverseEngineeringScreen({
                   transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
                 />
               </Svg>
+            </Animated.View>
 
-              {/* Center content */}
-              <View style={reStyles.ringCenter}>
-                {completedStages >= stages.length - 1 ? (
-                  <Animated.View style={boltStyle}>
-                    <Zap size={36} color={LIME} fill={LIME} strokeWidth={1.5} />
-                  </Animated.View>
-                ) : (
-                  <>
-                    <Text style={reStyles.ringPercent}>{displayPercent}%</Text>
-                    {currentStageData && (
-                      <Animated.Text style={[reStyles.ringStageTitle, stageDescStyle]} numberOfLines={1}>
-                        {currentStageData.title}
-                      </Animated.Text>
-                    )}
-                    {currentStageData && (
-                      <Animated.Text style={[reStyles.ringStageDesc, stageDescStyle]} numberOfLines={2}>
-                        {currentStageData.description}
-                      </Animated.Text>
-                    )}
-                  </>
-                )}
-              </View>
+            {/* Center content */}
+            <View style={reStyles.ringCenter}>
+              {phase === 'complete' ? (
+                <Animated.View style={boltStyle}>
+                  <Zap size={36} color={LIME} fill={LIME} strokeWidth={1.5} />
+                </Animated.View>
+              ) : (
+                <Animated.View style={processingUIStyle}>
+                  <Text style={reStyles.ringPercent}>{displayPercent}%</Text>
+                  {currentStageData && (
+                    <Animated.Text style={[reStyles.ringStageTitle, stageDescStyle]} numberOfLines={1}>
+                      {currentStageData.title}
+                    </Animated.Text>
+                  )}
+                  {currentStageData && (
+                    <Animated.Text style={[reStyles.ringStageDesc, stageDescStyle]} numberOfLines={2}>
+                      {currentStageData.description}
+                    </Animated.Text>
+                  )}
+                </Animated.View>
+              )}
             </View>
+          </View>
 
-            {/* Stage list */}
+          {/* Stage list — fades out on completion */}
+          <Animated.View style={processingUIStyle}>
             <View style={reStyles.stageList}>
               {stages.map((stage, idx) => {
-                const isComplete = completedStages >= idx;
-                const isCurrent = completedStages === idx;
-                const isUpcoming = completedStages < idx;
+                const isComplete = currentStageIdx > idx;
+                const isCurrent = currentStageIdx === idx;
                 return (
                   <StageRow
                     key={idx}
                     stage={stage}
                     isComplete={isComplete}
                     isCurrent={isCurrent}
-                    isUpcoming={isUpcoming}
+                    isUpcoming={!isComplete && !isCurrent}
                   />
                 );
               })}
             </View>
-          </ScrollView>
-        ) : (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'flex-start', paddingHorizontal: 28 }}>
-            <Text style={reStyles.finalTitle}>
-              <Text style={reStyles.headlineWhite}>YOUR SYSTEM{'\n'}</Text>
-              <Text style={reStyles.headlineLime}>IS READY.</Text>
-            </Text>
-            <Text style={reStyles.finalSubtitle}>
-              Your personalized Success Stack is built. Let's see it.
-            </Text>
-          </View>
-        )}
+          </Animated.View>
+        </ScrollView>
       </Animated.View>
 
-      {/* Bottom thin progress line (visible during processing) */}
-      {!allDone && (
-        <View style={[reStyles.bottomProgressTrack, { marginBottom: insets.bottom + 20, marginHorizontal: 28 }]}>
-          <Animated.View style={[reStyles.bottomProgressFill, bottomProgressStyle]} />
-        </View>
-      )}
+      {/* Bottom thin progress line */}
+      <View style={[reStyles.bottomProgressTrack, { marginBottom: insets.bottom + 20, marginHorizontal: 28 }]}>
+        <Animated.View style={[reStyles.bottomProgressFill, bottomProgressStyle]} />
+      </View>
 
       {/* CTA */}
       <Animated.View style={[ctaStyle, { paddingHorizontal: 28, paddingBottom: insets.bottom + 24 }]}>
-        {allDone && (
+        {phase === 'complete' && (
           <TouchableOpacity
             style={reStyles.cta}
             onPress={() => { hapticMedium(); onReveal(); }}
@@ -353,6 +445,7 @@ export function ReverseEngineeringScreen({
 
 // Animated SVG Circle wrapper
 const AnimatedCircle = Animated.createAnimatedComponent(SvgCircle);
+const AnimatedPath = Animated.createAnimatedComponent(SvgPath);
 
 function StageRow({
   stage,
@@ -458,6 +551,20 @@ const reStyles = StyleSheet.create({
     height: RING_SIZE + 40,
     borderRadius: (RING_SIZE + 40) / 2,
     backgroundColor: LIME,
+  },
+  ringPulse: {
+    position: 'absolute',
+    width: RING_SIZE,
+    height: RING_SIZE,
+    borderRadius: RING_SIZE / 2,
+    borderWidth: 2,
+    borderColor: LIME,
+  },
+  completionHeadlineWrap: {
+    position: 'absolute',
+    top: 20,
+    left: 28,
+    right: 28,
   },
   svgRing: {
     position: 'relative',
@@ -1278,11 +1385,16 @@ export function BodyCompPlanScreen({
   }, []);
 
   const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
-  const pathStyle = useAnimatedProps(() => ({
-    strokeDashoffset: (screenWidth - 80) * (1 - pathDraw.value),
-  }));
 
   const pathWidth = Math.max(0, screenWidth - 80);
+  const curveHeight = 50;
+  const pathD = `M 6 ${curveHeight - 6} C ${pathWidth * 0.25} ${curveHeight - 6}, ${pathWidth * 0.5} ${curveHeight * 0.3}, ${pathWidth * 0.75} 6 S ${pathWidth - 6} 6, ${pathWidth - 6} 6`;
+  const pathLength = pathWidth * 1.3;
+
+  const pathStyle = useAnimatedProps(() => ({
+    strokeDashoffset: pathLength * (1 - pathDraw.value),
+  }));
+
   const useStacked = screenWidth < 380;
   const timeframeLabel = result.estimatedWeeks > 0 ? `≈ ${result.estimatedWeeks} weeks` : 'N/A';
   const paceLabel = `at your selected pace of ≈${result.estimatedWeeklyRateLbs} lb/week`;
@@ -1319,42 +1431,47 @@ export function BodyCompPlanScreen({
               </View>
             </View>
 
-            {/* Path line with dots */}
-            <View style={planStyles.pathContainer}>
-              <Svg width={pathWidth} height={40} style={planStyles.pathSvg}>
+            {/* Curved journey path */}
+            <View style={[planStyles.pathContainer, { height: curveHeight + 16 }]}>
+              <Svg width={pathWidth} height={curveHeight + 16} style={planStyles.pathSvg}>
                 {/* Dashed track */}
-                <SvgLine
-                  x1="6" y1="20"
-                  x2={pathWidth - 6} y2="20"
+                <SvgPath
+                  d={pathD}
                   stroke="#222"
                   strokeWidth="2"
                   strokeDasharray="4 4"
+                  fill="none"
                 />
-                {/* Animated progress line */}
-                <AnimatedLine
-                  x1="6" y1="20"
-                  x2={pathWidth - 6} y2="20"
+                {/* Animated lime path */}
+                <AnimatedPath
+                  d={pathD}
                   stroke={LIME}
                   strokeWidth="2.5"
                   strokeLinecap="round"
-                  strokeDasharray={pathWidth}
+                  fill="none"
+                  strokeDasharray={pathLength}
                   animatedProps={pathStyle}
                 />
               </Svg>
-              {/* Start dot */}
-              <View style={planStyles.pathDotLeft} />
-              {/* End dot */}
-              <View style={planStyles.pathDotRight} />
+              {/* Start node — bottom left */}
+              <View style={[planStyles.pathDotLeft, { top: curveHeight - 6 }]} />
+              {/* End node — top right */}
+              <View style={[planStyles.pathDotRight, { top: 0 }]} />
             </View>
 
+            {/* Journey labels under path */}
             <View style={planStyles.journeyBottomRow}>
-              <Text style={planStyles.journeyToday}>Today</Text>
+              <Text style={planStyles.journeyToday}>TODAY</Text>
+              <Text style={planStyles.journeyMomentum}>BUILD MOMENTUM</Text>
               <Text style={planStyles.journeyTimeframe}>{timeframeLabel}</Text>
             </View>
           </View>
 
-          {/* Pace subtitle */}
-          <Text style={planStyles.paceSubtitle}>{paceLabel}</Text>
+          {/* Combined pace summary */}
+          <View style={planStyles.paceSummary}>
+            <Text style={planStyles.paceSummaryTime}>{timeframeLabel}</Text>
+            <Text style={planStyles.paceSummaryDetail}>{paceLabel}</Text>
+          </View>
 
           {/* Daily targets */}
           <Text style={planStyles.sectionHeader}>YOUR DAILY TARGETS</Text>
@@ -1369,12 +1486,6 @@ export function BodyCompPlanScreen({
               <Text style={planStyles.targetValue}>{result.suggestedProteinGrams}g</Text>
               <Text style={planStyles.targetLabel}>PROTEIN / DAY</Text>
             </View>
-          </View>
-
-          {/* Pace row */}
-          <View style={planStyles.paceRow}>
-            <Text style={planStyles.paceValue}>≈{result.estimatedWeeklyRateLbs} lb/week</Text>
-            <Text style={planStyles.paceRowLabel}>YOUR ESTIMATED PACE</Text>
           </View>
 
           {/* Disclaimer */}
@@ -1396,8 +1507,6 @@ export function BodyCompPlanScreen({
     </View>
   );
 }
-
-const AnimatedLine = Animated.createAnimatedComponent(SvgLine);
 
 const planStyles = StyleSheet.create({
   container: { flex: 1 },
@@ -1452,7 +1561,6 @@ const planStyles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 40,
     position: 'relative',
   },
   pathSvg: {
@@ -1461,7 +1569,6 @@ const planStyles = StyleSheet.create({
   pathDotLeft: {
     position: 'absolute',
     left: 0,
-    top: 14,
     width: 12,
     height: 12,
     borderRadius: 6,
@@ -1472,7 +1579,6 @@ const planStyles = StyleSheet.create({
   pathDotRight: {
     position: 'absolute',
     right: 0,
-    top: 14,
     width: 12,
     height: 12,
     borderRadius: 6,
@@ -1487,22 +1593,39 @@ const planStyles = StyleSheet.create({
     marginTop: 8,
   },
   journeyToday: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: '#555',
+  },
+  journeyMomentum: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: '#444',
   },
   journeyTimeframe: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
+    letterSpacing: 0.8,
     color: LIME,
   },
-  paceSubtitle: {
+  paceSummary: {
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 28,
+  },
+  paceSummaryTime: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FFF',
+    letterSpacing: -0.5,
+  },
+  paceSummaryDetail: {
     fontSize: 13,
     fontWeight: '500',
     color: '#666',
-    textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 28,
+    marginTop: 4,
   },
   sectionHeader: {
     fontSize: 11,
@@ -1537,24 +1660,6 @@ const planStyles = StyleSheet.create({
   },
   targetLabel: {
     fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1,
-    color: FAINT,
-  },
-  paceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-    marginTop: 20,
-    flexWrap: 'wrap',
-  },
-  paceValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: LIME,
-  },
-  paceRowLabel: {
-    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1,
     color: FAINT,
