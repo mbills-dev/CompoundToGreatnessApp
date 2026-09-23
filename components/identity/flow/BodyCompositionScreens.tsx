@@ -28,7 +28,6 @@ import Animated, {
   withSequence,
   Easing,
   runOnJS,
-  cancelAnimation,
 } from 'react-native-reanimated';
 import { ArrowLeft, ArrowRight, Check, Plus, X, Zap } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -122,7 +121,6 @@ export function ReverseEngineeringScreen({
   const ctaOpacity = useSharedValue(0);
   const progress = useSharedValue(0);
   const ringGlowOpacity = useSharedValue(0);
-  const ringScaleSV = useSharedValue(1);
   const boltScale = useSharedValue(0);
   const boltOpacity = useSharedValue(0);
   const pulseScale = useSharedValue(1);
@@ -133,18 +131,19 @@ export function ReverseEngineeringScreen({
   const completionHeadlineOpacity = useSharedValue(0);
   const completionHeadlineTranslateY = useSharedValue(20);
 
-  const stageBoundaries = [0.25, 0.5, 0.75, 1.0];
+  const stageBoundaries = [0.22, 0.47, 0.72, 1.0];
   const lastStageFired = useRef(-1);
 
   useEffect(() => {
     headlineOpacity.value = withTiming(1, { duration: 600 });
 
-    // Continuous progress with emotional pacing via keyframe segments
+    // One deliberate 4.5-second continuous progress sequence.
+    // Segments ease from quick start → steady middle → increasingly deliberate near 100%.
     const segments: { to: number; duration: number; easing: ReturnType<typeof Easing.bezier> }[] = [
-      { to: 0.2, duration: 1200, easing: Easing.bezier(0.4, 0, 0.6, 1) },
-      { to: 0.55, duration: 1800, easing: Easing.bezier(0.25, 0.1, 0.25, 1) },
-      { to: 0.85, duration: 2200, easing: Easing.bezier(0.2, 0.0, 0.3, 1) },
-      { to: 0.99, duration: 1800, easing: Easing.bezier(0.15, 0.0, 0.15, 1) },
+      { to: 0.25, duration: 1100, easing: Easing.bezier(0.4, 0, 0.6, 1) },
+      { to: 0.50, duration: 1000, easing: Easing.bezier(0.25, 0.1, 0.25, 1) },
+      { to: 0.75, duration: 1000, easing: Easing.bezier(0.2, 0.0, 0.3, 1) },
+      { to: 0.99, duration: 1100, easing: Easing.bezier(0.15, 0.0, 0.15, 1) },
     ];
 
     let elapsed = 700;
@@ -161,8 +160,8 @@ export function ReverseEngineeringScreen({
       elapsed += seg.duration;
     });
 
-    // Brief suspense hold at 99%, then final push to 100
-    const SUSPENSE_HOLD = 350;
+    // Brief anticipation hold at 99%, then final push to 100
+    const SUSPENSE_HOLD = 300;
     const finalDelay = elapsed + SUSPENSE_HOLD;
 
     progress.value = withDelay(
@@ -178,40 +177,34 @@ export function ReverseEngineeringScreen({
 
     // Completion sequence fires after ring reaches 100%
     const completionTimer = setTimeout(() => {
-      // C. Strong success haptic
+      // Strong success haptic
       hapticSuccess();
 
-      // D. Intensify ring glow
+      // Intensify completed lime ring glow
       ringGlowOpacity.value = withSequence(
         withTiming(0.5, { duration: 200 }),
         withTiming(0.15, { duration: 600 }),
       );
 
-      // E. Inward compression pulse on the ring
-      ringScaleSV.value = withSequence(
-        withTiming(0.92, { duration: 200, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
-        withTiming(1, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
-      );
-
-      // F. Reveal CTG bolt in center
-      boltOpacity.value = withTiming(1, { duration: 100 });
+      // Reveal CTG bolt in center — replaces the percentage number
+      boltOpacity.value = withTiming(1, { duration: 200 });
       boltScale.value = withSequence(
         withTiming(0, { duration: 0 }),
-        withTiming(1.4, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+        withTiming(1.3, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
         withTiming(1, { duration: 200 }),
       );
 
-      // G. One restrained outward lime pulse
+      // One controlled outward radial pulse, then settle
       pulseOpacity.value = withSequence(
-        withTiming(0.35, { duration: 200 }),
+        withTiming(0.3, { duration: 200 }),
         withTiming(0, { duration: 700 }),
       );
       pulseScale.value = withSequence(
         withTiming(1, { duration: 0 }),
-        withTiming(1.8, { duration: 700, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+        withTiming(1.6, { duration: 700, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
       );
 
-      // H. Resolve completion headline — transform processing UI into completion
+      // Transform processing UI into completion headline
       processingUIOpacity.value = withTiming(0, { duration: 400 });
       completionHeadlineOpacity.value = withDelay(200, withTiming(1, { duration: 500 }));
       completionHeadlineTranslateY.value = withDelay(
@@ -271,12 +264,9 @@ export function ReverseEngineeringScreen({
 
   const ringGlowStyle = useAnimatedStyle(() => ({
     opacity: ringGlowOpacity.value,
-    transform: [{ scale: ringScaleSV.value }],
   }));
 
-  const ringWrapStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: ringScaleSV.value }],
-  }));
+  const ringWrapStyle = useAnimatedStyle(() => ({}));
 
   const boltStyle = useAnimatedStyle(() => ({
     transform: [{ scale: boltScale.value }],
@@ -301,12 +291,13 @@ export function ReverseEngineeringScreen({
     transform: [{ translateY: completionHeadlineTranslateY.value }],
   }));
 
-  // Progressive glow intensity based on progress
+  // Progressive glow — intensifies more from 80-99% to build anticipation
   const progressiveGlowStyle = useAnimatedStyle(() => {
-    const intensity = progress.value;
+    const p = progress.value;
+    const intensity = p < 0.8 ? p * 0.12 : 0.096 + (p - 0.8) * 0.77;
     return {
-      opacity: intensity * 0.25,
-      transform: [{ scale: 1 + intensity * 0.15 }],
+      opacity: intensity * 0.3,
+      transform: [{ scale: 1 + intensity * 0.12 }],
     };
   });
 
@@ -1378,25 +1369,54 @@ export function BodyCompPlanScreen({
   const { width: screenWidth } = useWindowDimensions();
   const fade = useSharedValue(0);
   const pathDraw = useSharedValue(0);
+  const startNodeOpacity = useSharedValue(0);
+  const endNodeOpacity = useSharedValue(0);
+  const targetsOpacity = useSharedValue(0);
+  const timeframeOpacity = useSharedValue(0);
+
+  // Data-driven direction: descending for weight loss, ascending for gain
+  const isDescending = result.targetWeightLbs < result.startingWeightLbs;
 
   useEffect(() => {
     fade.value = withTiming(1, { duration: 500 });
-    pathDraw.value = withDelay(300, withTiming(1, { duration: 800, easing: Easing.bezier(0.22, 1, 0.36, 1) }));
+
+    // Sequence: start node → path draws → destination resolves → haptic → targets
+    startNodeOpacity.value = withDelay(200, withTiming(1, { duration: 300 }));
+    pathDraw.value = withDelay(500, withTiming(1, { duration: 1000, easing: Easing.bezier(0.22, 1, 0.36, 1) }));
+    endNodeOpacity.value = withDelay(1400, withTiming(1, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }));
+
+    // Haptic when destination resolves
+    const destTimer = setTimeout(() => hapticLight(), 1500);
+
+    // Timeframe and targets appear after destination
+    timeframeOpacity.value = withDelay(1700, withTiming(1, { duration: 400 }));
+    targetsOpacity.value = withDelay(1900, withTiming(1, { duration: 400 }));
+
+    return () => clearTimeout(destTimer);
   }, []);
 
   const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
+  const startNodeStyle = useAnimatedStyle(() => ({ opacity: startNodeOpacity.value }));
+  const endNodeStyle = useAnimatedStyle(() => ({ opacity: endNodeOpacity.value }));
+  const targetsStyle = useAnimatedStyle(() => ({ opacity: targetsOpacity.value }));
+  const timeframeStyle = useAnimatedStyle(() => ({ opacity: timeframeOpacity.value }));
 
   const pathWidth = Math.max(0, screenWidth - 80);
-  const curveHeight = 50;
-  const pathD = `M 6 ${curveHeight - 6} C ${pathWidth * 0.25} ${curveHeight - 6}, ${pathWidth * 0.5} ${curveHeight * 0.3}, ${pathWidth * 0.75} 6 S ${pathWidth - 6} 6, ${pathWidth - 6} 6`;
-  const pathLength = pathWidth * 1.3;
+  const curveHeight = 70;
+
+  // Build S-curve path. For descending: start top-left, end bottom-right.
+  // For ascending: start bottom-left, end top-right.
+  const startY = isDescending ? 6 : curveHeight - 6;
+  const endY = isDescending ? curveHeight - 6 : 6;
+  const pathD = `M 6 ${startY} C ${pathWidth * 0.2} ${startY}, ${pathWidth * 0.35} ${(startY + endY) / 2}, ${pathWidth * 0.5} ${(startY + endY) / 2} S ${pathWidth * 0.8} ${endY}, ${pathWidth - 6} ${endY}`;
+  const pathLength = pathWidth * 1.35;
 
   const pathStyle = useAnimatedProps(() => ({
     strokeDashoffset: pathLength * (1 - pathDraw.value),
   }));
 
   const useStacked = screenWidth < 380;
-  const timeframeLabel = result.estimatedWeeks > 0 ? `≈ ${result.estimatedWeeks} weeks` : 'N/A';
+  const timeframeLabel = result.estimatedWeeks > 0 ? `≈${result.estimatedWeeks} WEEKS` : 'N/A';
   const paceLabel = `at your selected pace of ≈${result.estimatedWeeklyRateLbs} lb/week`;
 
   return (
@@ -1453,48 +1473,47 @@ export function BodyCompPlanScreen({
                   animatedProps={pathStyle}
                 />
               </Svg>
-              {/* Start node — bottom left */}
-              <View style={[planStyles.pathDotLeft, { top: curveHeight - 6 }]} />
-              {/* End node — top right */}
-              <View style={[planStyles.pathDotRight, { top: 0 }]} />
-            </View>
-
-            {/* Journey labels under path */}
-            <View style={planStyles.journeyBottomRow}>
-              <Text style={planStyles.journeyToday}>TODAY</Text>
-              <Text style={planStyles.journeyMomentum}>BUILD MOMENTUM</Text>
-              <Text style={planStyles.journeyTimeframe}>{timeframeLabel}</Text>
+              {/* Start node */}
+              <Animated.View
+                style={[planStyles.pathDotLeft, isDescending ? { top: 0 } : { top: curveHeight - 6 }, startNodeStyle]}
+              />
+              {/* End node */}
+              <Animated.View
+                style={[planStyles.pathDotRight, isDescending ? { top: curveHeight - 6 } : { top: 0 }, endNodeStyle]}
+              />
             </View>
           </View>
 
-          {/* Combined pace summary */}
-          <View style={planStyles.paceSummary}>
+          {/* Timeframe beneath visualization */}
+          <Animated.View style={[planStyles.paceSummary, timeframeStyle]}>
             <Text style={planStyles.paceSummaryTime}>{timeframeLabel}</Text>
             <Text style={planStyles.paceSummaryDetail}>{paceLabel}</Text>
-          </View>
+          </Animated.View>
 
-          {/* Daily targets */}
-          <Text style={planStyles.sectionHeader}>YOUR DAILY TARGETS</Text>
+          {/* Daily targets — fade in after path completes */}
+          <Animated.View style={targetsStyle}>
+            <Text style={planStyles.sectionHeader}>YOUR DAILY TARGETS</Text>
 
-          <View style={[planStyles.targetsRow, useStacked && { flexDirection: 'column' }]}>
-            <View style={[planStyles.targetCard, useStacked && { width: '100%' }]}>
-              <Text style={planStyles.targetValue}>{result.suggestedCalorieTarget.toLocaleString()}</Text>
-              <Text style={planStyles.targetLabel}>CALORIES / DAY</Text>
+            <View style={[planStyles.targetsRow, useStacked && { flexDirection: 'column' }]}>
+              <View style={[planStyles.targetCard, useStacked && { width: '100%' }]}>
+                <Text style={planStyles.targetValue}>{result.suggestedCalorieTarget.toLocaleString()}</Text>
+                <Text style={planStyles.targetLabel}>CALORIES / DAY</Text>
+              </View>
+              {!useStacked && <View style={planStyles.targetGap} />}
+              <View style={[planStyles.targetCard, useStacked && { width: '100%' }]}>
+                <Text style={planStyles.targetValue}>{result.suggestedProteinGrams}g</Text>
+                <Text style={planStyles.targetLabel}>PROTEIN / DAY</Text>
+              </View>
             </View>
-            {!useStacked && <View style={planStyles.targetGap} />}
-            <View style={[planStyles.targetCard, useStacked && { width: '100%' }]}>
-              <Text style={planStyles.targetValue}>{result.suggestedProteinGrams}g</Text>
-              <Text style={planStyles.targetLabel}>PROTEIN / DAY</Text>
-            </View>
-          </View>
 
-          {/* Disclaimer */}
-          <Text style={planStyles.disclaimer}>
-            These are estimates, not guarantees. Real-world progress varies.
-          </Text>
-          <Text style={planStyles.medicalNote}>
-            If you have a medical condition, are pregnant, or have an eating-disorder history, please seek individualized professional guidance rather than relying on a generic estimate.
-          </Text>
+            {/* Disclaimer */}
+            <Text style={planStyles.disclaimer}>
+              These are estimates, not guarantees. Real-world progress varies.
+            </Text>
+            <Text style={planStyles.medicalNote}>
+              If you have a medical condition, are pregnant, or have an eating-disorder history, please seek individualized professional guidance rather than relying on a generic estimate.
+            </Text>
+          </Animated.View>
         </ScrollView>
       </Animated.View>
 
@@ -1586,33 +1605,9 @@ const planStyles = StyleSheet.create({
     borderWidth: 2,
     borderColor: DARK,
   },
-  journeyBottomRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 8,
-  },
-  journeyToday: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    color: '#555',
-  },
-  journeyMomentum: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    color: '#444',
-  },
-  journeyTimeframe: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    color: LIME,
-  },
   paceSummary: {
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 24,
     marginBottom: 28,
   },
   paceSummaryTime: {
