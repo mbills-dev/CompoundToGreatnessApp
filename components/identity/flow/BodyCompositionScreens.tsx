@@ -31,7 +31,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { ArrowLeft, ArrowRight, Check, Plus, X, Zap } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import Svg, { Circle as SvgCircle, Line as SvgLine, Path as SvgPath } from 'react-native-svg';
+import Svg, { Circle as SvgCircle, Line as SvgLine, Path as SvgPath, Rect as SvgRect, Defs, ClipPath } from 'react-native-svg';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -137,56 +137,36 @@ export function ReverseEngineeringScreen({
   useEffect(() => {
     headlineOpacity.value = withTiming(1, { duration: 600 });
 
-    // One deliberate 4.5-second continuous progress sequence.
-    // Segments ease from quick start → steady middle → increasingly deliberate near 100%.
-    const segments: { to: number; duration: number; easing: ReturnType<typeof Easing.bezier> }[] = [
-      { to: 0.25, duration: 1100, easing: Easing.bezier(0.4, 0, 0.6, 1) },
-      { to: 0.50, duration: 1000, easing: Easing.bezier(0.25, 0.1, 0.25, 1) },
-      { to: 0.75, duration: 1000, easing: Easing.bezier(0.2, 0.0, 0.3, 1) },
-      { to: 0.99, duration: 1100, easing: Easing.bezier(0.15, 0.0, 0.15, 1) },
-    ];
-
-    let elapsed = 700;
-
-    segments.forEach((seg) => {
-      progress.value = withDelay(
-        elapsed,
-        withTiming(seg.to, { duration: seg.duration, easing: seg.easing }),
-      );
-      bottomProgressWidth.value = withDelay(
-        elapsed,
-        withTiming(seg.to, { duration: seg.duration, easing: seg.easing }),
-      );
-      elapsed += seg.duration;
-    });
-
-    // Brief anticipation hold at 99%, then final push to 100
+    // ONE continuous animation from 0 → 100% over ~4.5s.
+    // All segments chained in a single withSequence so they run back-to-back
+    // without each assignment cancelling the previous (which was the bug).
+    const INITIAL_DELAY = 700;
+    const seg1 = withTiming(0.25, { duration: 1100, easing: Easing.bezier(0.4, 0, 0.6, 1) });
+    const seg2 = withTiming(0.50, { duration: 1000, easing: Easing.bezier(0.25, 0.1, 0.25, 1) });
+    const seg3 = withTiming(0.75, { duration: 1000, easing: Easing.bezier(0.2, 0.0, 0.3, 1) });
+    const seg4 = withTiming(0.99, { duration: 1100, easing: Easing.bezier(0.15, 0.0, 0.15, 1) });
     const SUSPENSE_HOLD = 300;
-    const finalDelay = elapsed + SUSPENSE_HOLD;
+    const seg5 = withDelay(SUSPENSE_HOLD, withTiming(1, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }));
 
-    progress.value = withDelay(
-      finalDelay,
-      withTiming(1, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
-    );
-    bottomProgressWidth.value = withDelay(
-      finalDelay,
-      withTiming(1, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+    const fullSequence = withDelay(
+      INITIAL_DELAY,
+      withSequence(seg1, seg2, seg3, seg4, seg5),
     );
 
-    const totalDuration = finalDelay + 300;
+    progress.value = fullSequence;
+    bottomProgressWidth.value = fullSequence;
+
+    const totalDuration = INITIAL_DELAY + 1100 + 1000 + 1000 + 1100 + SUSPENSE_HOLD + 300;
 
     // Completion sequence fires after ring reaches 100%
     const completionTimer = setTimeout(() => {
-      // Strong success haptic
       hapticSuccess();
 
-      // Intensify completed lime ring glow
       ringGlowOpacity.value = withSequence(
         withTiming(0.5, { duration: 200 }),
         withTiming(0.15, { duration: 600 }),
       );
 
-      // Reveal CTG bolt in center — replaces the percentage number
       boltOpacity.value = withTiming(1, { duration: 200 });
       boltScale.value = withSequence(
         withTiming(0, { duration: 0 }),
@@ -194,7 +174,6 @@ export function ReverseEngineeringScreen({
         withTiming(1, { duration: 200 }),
       );
 
-      // One controlled outward radial pulse, then settle
       pulseOpacity.value = withSequence(
         withTiming(0.3, { duration: 200 }),
         withTiming(0, { duration: 700 }),
@@ -204,7 +183,6 @@ export function ReverseEngineeringScreen({
         withTiming(1.6, { duration: 700, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
       );
 
-      // Transform processing UI into completion headline
       processingUIOpacity.value = withTiming(0, { duration: 400 });
       completionHeadlineOpacity.value = withDelay(200, withTiming(1, { duration: 500 }));
       completionHeadlineTranslateY.value = withDelay(
@@ -214,7 +192,6 @@ export function ReverseEngineeringScreen({
 
       runOnJS(setPhase)('complete');
 
-      // Reveal CTA
       ctaOpacity.value = withDelay(700, withTiming(1, { duration: 500 }));
     }, totalDuration);
 
@@ -437,6 +414,7 @@ export function ReverseEngineeringScreen({
 // Animated SVG Circle wrapper
 const AnimatedCircle = Animated.createAnimatedComponent(SvgCircle);
 const AnimatedPath = Animated.createAnimatedComponent(SvgPath);
+const AnimatedRect = Animated.createAnimatedComponent(SvgRect);
 
 function StageRow({
   stage,
@@ -1368,55 +1346,104 @@ export function BodyCompPlanScreen({
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const fade = useSharedValue(0);
+  const chartOpacity = useSharedValue(0);
   const pathDraw = useSharedValue(0);
+  const areaClipWidth = useSharedValue(0);
   const startNodeOpacity = useSharedValue(0);
   const endNodeOpacity = useSharedValue(0);
+  const endNodeScale = useSharedValue(0);
+  const targetWeightOpacity = useSharedValue(0);
   const targetsOpacity = useSharedValue(0);
   const timeframeOpacity = useSharedValue(0);
 
-  // Data-driven direction: descending for weight loss, ascending for gain
   const isDescending = result.targetWeightLbs < result.startingWeightLbs;
 
   useEffect(() => {
     fade.value = withTiming(1, { duration: 500 });
 
-    // Sequence: start node → path draws → destination resolves → haptic → targets
-    startNodeOpacity.value = withDelay(200, withTiming(1, { duration: 300 }));
-    pathDraw.value = withDelay(500, withTiming(1, { duration: 1000, easing: Easing.bezier(0.22, 1, 0.36, 1) }));
-    endNodeOpacity.value = withDelay(1400, withTiming(1, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }));
+    // Sequence: chart container → start node → curve draws + area reveals → end node → targets
+    chartOpacity.value = withDelay(100, withTiming(1, { duration: 400 }));
+    startNodeOpacity.value = withDelay(400, withTiming(1, { duration: 300 }));
 
-    // Haptic when destination resolves
-    const destTimer = setTimeout(() => hapticLight(), 1500);
+    const DRAW_START = 600;
+    const DRAW_DURATION = 1200;
+    pathDraw.value = withDelay(DRAW_START, withTiming(1, { duration: DRAW_DURATION, easing: Easing.bezier(0.22, 1, 0.36, 1) }));
+    areaClipWidth.value = withDelay(DRAW_START, withTiming(1, { duration: DRAW_DURATION, easing: Easing.bezier(0.22, 1, 0.36, 1) }));
 
-    // Timeframe and targets appear after destination
-    timeframeOpacity.value = withDelay(1700, withTiming(1, { duration: 400 }));
-    targetsOpacity.value = withDelay(1900, withTiming(1, { duration: 400 }));
+    const RESOLVE_TIME = DRAW_START + DRAW_DURATION;
+    endNodeOpacity.value = withDelay(RESOLVE_TIME, withTiming(1, { duration: 300 }));
+    endNodeScale.value = withDelay(RESOLVE_TIME, withSequence(
+      withTiming(0, { duration: 0 }),
+      withTiming(1.2, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+      withTiming(1, { duration: 200 }),
+    ));
+    targetWeightOpacity.value = withDelay(RESOLVE_TIME + 200, withTiming(1, { duration: 400 }));
+
+    const destTimer = setTimeout(() => hapticLight(), RESOLVE_TIME + 100);
+
+    timeframeOpacity.value = withDelay(RESOLVE_TIME + 400, withTiming(1, { duration: 400 }));
+    targetsOpacity.value = withDelay(RESOLVE_TIME + 600, withTiming(1, { duration: 400 }));
 
     return () => clearTimeout(destTimer);
   }, []);
 
   const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
+  const chartStyle = useAnimatedStyle(() => ({ opacity: chartOpacity.value }));
   const startNodeStyle = useAnimatedStyle(() => ({ opacity: startNodeOpacity.value }));
-  const endNodeStyle = useAnimatedStyle(() => ({ opacity: endNodeOpacity.value }));
+  const endNodeStyle = useAnimatedStyle(() => ({
+    opacity: endNodeOpacity.value,
+    transform: [{ scale: endNodeScale.value }],
+  }));
+  const targetWeightStyle = useAnimatedStyle(() => ({ opacity: targetWeightOpacity.value }));
   const targetsStyle = useAnimatedStyle(() => ({ opacity: targetsOpacity.value }));
   const timeframeStyle = useAnimatedStyle(() => ({ opacity: timeframeOpacity.value }));
 
-  const pathWidth = Math.max(0, screenWidth - 80);
-  const curveHeight = 70;
+  // Chart geometry
+  const chartPadding = 16;
+  const pathWidth = Math.max(0, screenWidth - 80 - chartPadding * 2);
+  const curveHeight = 120;
+  const svgWidth = pathWidth + chartPadding * 2;
+  const svgHeight = curveHeight + 24;
 
-  // Build S-curve path. For descending: start top-left, end bottom-right.
-  // For ascending: start bottom-left, end top-right.
-  const startY = isDescending ? 6 : curveHeight - 6;
-  const endY = isDescending ? curveHeight - 6 : 6;
-  const pathD = `M 6 ${startY} C ${pathWidth * 0.2} ${startY}, ${pathWidth * 0.35} ${(startY + endY) / 2}, ${pathWidth * 0.5} ${(startY + endY) / 2} S ${pathWidth * 0.8} ${endY}, ${pathWidth - 6} ${endY}`;
-  const pathLength = pathWidth * 1.35;
+  // Node positions
+  const startX = chartPadding + 6;
+  const endX = chartPadding + pathWidth - 6;
+  const topY = 8;
+  const bottomY = curveHeight - 8;
+  const baselineY = bottomY + 4;
+
+  // Descending: start at top, end at bottom. Ascending: start at bottom, end at top.
+  const startY = isDescending ? topY : bottomY;
+  const endY = isDescending ? bottomY : topY;
+  const midY = (startY + endY) / 2;
+
+  // Smooth S-curve: flat start → descend through middle → ease into target
+  const cp1x = pathWidth * 0.28;
+  const cp1y = startY;
+  const cp2x = pathWidth * 0.35;
+  const cp2y = midY;
+  const cp3x = pathWidth * 0.65;
+  const cp3y = midY;
+  const cp4x = pathWidth * 0.72;
+  const cp4y = endY;
+
+  const curveD = `M ${startX} ${startY} C ${chartPadding + cp1x} ${cp1y}, ${chartPadding + cp2x} ${cp2y}, ${chartPadding + pathWidth * 0.5} ${midY} C ${chartPadding + cp3x} ${cp3y}, ${chartPadding + cp4x} ${cp4y}, ${endX} ${endY}`;
+
+  // Shaded area: curve + down to baseline + back to start
+  const areaD = `${curveD} L ${endX} ${baselineY} L ${startX} ${baselineY} Z`;
+
+  const pathLength = pathWidth * 1.4;
 
   const pathStyle = useAnimatedProps(() => ({
     strokeDashoffset: pathLength * (1 - pathDraw.value),
   }));
 
+  const clipStyle = useAnimatedProps(() => ({
+    width: svgWidth * pathDraw.value,
+  }));
+
   const useStacked = screenWidth < 380;
-  const timeframeLabel = result.estimatedWeeks > 0 ? `≈${result.estimatedWeeks} WEEKS` : 'N/A';
+  const timeframeLabel = result.estimatedWeeks > 0 ? `≈ ${result.estimatedWeeks} WEEKS` : 'N/A';
   const paceLabel = `at your selected pace of ≈${result.estimatedWeeklyRateLbs} lb/week`;
 
   return (
@@ -1429,7 +1456,6 @@ export function BodyCompPlanScreen({
 
       <Animated.View style={[fadeStyle, { flex: 1 }]}>
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 120 }}>
-          {/* Heading */}
           <Text style={planStyles.headline}>
             <Text style={planStyles.headlineWhite}>YOUR{'\n'}</Text>
             <Text style={planStyles.headlineLime}>PATH</Text>
@@ -1438,33 +1464,68 @@ export function BodyCompPlanScreen({
             Here's the starting plan we built around your goal.
           </Text>
 
-          {/* Journey visualization */}
-          <View style={planStyles.journeySection}>
-            <View style={planStyles.journeyLabelsRow}>
-              <View style={planStyles.journeyLabelLeft}>
-                <Text style={planStyles.journeyWeight}>{Math.round(result.startingWeightLbs)} lbs</Text>
-                <Text style={planStyles.journeyLabel}>YOU ARE HERE</Text>
-              </View>
-              <View style={planStyles.journeyLabelRight}>
-                <Text style={[planStyles.journeyWeight, { color: LIME }]}>{Math.round(result.targetWeightLbs)} lbs</Text>
-                <Text style={[planStyles.journeyLabel, { color: LIME }]}>YOUR GOAL</Text>
-              </View>
+          {/* Estimated Progress Chart */}
+          <Animated.View style={[planStyles.chartCard, chartStyle]}>
+            {/* Chart header */}
+            <View style={planStyles.chartHeader}>
+              <Text style={planStyles.chartHeaderText}>ESTIMATED PROGRESS</Text>
             </View>
 
-            {/* Curved journey path */}
-            <View style={[planStyles.pathContainer, { height: curveHeight + 16 }]}>
-              <Svg width={pathWidth} height={curveHeight + 16} style={planStyles.pathSvg}>
-                {/* Dashed track */}
+            {/* Weight labels above chart */}
+            <View style={planStyles.weightLabelsRow}>
+              <View style={planStyles.weightLabelLeft}>
+                <Text style={planStyles.weightValue}>{Math.round(result.startingWeightLbs)} lbs</Text>
+                <Text style={planStyles.weightSubLabel}>YOU ARE HERE</Text>
+              </View>
+              <Animated.View style={[planStyles.weightLabelRight, targetWeightStyle]}>
+                <Text style={[planStyles.weightValue, { color: LIME }]}>{Math.round(result.targetWeightLbs)} lbs</Text>
+                <Text style={[planStyles.weightSubLabel, { color: LIME }]}>YOUR GOAL</Text>
+              </Animated.View>
+            </View>
+
+            {/* Chart SVG */}
+            <View style={planStyles.chartSvgWrap}>
+              <Svg width={svgWidth} height={svgHeight} style={planStyles.chartSvg}>
+                <Defs>
+                  <ClipPath id="areaClip">
+                    <AnimatedRect
+                      x={0}
+                      y={0}
+                      height={svgHeight}
+                      animatedProps={clipStyle}
+                    />
+                  </ClipPath>
+                </Defs>
+
+                {/* Shaded area beneath curve (clipped to draw progress) */}
                 <SvgPath
-                  d={pathD}
+                  d={areaD}
+                  fill="rgba(204,255,0,0.06)"
+                  clipPath="url(#areaClip)"
+                />
+
+                {/* Baseline */}
+                <SvgLine
+                  x1={chartPadding}
+                  y1={baselineY}
+                  x2={svgWidth - chartPadding}
+                  y2={baselineY}
                   stroke="#222"
+                  strokeWidth="1"
+                />
+
+                {/* Dashed track (full curve, faint) */}
+                <SvgPath
+                  d={curveD}
+                  stroke="#1A1A1A"
                   strokeWidth="2"
-                  strokeDasharray="4 4"
+                  strokeDasharray="3 4"
                   fill="none"
                 />
-                {/* Animated lime path */}
+
+                {/* Animated lime curve */}
                 <AnimatedPath
-                  d={pathD}
+                  d={curveD}
                   stroke={LIME}
                   strokeWidth="2.5"
                   strokeLinecap="round"
@@ -1473,18 +1534,34 @@ export function BodyCompPlanScreen({
                   animatedProps={pathStyle}
                 />
               </Svg>
+
               {/* Start node */}
               <Animated.View
-                style={[planStyles.pathDotLeft, isDescending ? { top: 0 } : { top: curveHeight - 6 }, startNodeStyle]}
+                style={[
+                  planStyles.chartNode,
+                  { left: startX - 6, top: startY - 2 },
+                  startNodeStyle,
+                ]}
               />
               {/* End node */}
               <Animated.View
-                style={[planStyles.pathDotRight, isDescending ? { top: curveHeight - 6 } : { top: 0 }, endNodeStyle]}
+                style={[
+                  planStyles.chartNode,
+                  planStyles.chartNodeEnd,
+                  { left: endX - 6, top: endY - 2 },
+                  endNodeStyle,
+                ]}
               />
             </View>
-          </View>
 
-          {/* Timeframe beneath visualization */}
+            {/* Time labels under graph */}
+            <View style={planStyles.timeLabelsRow}>
+              <Text style={planStyles.timeLabel}>TODAY</Text>
+              <Text style={[planStyles.timeLabel, { color: LIME }]}>{timeframeLabel}</Text>
+            </View>
+          </Animated.View>
+
+          {/* Timeframe detail beneath chart */}
           <Animated.View style={[planStyles.paceSummary, timeframeStyle]}>
             <Text style={planStyles.paceSummaryTime}>{timeframeLabel}</Text>
             <Text style={planStyles.paceSummaryDetail}>{paceLabel}</Text>
@@ -1506,7 +1583,6 @@ export function BodyCompPlanScreen({
               </View>
             </View>
 
-            {/* Disclaimer */}
             <Text style={planStyles.disclaimer}>
               These are estimates, not guarantees. Real-world progress varies.
             </Text>
@@ -1546,64 +1622,79 @@ const planStyles = StyleSheet.create({
     color: MUTED,
     marginTop: 12,
     lineHeight: 24,
-    marginBottom: 28,
+    marginBottom: 24,
   },
-  journeySection: {
-    alignItems: 'center',
+  chartCard: {
+    backgroundColor: CARD_BG,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    padding: 16,
   },
-  journeyLabelsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+  chartHeader: {
     marginBottom: 12,
   },
-  journeyLabelLeft: {
+  chartHeaderText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    color: FAINT,
+  },
+  weightLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  weightLabelLeft: {
     alignItems: 'flex-start',
   },
-  journeyLabelRight: {
+  weightLabelRight: {
     alignItems: 'flex-end',
   },
-  journeyWeight: {
-    fontSize: 22,
+  weightValue: {
+    fontSize: 20,
     fontWeight: '900',
     color: '#FFF',
     letterSpacing: -0.5,
   },
-  journeyLabel: {
-    fontSize: 10,
+  weightSubLabel: {
+    fontSize: 9,
     fontWeight: '800',
     letterSpacing: 1,
     color: FAINT,
     marginTop: 2,
   },
-  pathContainer: {
-    width: '100%',
+  chartSvgWrap: {
+    position: 'relative',
     alignItems: 'center',
-    justifyContent: 'center',
+  },
+  chartSvg: {
     position: 'relative',
   },
-  pathSvg: {
+  chartNode: {
     position: 'absolute',
-  },
-  pathDotLeft: {
-    position: 'absolute',
-    left: 0,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: '#FFF',
     borderWidth: 2,
-    borderColor: DARK,
+    borderColor: CARD_BG,
   },
-  pathDotRight: {
-    position: 'absolute',
-    right: 0,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+  chartNodeEnd: {
     backgroundColor: LIME,
-    borderWidth: 2,
-    borderColor: DARK,
+    borderColor: CARD_BG,
+  },
+  timeLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    paddingHorizontal: 4,
+  },
+  timeLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: '#555',
   },
   paceSummary: {
     alignItems: 'center',
