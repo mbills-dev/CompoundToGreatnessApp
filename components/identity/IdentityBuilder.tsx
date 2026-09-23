@@ -61,7 +61,7 @@ import {
 import { calculateFatLoss, parseFatLossGoal, deriveTargetWeight, detectBodyCompositionSubtype } from '@/lib/bodyComposition';
 import type { FatLossInput } from '@/lib/bodyComposition';
 import type { BodyCompositionData, BodyCompStackInput, FatLossCalculationResult } from './flow/types';
-import { AnchorScreen, AddInputScreen, GoalLockedScreen, GoalBadge, formatGoalLabel, displayGoalLabel } from './flow/AnchorScreens';
+import { AnchorScreen, AddInputScreen, GoalLockedScreen, GoalBadge, formatGoalLabel, displayGoalLabel, GoalPlanScreen, GoalPlanInput } from './flow/AnchorScreens';
 import { AiDailyInputsScreen } from './flow/AiDailyInputsScreen';
 import { logInputFeedback, InputSource } from './flow/InputValidation';
 import { IdentityScreen, deriveIdentityLine, formatTargetDisplay } from './flow/IdentityScreens';
@@ -625,6 +625,7 @@ type Phase =
   | { kind: 'ai-daily-inputs' }
   | { kind: 'add-input'; goalIdx: number; prefillText?: string }
   | { kind: 'locked'; goalIdx: number; dailyInput: string }
+  | { kind: 'goal-plan'; goalIdx: number }
   | { kind: 'body-comp-intro'; goalIdx: number }
   | { kind: 'body-comp-questionnaire'; goalIdx: number; step: QuestionnaireStep }
   | { kind: 'body-comp-reverse'; goalIdx: number }
@@ -657,7 +658,7 @@ const KNOWN_PHASE_KINDS = new Set([
   'focus-philosophy', 'focus-select', 'focus-confirm',
   'classifying', 'path-select',
   'goal-done-looks', 'goal-fuel-redirect', 'decode', 'anchor',
-  'ai-daily-inputs', 'add-input', 'locked', 'identity',
+  'ai-daily-inputs', 'add-input', 'locked', 'goal-plan', 'identity',
   'body-comp-intro', 'body-comp-questionnaire', 'body-comp-reverse',
   'body-comp-plan', 'body-comp-stack', 'body-comp-commit',
   'compass-story', 'compass-domino', 'compass-mechanism', 'finale', 'signature',
@@ -836,6 +837,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
       case 'anchor': return `anchor-${p.goalIdx}`;
       case 'add-input': return `add-input-${p.goalIdx}`;
       case 'locked': return `locked-${p.goalIdx}`;
+      case 'goal-plan': return `goal-plan-${p.goalIdx}`;
       default: return p.kind;
     }
   };
@@ -978,7 +980,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
       finalInputText: dailyInput,
       specificityFlagTriggered: !!wasFlaggedNonSpecific,
     });
-    navigate({ kind: 'locked', goalIdx, dailyInput });
+    navigate({ kind: 'goal-plan', goalIdx });
   };
 
   const handleAddInputDone = (goalIdx: number, inp: AnchoredInput, wasFlaggedNonSpecific?: boolean) => {
@@ -993,7 +995,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
       finalInputText: inp.dailyInput,
       specificityFlagTriggered: !!wasFlaggedNonSpecific,
     });
-    navigate({ kind: 'locked', goalIdx, dailyInput: inp.dailyInput });
+    navigate({ kind: 'goal-plan', goalIdx });
   };
 
   const challengeGoalIndices = goals
@@ -1433,25 +1435,6 @@ export default function IdentityBuilder({ onComplete }: Props) {
         );
       }
 
-      case 'locked': {
-        const lockedGoalData = locked.find(l => l.goalId === goals[phase.goalIdx].id);
-        if (!lockedGoalData) return null;
-        const aiRemaining = (aiSelectedInputs[phase.goalIdx] ?? []).filter(
-          inp => inp !== lockedGoalData.dailyInput && !lockedGoalData.additionalInputs.some(a => a.dailyInput === inp)
-        );
-        return (
-          <GoalLockedScreen
-            n={phase.goalIdx + 1}
-            total={challengeGoalIndices.length || goals.length}
-            goal={goals[phase.goalIdx]}
-            resolvedLabel={formatGoalLabel(goals[phase.goalIdx], goalLabelOverrides)}
-            lockedGoal={lockedGoalData}
-            onNext={() => handleLockedNext(phase.goalIdx)}
-            onAddInput={() => navigate({ kind: 'add-input', goalIdx: phase.goalIdx, prefillText: aiRemaining[0] })}
-          />
-        );
-      }
-
       case 'add-input': {
         const { goalIdx, prefillText } = phase;
         const goal = goals[goalIdx];
@@ -1466,7 +1449,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
                 goal={goal}
                 prefillText={prefillText}
                 onDone={(dailyInput, when, where, schedule, wasFlaggedNonSpecific) => handleAddInputDone(goalIdx, { dailyInput, when, where, schedule }, wasFlaggedNonSpecific)}
-                onCancel={() => navigate({ kind: 'locked', goalIdx, dailyInput: '' })}
+                onCancel={() => navigate({ kind: 'goal-plan', goalIdx })}
               />
             </ScrollView>
           </View>
@@ -1581,90 +1564,146 @@ export default function IdentityBuilder({ onComplete }: Props) {
                 ...prev,
                 [goalIdx]: { ...prev[goalIdx], selectedInputs: defaultInputs },
               }));
-              navigate({ kind: 'body-comp-stack', goalIdx });
+              navigate({ kind: 'goal-plan', goalIdx });
             }}
             onBack={goBack}
           />
         );
       }
 
-      case 'body-comp-stack': {
-        const goalIdx = phase.goalIdx;
-        const result = bodyCompStates[goalIdx]?.calculationResult;
-        if (!result) {
-          navigate({ kind: 'body-comp-questionnaire', goalIdx, step: 'weight' });
-          return null;
-        }
-        const inputs = bodyCompStates[goalIdx]?.selectedInputs ?? buildDefaultStackInputs(result);
-        return (
-          <BodyCompStackScreen
-            result={result}
-            inputs={inputs}
-            onInputsChange={(newInputs) => {
-              setBodyCompStates(prev => ({
-                ...prev,
-                [goalIdx]: { ...prev[goalIdx], selectedInputs: newInputs },
-              }));
-            }}
-            onCommit={() => {
-              const confirmed = inputs.filter(i => i.selected && i.valueDetail);
-              setBodyCompStates(prev => ({
-                ...prev,
-                [goalIdx]: { ...prev[goalIdx], confirmedInputs: confirmed },
-              }));
-              navigate({ kind: 'body-comp-commit', goalIdx });
-            }}
-            onBack={goBack}
-          />
-        );
-      }
+      case 'body-comp-stack':
+      case 'body-comp-commit':
+        // Legacy phases — redirect to goal-plan
+        navigate({ kind: 'goal-plan', goalIdx: phase.goalIdx });
+        return null;
 
-      case 'body-comp-commit': {
+      case 'goal-plan': {
         const goalIdx = phase.goalIdx;
-        const bcState = bodyCompStates[goalIdx];
-        const confirmedInputs = bcState?.confirmedInputs ?? [];
-        const result = bcState?.calculationResult;
         const goal = goals[goalIdx];
-        const handleConfirm = () => {
-          if (confirmedInputs.length === 0) return;
-          const goalLabel = formatGoalLabel(goal, goalLabelOverrides);
-          const first = confirmedInputs[0];
-          const additionalInputs: AnchoredInput[] = confirmedInputs.slice(1).map(inp => ({
-            dailyInput: inp.valueDetail || inp.dailyInput,
-            when: inp.when,
-            where: inp.where,
-            schedule: null,
+        const goalLabel = formatGoalLabel(goal, goalLabelOverrides);
+        const bcState = bodyCompStates[goalIdx];
+        const isBodyComp = !!bcState?.calculationResult;
+
+        // Build GoalPlanInput[] from the appropriate source
+        let planInputs: GoalPlanInput[];
+        if (isBodyComp) {
+          const bcInputs = bcState!.selectedInputs ?? buildDefaultStackInputs(bcState!.calculationResult!);
+          planInputs = bcInputs.map(inp => ({
+            id: inp.id,
+            label: inp.dailyInput,
+            detail: inp.valueDetail || '',
+            selected: inp.selected,
+            editable: inp.category === 'calories' || inp.category === 'protein' || inp.category === 'steps' || inp.category === 'exercise',
+            category: inp.category,
           }));
-          const identityLine = result
-            ? `I weigh ${Math.round(result.targetWeightLbs)} lbs.`
-            : undefined;
-          setLocked(prev => [
-            ...prev.filter(l => l.goalId !== goal.id),
-            {
-              goalId: goal.id,
-              dailyInput: first.valueDetail || first.dailyInput,
-              goalLabel,
-              originalGoalLabel: goal.label,
-              decodePath: 'body_composition',
-              identityLine,
-              what: first.valueDetail || first.dailyInput,
-              when: first.when || 'Throughout the day',
-              where: first.where || '',
-              schedule: null,
-              additionalInputs,
-            },
-          ]);
-          setDecodeResults(prev => ({ ...prev, [goalIdx]: first.valueDetail || first.dailyInput }));
-          navigate({ kind: 'locked', goalIdx, dailyInput: first.valueDetail || first.dailyInput });
+        } else {
+          // Standard path: build from locked goal + additional inputs
+          const lockedGoal = locked.find(l => l.goalId === goal.id);
+          const primary: GoalPlanInput = {
+            id: 'primary',
+            label: lockedGoal?.dailyInput || decodeResults[goalIdx] || '',
+            detail: '',
+            selected: true,
+            editable: false,
+          };
+          const additional: GoalPlanInput[] = (lockedGoal?.additionalInputs ?? []).map((inp, i) => ({
+            id: `add-${i}`,
+            label: inp.dailyInput,
+            detail: '',
+            selected: true,
+            editable: false,
+          }));
+          planInputs = [primary, ...additional];
+        }
+
+        const onToggleInput = (id: string) => {
+          if (isBodyComp) {
+            setBodyCompStates(prev => ({
+              ...prev,
+              [goalIdx]: {
+                ...prev[goalIdx],
+                selectedInputs: (prev[goalIdx]?.selectedInputs ?? []).map(inp =>
+                  inp.id === id ? { ...inp, selected: !inp.selected } : inp
+                ),
+              },
+            }));
+          }
         };
+
+        const onEditInputDetail = (id: string, detail: string) => {
+          if (isBodyComp) {
+            setBodyCompStates(prev => ({
+              ...prev,
+              [goalIdx]: {
+                ...prev[goalIdx],
+                selectedInputs: (prev[goalIdx]?.selectedInputs ?? []).map(inp =>
+                  inp.id === id ? { ...inp, valueDetail: detail } : inp
+                ),
+              },
+            }));
+          }
+        };
+
+        const handleLockGoal = () => {
+          if (isBodyComp) {
+            const confirmed = (bodyCompStates[goalIdx]?.selectedInputs ?? [])
+              .filter(i => i.selected && i.valueDetail);
+            if (confirmed.length === 0) return;
+            const first = confirmed[0];
+            const additionalInputs: AnchoredInput[] = confirmed.slice(1).map(inp => ({
+              dailyInput: inp.valueDetail || inp.dailyInput,
+              when: inp.when,
+              where: inp.where,
+              schedule: null,
+            }));
+            const identityLine = bcState!.calculationResult
+              ? `I weigh ${Math.round(bcState!.calculationResult!.targetWeightLbs)} lbs.`
+              : undefined;
+            setLocked(prev => [
+              ...prev.filter(l => l.goalId !== goal.id),
+              {
+                goalId: goal.id,
+                dailyInput: first.valueDetail || first.dailyInput,
+                goalLabel,
+                originalGoalLabel: goal.label,
+                decodePath: 'body_composition' as const,
+                identityLine,
+                what: first.valueDetail || first.dailyInput,
+                when: first.when || 'Throughout the day',
+                where: first.where || '',
+                schedule: null,
+                additionalInputs,
+              },
+            ]);
+            setDecodeResults(prev => ({ ...prev, [goalIdx]: first.valueDetail || first.dailyInput }));
+          }
+          // For standard paths, locked state was already set by handleAnchorDone
+          handleLockedNext(goalIdx);
+        };
+
+        // AI-suggested inputs remaining for the add-input prefill
+        const aiRemaining = (aiSelectedInputs[goalIdx] ?? []).filter(
+          inp => !planInputs.some(pi => pi.label === inp)
+        );
+
         return (
-          <BodyCompCommitScreen
-            confirmedInputs={confirmedInputs}
-            onConfirm={handleConfirm}
-            onAdjust={() => navigate({ kind: 'body-comp-stack', goalIdx })}
-            onBack={goBack}
+          <GoalPlanScreen
+            n={goalIdx + 1}
+            total={challengeGoalIndices.length || goals.length}
+            goalLabel={goalLabel}
+            inputs={planInputs}
+            onToggleInput={onToggleInput}
+            onEditInputDetail={onEditInputDetail}
+            onAddInput={() => navigate({ kind: 'add-input', goalIdx, prefillText: aiRemaining[0] })}
+            onLock={handleLockGoal}
           />
         );
+      }
+
+      case 'locked': {
+        // Legacy — redirect to goal-plan
+        navigate({ kind: 'goal-plan', goalIdx: phase.goalIdx });
+        return null;
       }
 
       case 'identity':

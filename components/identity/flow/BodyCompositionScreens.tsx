@@ -138,23 +138,25 @@ export function ReverseEngineeringScreen({
     headlineOpacity.value = withTiming(1, { duration: 600 });
 
     // ONE continuous animation from 0 → 100% over ~4.5s.
-    // All segments chained in a single withSequence so they run back-to-back
-    // without each assignment cancelling the previous (which was the bug).
+    // All segments are plain withTiming chained in a single withSequence.
+    // No withDelay inside withSequence — nested delayed animations can produce
+    // invalid onFrame callbacks in Reanimated, causing the "Cannot read
+    // properties of undefined (reading 'onFrame')" crash.
     const INITIAL_DELAY = 700;
-    const seg1 = withTiming(0.25, { duration: 1100, easing: Easing.bezier(0.4, 0, 0.6, 1) });
-    const seg2 = withTiming(0.50, { duration: 1000, easing: Easing.bezier(0.25, 0.1, 0.25, 1) });
-    const seg3 = withTiming(0.75, { duration: 1000, easing: Easing.bezier(0.2, 0.0, 0.3, 1) });
-    const seg4 = withTiming(0.99, { duration: 1100, easing: Easing.bezier(0.15, 0.0, 0.15, 1) });
     const SUSPENSE_HOLD = 300;
-    const seg5 = withDelay(SUSPENSE_HOLD, withTiming(1, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }));
 
-    const fullSequence = withDelay(
+    progress.value = withDelay(
       INITIAL_DELAY,
-      withSequence(seg1, seg2, seg3, seg4, seg5),
+      withSequence(
+        withTiming(0.25, { duration: 1100, easing: Easing.bezier(0.4, 0, 0.6, 1) }),
+        withTiming(0.50, { duration: 1000, easing: Easing.bezier(0.25, 0.1, 0.25, 1) }),
+        withTiming(0.75, { duration: 1000, easing: Easing.bezier(0.2, 0.0, 0.3, 1) }),
+        withTiming(0.99, { duration: 1100, easing: Easing.bezier(0.15, 0.0, 0.15, 1) }),
+        withTiming(0.99, { duration: SUSPENSE_HOLD }),
+        withTiming(1, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+      ),
     );
-
-    progress.value = fullSequence;
-    bottomProgressWidth.value = fullSequence;
+    bottomProgressWidth.value = progress.value;
 
     const totalDuration = INITIAL_DELAY + 1100 + 1000 + 1000 + 1100 + SUSPENSE_HOLD + 300;
 
@@ -169,7 +171,7 @@ export function ReverseEngineeringScreen({
 
       boltOpacity.value = withTiming(1, { duration: 200 });
       boltScale.value = withSequence(
-        withTiming(0, { duration: 0 }),
+        withTiming(0.01, { duration: 1 }),
         withTiming(1.3, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
         withTiming(1, { duration: 200 }),
       );
@@ -179,7 +181,7 @@ export function ReverseEngineeringScreen({
         withTiming(0, { duration: 700 }),
       );
       pulseScale.value = withSequence(
-        withTiming(1, { duration: 0 }),
+        withTiming(1, { duration: 1 }),
         withTiming(1.6, { duration: 700, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
       );
 
@@ -402,7 +404,7 @@ export function ReverseEngineeringScreen({
             onPress={() => { hapticMedium(); onReveal(); }}
             activeOpacity={0.85}
           >
-            <Text style={reStyles.ctaText}>See My Success Stack</Text>
+            <Text style={reStyles.ctaText}>See My Daily Inputs</Text>
             <ArrowRight size={20} color="#000" strokeWidth={3} />
           </TouchableOpacity>
         )}
@@ -433,7 +435,7 @@ function StageRow({
   useEffect(() => {
     if (isComplete) {
       checkScale.value = withSequence(
-        withTiming(0, { duration: 0 }),
+        withTiming(0.01, { duration: 1 }),
         withTiming(1, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
       );
       dotOpacity.value = withTiming(1, { duration: 300 });
@@ -1595,7 +1597,7 @@ export function BodyCompPlanScreen({
 
       <View style={[planStyles.footer, { paddingBottom: insets.bottom + 24 }]}>
         <TouchableOpacity style={planStyles.cta} onPress={() => { hapticLight(); onReveal(); }} activeOpacity={0.85}>
-          <Text style={planStyles.ctaText}>See My Success Stack</Text>
+          <Text style={planStyles.ctaText}>See My Daily Inputs</Text>
           <ArrowRight size={20} color="#000" strokeWidth={3} />
         </TouchableOpacity>
       </View>

@@ -14,14 +14,18 @@ import Animated, {
   withTiming,
   withSpring,
   withDelay,
+  withSequence,
+  Easing,
+  runOnJS,
   interpolate,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowRight, Check, Zap, ChartBar as BarChart2, Dumbbell, Heart, Sparkles, Pencil } from 'lucide-react-native';
+import { ArrowRight, Check, Zap, ChartBar as BarChart2, Dumbbell, Heart, Sparkles, Pencil, Plus, X, Lock } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WhenPickerModal, { WhenPickerValue } from '../WhenPickerModal';
-import { FlowGoal, LockedGoal, AnchoredInput } from './types';
+import { FlowGoal, LockedGoal, AnchoredInput, BodyCompStackInput } from './types';
 import styles from './styles';
 import KeyboardStepWrapper, { KEYBOARD_DONE_ACCESSORY_ID, KeyboardStepWrapperRef } from './KeyboardStepWrapper';
 import { useInputSpecificity, SpecificityNudgeBanner } from './InputValidation';
@@ -545,6 +549,413 @@ export function AddInputScreen({
     </KeyboardStepWrapper>
   );
 }
+
+// ─── GoalPlanInput (universal) ────────────────────────────────────────────────
+
+export interface GoalPlanInput {
+  id: string;
+  label: string;
+  detail: string;
+  selected: boolean;
+  editable: boolean;
+  category?: string;
+}
+
+// ─── GoalPlanScreen (universal goal finalization) ────────────────────────────
+
+export function GoalPlanScreen({
+  n,
+  total,
+  goalLabel,
+  inputs,
+  onToggleInput,
+  onEditInputDetail,
+  onAddInput,
+  onLock,
+}: {
+  n: number;
+  total: number;
+  goalLabel: string;
+  inputs: GoalPlanInput[];
+  onToggleInput: (id: string) => void;
+  onEditInputDetail: (id: string, detail: string) => void;
+  onAddInput: () => void;
+  onLock: () => void;
+}) {
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const fade = useSharedValue(0);
+  const lockProgress = useSharedValue(0);
+  const lockScale = useSharedValue(1);
+  const lockLabelOpacity = useSharedValue(1);
+  const lockedBadgeOpacity = useSharedValue(0);
+  const lockedBadgeScale = useSharedValue(0.5);
+  const [isLocked, setIsLocked] = useState(false);
+
+  useEffect(() => {
+    fade.value = withTiming(1, { duration: 500 });
+  }, []);
+
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
+
+  const lockCtaStyle = useAnimatedStyle(() => ({
+    opacity: lockLabelOpacity.value,
+    transform: [{ scale: lockScale.value }],
+  }));
+
+  const lockedBadgeStyle = useAnimatedStyle(() => ({
+    opacity: lockedBadgeOpacity.value,
+    transform: [{ scale: lockedBadgeScale.value }],
+  }));
+
+  const selectedInputs = inputs.filter(i => i.selected);
+  const canAddMore = selectedInputs.length < 5;
+  const canLock = selectedInputs.length > 0;
+
+  const handleLock = () => {
+    if (!canLock || isLocked) return;
+    setIsLocked(true);
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    }
+    lockLabelOpacity.value = withTiming(0, { duration: 150 });
+    lockScale.value = withTiming(0.9, { duration: 150 });
+
+    lockedBadgeOpacity.value = withDelay(100, withTiming(1, { duration: 300 }));
+    lockedBadgeScale.value = withSequence(
+      withTiming(0.01, { duration: 1 }),
+      withTiming(1.15, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+      withTiming(1, { duration: 200 }),
+    );
+
+    setTimeout(() => onLock(), 900);
+  };
+
+  return (
+    <View style={[goalPlanStyles.container, { backgroundColor: isDark ? '#0A0A0A' : '#FAFAFA', paddingTop: insets.top }]}>
+      <Animated.View style={[fadeStyle, { flex: 1 }]}>
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 120 }}>
+          {/* Eyebrow */}
+          <Text style={goalPlanStyles.eyebrow}>GOAL {n}</Text>
+
+          {/* Headline */}
+          <Text style={goalPlanStyles.headline}>
+            <Text style={goalPlanStyles.headlineWhite}>YOUR PLAN FOR{'\n'}</Text>
+            <Text style={goalPlanStyles.headlineGoal}>{goalLabel.toUpperCase()}.</Text>
+          </Text>
+
+          {/* Support */}
+          <Text style={goalPlanStyles.support}>
+            These are the daily inputs designed to move you toward this goal.
+          </Text>
+
+          {/* Input cards */}
+          <View style={goalPlanStyles.inputList}>
+            {inputs.map((inp, idx) => (
+              <GoalPlanInputCard
+                key={inp.id}
+                index={idx + 1}
+                input={inp}
+                colors={colors}
+                isDark={isDark ?? true}
+                onToggle={() => onToggleInput(inp.id)}
+                onEditDetail={(detail) => onEditInputDetail(inp.id, detail)}
+              />
+            ))}
+          </View>
+
+          {/* Add another */}
+          {canAddMore && (
+            <TouchableOpacity
+              style={goalPlanStyles.addBtn}
+              onPress={onAddInput}
+              activeOpacity={0.7}
+            >
+              <Plus size={16} color={colors.textTertiary} strokeWidth={2} />
+              <Text style={goalPlanStyles.addBtnText}>Add another daily input</Text>
+            </TouchableOpacity>
+          )}
+
+          {!isLocked && total > n && (
+            <Text style={goalPlanStyles.moreHint}>{total - n} more goal{total - n > 1 ? 's' : ''} to go</Text>
+          )}
+        </ScrollView>
+      </Animated.View>
+
+      {/* Footer with lock CTA / confirmation */}
+      <View style={[goalPlanStyles.footer, { paddingBottom: insets.bottom + 24 }]}>
+        {!isLocked ? (
+          <TouchableOpacity
+            style={[goalPlanStyles.lockCta, !canLock && { opacity: 0.4 }]}
+            onPress={handleLock}
+            disabled={!canLock}
+            activeOpacity={0.85}
+          >
+            <Animated.View style={[lockCtaStyle, goalPlanStyles.lockCtaInner]}>
+              <Lock size={18} color="#000" strokeWidth={2.5} />
+              <Text style={goalPlanStyles.lockCtaText}>LOCK IN THIS GOAL</Text>
+              <ArrowRight size={20} color="#000" strokeWidth={3} />
+            </Animated.View>
+          </TouchableOpacity>
+        ) : (
+          <Animated.View style={[goalPlanStyles.lockedBadge, lockedBadgeStyle]}>
+            <Zap size={18} color="#000" strokeWidth={2.5} fill="#000" />
+            <Text style={goalPlanStyles.lockedBadgeText}>GOAL {n} LOCKED</Text>
+          </Animated.View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function GoalPlanInputCard({
+  index,
+  input,
+  colors,
+  isDark,
+  onToggle,
+  onEditDetail,
+}: {
+  index: number;
+  input: GoalPlanInput;
+  colors: ReturnType<typeof useTheme>['colors'];
+  isDark: boolean;
+  onToggle: () => void;
+  onEditDetail: (detail: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [detailDraft, setDetailDraft] = useState(input.detail);
+
+  const handleDoneEdit = () => {
+    setEditing(false);
+    if (detailDraft.trim() !== input.detail) {
+      onEditDetail(detailDraft.trim());
+    }
+  };
+
+  const cardBg = isDark ? '#0F0F0F' : '#F5F5F5';
+  const cardBorder = input.selected
+    ? (isDark ? 'rgba(204,255,0,0.25)' : 'rgba(180,220,0,0.35)')
+    : (isDark ? '#1C1C1C' : '#E0E0E0');
+  const lime = '#CCFF00';
+
+  return (
+    <View style={[goalPlanStyles.inputCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+      <View style={goalPlanStyles.inputCardRow}>
+        <Text style={goalPlanStyles.inputNumber}>{String(index).padStart(2, '0')}</Text>
+        <Text
+          style={[
+            goalPlanStyles.inputLabel,
+            { color: input.selected ? (isDark ? '#FFF' : '#000') : (isDark ? '#555' : '#999') },
+          ]}
+          numberOfLines={2}
+        >
+          {input.label}
+        </Text>
+        <TouchableOpacity onPress={onToggle} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <View style={[
+            goalPlanStyles.inputCheckbox,
+            {
+              borderColor: input.selected ? lime : (isDark ? '#333' : '#CCC'),
+              backgroundColor: input.selected ? lime : 'transparent',
+            },
+          ]}>
+            {input.selected && <Check size={12} color="#000" strokeWidth={3} />}
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      {/* Detail line */}
+      {input.selected && input.editable && editing ? (
+        <View style={goalPlanStyles.editRow}>
+          <TextInput
+            style={[goalPlanStyles.editInput, { color: isDark ? '#FFF' : '#000', borderColor: lime + '80', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}
+            value={detailDraft}
+            onChangeText={setDetailDraft}
+            autoFocus
+            returnKeyType="done"
+            blurOnSubmit={true}
+            onSubmitEditing={handleDoneEdit}
+          />
+          <TouchableOpacity style={[goalPlanStyles.editConfirm, { backgroundColor: lime }]} onPress={handleDoneEdit}>
+            <Check size={14} color="#000" strokeWidth={3} />
+          </TouchableOpacity>
+        </View>
+      ) : input.selected && input.detail ? (
+        <View style={goalPlanStyles.detailRow}>
+          <Text style={[goalPlanStyles.detailText, { color: lime }]}>
+            {input.detail}
+          </Text>
+          {input.editable && (
+            <TouchableOpacity onPress={() => { setDetailDraft(input.detail); setEditing(true); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Pencil size={12} color={isDark ? '#555' : '#999'} strokeWidth={2} />
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+// ─── GoalPlanScreen styles below ─────────────────────────────────────────────
+
+const goalPlanStyles = StyleSheet.create({
+  container: { flex: 1 },
+  eyebrow: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    color: '#555',
+    marginTop: 16,
+  },
+  headline: {
+    fontSize: 36,
+    fontWeight: '900',
+    letterSpacing: -1.5,
+    lineHeight: 42,
+    marginTop: 6,
+  },
+  headlineWhite: { color: '#FFFFFF' },
+  headlineGoal: { color: '#CCFF00' },
+  support: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#777',
+    marginTop: 12,
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  inputList: {
+    gap: 10,
+  },
+  inputCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  inputCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  inputNumber: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#444',
+    minWidth: 18,
+  },
+  inputLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  inputCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 30,
+    marginTop: 6,
+  },
+  detailText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  editRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 30,
+    marginTop: 6,
+  },
+  editInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  editConfirm: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#333',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 16,
+  },
+  addBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#888',
+  },
+  moreHint: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#555',
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  footer: {
+    paddingHorizontal: 28,
+  },
+  lockCta: {
+    borderRadius: 16,
+    backgroundColor: '#CCFF00',
+    overflow: 'hidden',
+  },
+  lockCtaInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 18,
+  },
+  lockCtaText: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#000',
+    letterSpacing: 0.3,
+  },
+  lockedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 18,
+    borderRadius: 16,
+    backgroundColor: 'rgba(204,255,0,0.15)',
+    borderWidth: 1.5,
+    borderColor: '#CCFF00',
+  },
+  lockedBadgeText: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#CCFF00',
+    letterSpacing: 0.3,
+  },
+});
 
 // ─── GoalLockedScreen ─────────────────────────────────────────────────────────
 
