@@ -228,6 +228,16 @@ export function ReverseEngineeringScreen({
     return () => clearTimeout(completionTimer);
   }, []);
 
+  const onStageChange = (idx: number) => {
+    if (idx < 0 || idx >= stages.length) return;
+    setCurrentStageIdx(idx);
+    stageDescOpacity.value = withSequence(
+      withTiming(0, { duration: 150 }),
+      withTiming(1, { duration: 300 }),
+    );
+    if (idx > 0) hapticLight();
+  };
+
   // Continuous percentage display — update state from shared value
   useAnimatedReaction(
     () => progress.value,
@@ -250,16 +260,6 @@ export function ReverseEngineeringScreen({
       }
     },
   );
-
-  const onStageChange = (idx: number) => {
-    if (idx < 0 || idx >= stages.length) return;
-    setCurrentStageIdx(idx);
-    stageDescOpacity.value = withSequence(
-      withTiming(0, { duration: 150 }),
-      withTiming(1, { duration: 300 }),
-    );
-    if (idx > 0) hapticLight();
-  };
 
   const fadeStyle = useAnimatedStyle(() => ({ opacity: headlineOpacity.value }));
   const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
