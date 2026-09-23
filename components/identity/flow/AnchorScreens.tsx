@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
+  Modal,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -560,6 +561,14 @@ export interface GoalPlanInput {
   editable: boolean;
   category?: string;
   optional?: boolean;
+  configured?: boolean;
+}
+
+export type OptionalAdditionType = 'nutrition_rule' | 'hydration' | 'bedtime';
+
+export interface OptionalAddition {
+  type: OptionalAdditionType;
+  label: string;
 }
 
 // ─── GoalPlanScreen (universal goal finalization) ────────────────────────────
@@ -569,18 +578,24 @@ export function GoalPlanScreen({
   total,
   goalLabel,
   inputs,
+  optionalAdditions,
   onToggleInput,
   onEditInputDetail,
   onAddInput,
+  onConfigureOptional,
+  onRemoveInput,
   onLock,
 }: {
   n: number;
   total: number;
   goalLabel: string;
   inputs: GoalPlanInput[];
+  optionalAdditions: OptionalAddition[];
   onToggleInput: (id: string) => void;
   onEditInputDetail: (id: string, detail: string) => void;
   onAddInput: () => void;
+  onConfigureOptional: (type: OptionalAdditionType, existingId?: string, existingValue?: string) => void;
+  onRemoveInput: (id: string) => void;
   onLock: () => void;
 }) {
   const { colors, isDark } = useTheme();
@@ -608,8 +623,6 @@ export function GoalPlanScreen({
     transform: [{ scale: lockedBadgeScale.value }],
   }));
 
-  const coreInputs = inputs.filter(i => !i.optional);
-  const optionalInputs = inputs.filter(i => i.optional);
   const selectedInputs = inputs.filter(i => i.selected);
   const canAddMore = selectedInputs.length < 5;
   const canLock = selectedInputs.length > 0;
@@ -642,6 +655,11 @@ export function GoalPlanScreen({
       isDark={isDark ?? true}
       onToggle={() => onToggleInput(inp.id)}
       onEditDetail={(detail) => onEditInputDetail(inp.id, detail)}
+      onRemove={() => onRemoveInput(inp.id)}
+      onEditOptional={(value) => {
+        const cat = inp.category as OptionalAdditionType | undefined;
+        if (cat) onConfigureOptional(cat, inp.id, value);
+      }}
     />
   );
 
@@ -678,7 +696,7 @@ export function GoalPlanScreen({
 
           {/* Core input cards — only actual inputs, no empty slots */}
           <View style={goalPlanStyles.inputList}>
-            {coreInputs.map(renderInputCard)}
+            {inputs.map(renderInputCard)}
           </View>
 
           {/* Add another daily input */}
@@ -693,12 +711,22 @@ export function GoalPlanScreen({
             </TouchableOpacity>
           )}
 
-          {/* Optional additions */}
-          {optionalInputs.length > 0 && (
+          {/* Optional additions — rendered as add-action rows, not cards */}
+          {optionalAdditions.length > 0 && (
             <View style={goalPlanStyles.optionalSection}>
               <Text style={goalPlanStyles.optionalTitle}>OPTIONAL ADDITIONS</Text>
               <Text style={goalPlanStyles.optionalSub}>Add only what you're ready to own every day.</Text>
-              {optionalInputs.map((inp, idx) => renderInputCard(inp, coreInputs.length + idx))}
+              {optionalAdditions.map((add) => (
+                <TouchableOpacity
+                  key={add.type}
+                  style={goalPlanStyles.optionalAddRow}
+                  onPress={() => onConfigureOptional(add.type)}
+                  activeOpacity={0.7}
+                >
+                  <Plus size={16} color={colors.textTertiary} strokeWidth={2} />
+                  <Text style={goalPlanStyles.optionalAddText}>{add.label}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           )}
 
@@ -741,6 +769,8 @@ function GoalPlanInputCard({
   isDark,
   onToggle,
   onEditDetail,
+  onRemove,
+  onEditOptional,
 }: {
   index: number;
   input: GoalPlanInput;
@@ -748,6 +778,8 @@ function GoalPlanInputCard({
   isDark: boolean;
   onToggle: () => void;
   onEditDetail: (detail: string) => void;
+  onRemove?: () => void;
+  onEditOptional?: (value: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [targetDraft, setTargetDraft] = useState(input.target);
@@ -764,6 +796,16 @@ function GoalPlanInputCard({
     ? (isDark ? '#1F1F1F' : '#E0E0E0')
     : (isDark ? '#161616' : '#ECECEC');
   const lime = '#CCFF00';
+  const isOptionalConfigured = input.optional && input.configured;
+
+  const handleEditTap = () => {
+    if (isOptionalConfigured && onEditOptional) {
+      onEditOptional(input.target);
+    } else if (input.editable) {
+      setTargetDraft(input.target);
+      setEditing(true);
+    }
+  };
 
   return (
     <View style={[goalPlanStyles.inputCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
@@ -780,7 +822,7 @@ function GoalPlanInputCard({
             {input.title}
           </Text>
           {input.selected && input.target ? (
-            input.editable && editing ? (
+            input.editable && editing && !isOptionalConfigured ? (
               <View style={goalPlanStyles.editRow}>
                 <TextInput
                   style={[goalPlanStyles.editInput, { color: isDark ? '#FFF' : '#000', borderColor: lime + '80', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}
@@ -800,8 +842,8 @@ function GoalPlanInputCard({
                 <Text style={goalPlanStyles.targetText}>
                   {input.target}
                 </Text>
-                {input.editable && (
-                  <TouchableOpacity onPress={() => { setTargetDraft(input.target); setEditing(true); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                {(input.editable || isOptionalConfigured) && (
+                  <TouchableOpacity onPress={handleEditTap} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Pencil size={12} color={isDark ? '#555' : '#999'} strokeWidth={2} />
                   </TouchableOpacity>
                 )}
@@ -821,9 +863,278 @@ function GoalPlanInputCard({
           </View>
         </TouchableOpacity>
       </View>
+      {/* Remove affordance for configured optional inputs */}
+      {isOptionalConfigured && onRemove && (
+        <TouchableOpacity style={goalPlanStyles.removeRow} onPress={onRemove} activeOpacity={0.7} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+          <Text style={goalPlanStyles.removeText}>Remove</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
+
+// ─── OptionalAdditionSheet (bottom sheet for nutrition / hydration / bedtime) ──
+
+export function OptionalAdditionSheet({
+  visible,
+  type,
+  initialValue,
+  onClose,
+  onConfirm,
+}: {
+  visible: boolean;
+  type: OptionalAdditionType | null;
+  initialValue?: string;
+  onClose: () => void;
+  onConfirm: (value: string) => void;
+}) {
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const backdropOpacity = useSharedValue(0);
+  const sheetTranslate = useSharedValue(400);
+
+  const [customMode, setCustomMode] = useState(false);
+  const [customText, setCustomText] = useState('');
+  const [selectedPreset, setSelectedPreset] = useState<string>('');
+  const [hour, setHour] = useState(10);
+  const [minute, setMinute] = useState(0);
+  const [period, setPeriod] = useState<'AM' | 'PM'>('PM');
+
+  useEffect(() => {
+    if (visible) {
+      backdropOpacity.value = withTiming(1, { duration: 250 });
+      sheetTranslate.value = withTiming(0, { duration: 250 });
+      setCustomMode(false);
+      setCustomText('');
+      setSelectedPreset('');
+      if (initialValue) {
+        if (type === 'bedtime') {
+          const m = initialValue.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+          if (m) {
+            setHour(parseInt(m[1], 10));
+            setMinute(parseInt(m[2], 10));
+            setPeriod(m[3].toUpperCase() as 'AM' | 'PM');
+          }
+        } else {
+          setSelectedPreset(initialValue);
+          setCustomText(initialValue);
+        }
+      } else if (type === 'bedtime') {
+        setHour(10); setMinute(0); setPeriod('PM');
+      }
+    } else {
+      backdropOpacity.value = withTiming(0, { duration: 200 });
+      sheetTranslate.value = withTiming(400, { duration: 250 });
+    }
+  }, [visible]);
+
+  if (!visible || !type) return null;
+
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdropOpacity.value }));
+  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sheetTranslate.value }] }));
+
+  const presets: Record<OptionalAdditionType, string[]> = {
+    nutrition_rule: ['No added sugar', 'Whole foods only', 'No food after 8 PM'],
+    hydration: ['64 oz water', '80 oz water', '100 oz water', '120 oz water'],
+    bedtime: [],
+  };
+
+  const titles: Record<OptionalAdditionType, string> = {
+    nutrition_rule: 'ADD A NUTRITION RULE',
+    hydration: 'ADD A HYDRATION TARGET',
+    bedtime: 'SET YOUR BEDTIME',
+  };
+
+  const supports: Record<OptionalAdditionType, string> = {
+    nutrition_rule: 'Choose one simple rule you can own every day.',
+    hydration: 'How much water will you drink each day?',
+    bedtime: 'What time will you be in bed each night?',
+  };
+
+  const handleConfirm = () => {
+    let value = '';
+    if (type === 'bedtime') {
+      value = `${hour}:${String(minute).padStart(2, '0')} ${period}`;
+    } else if (customMode) {
+      value = customText.trim();
+    } else {
+      value = selectedPreset;
+    }
+    if (!value) return;
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    onConfirm(value);
+  };
+
+  const canConfirm = type === 'bedtime' || (customMode ? customText.trim().length > 0 : selectedPreset.length > 0);
+
+  return (
+    <Modal transparent visible={visible} animationType="none" statusBarTranslucent>
+      <View style={optSheetStyles.wrapper}>
+        <Animated.View style={[optSheetStyles.backdrop, backdropStyle]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+        </Animated.View>
+        <Animated.View style={[optSheetStyles.sheet, sheetStyle, { backgroundColor: isDark ? colors.backgroundSecondary : '#FFFFFF', paddingBottom: insets.bottom + 20 }]}>
+          <View style={optSheetStyles.handle}>
+            <View style={[optSheetStyles.handleBar, { backgroundColor: isDark ? colors.border : '#D0D0D0' }]} />
+          </View>
+          <View style={optSheetStyles.headerRow}>
+            <Text style={[optSheetStyles.title, { color: colors.text }]}>{titles[type]}</Text>
+            <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={optSheetStyles.closeBtn}>
+              <X size={20} color={colors.textTertiary} strokeWidth={2.5} />
+            </TouchableOpacity>
+          </View>
+          <Text style={[optSheetStyles.support, { color: colors.textTertiary }]}>{supports[type]}</Text>
+
+          {type === 'bedtime' ? (
+            <View style={optSheetStyles.bedtimeRow}>
+              {[10, 11, 12, 1, 2].map(h => (
+                <TouchableOpacity
+                  key={h}
+                  style={[optSheetStyles.timePill, { backgroundColor: hour === h ? colors.primary : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'), borderColor: hour === h ? colors.primary : 'transparent' }]}
+                  onPress={() => setHour(h)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[optSheetStyles.timePillText, { color: hour === h ? '#000' : colors.textSecondary, fontWeight: hour === h ? '800' : '600' }]}>{h}</Text>
+                </TouchableOpacity>
+              ))}
+              <View style={optSheetStyles.minSec}>
+                {[0, 15, 30, 45].map(m => (
+                  <TouchableOpacity
+                    key={m}
+                    style={[optSheetStyles.timePill, { backgroundColor: minute === m ? colors.primary : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'), borderColor: minute === m ? colors.primary : 'transparent' }]}
+                    onPress={() => setMinute(m)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[optSheetStyles.timePillText, { color: minute === m ? '#000' : colors.textSecondary, fontWeight: minute === m ? '800' : '600' }]}>{String(m).padStart(2, '0')}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={optSheetStyles.periodCol}>
+                {(['AM', 'PM'] as const).map(p => (
+                  <TouchableOpacity
+                    key={p}
+                    style={[optSheetStyles.timePill, { backgroundColor: period === p ? colors.primary : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'), borderColor: period === p ? colors.primary : 'transparent' }]}
+                    onPress={() => setPeriod(p)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[optSheetStyles.timePillText, { color: period === p ? '#000' : colors.textSecondary, fontWeight: period === p ? '800' : '600' }]}>{p}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ) : (
+            <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
+              {presets[type].map(preset => (
+                <TouchableOpacity
+                  key={preset}
+                  style={[optSheetStyles.presetRow, {
+                    backgroundColor: selectedPreset === preset && !customMode
+                      ? (isDark ? 'rgba(204,255,0,0.08)' : 'rgba(204,255,0,0.10)')
+                      : (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'),
+                    borderColor: selectedPreset === preset && !customMode ? colors.primary + '60' : 'transparent',
+                  }]}
+                  onPress={() => { setSelectedPreset(preset); setCustomMode(false); }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[optSheetStyles.presetText, { color: selectedPreset === preset && !customMode ? colors.primary : colors.text }]}>
+                    {preset}
+                  </Text>
+                  {selectedPreset === preset && !customMode && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
+                </TouchableOpacity>
+              ))}
+              {customMode ? (
+                <View style={optSheetStyles.customRow}>
+                  <TextInput
+                    style={[optSheetStyles.customInput, { color: colors.text, borderColor: colors.primary + '80', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}
+                    value={customText}
+                    onChangeText={setCustomText}
+                    autoFocus
+                    placeholder="Type your rule..."
+                    placeholderTextColor={colors.textTertiary}
+                    returnKeyType="done"
+                    blurOnSubmit={true}
+                    onSubmitEditing={handleConfirm}
+                  />
+                </View>
+              ) : (
+                <TouchableOpacity style={optSheetStyles.writeOwnBtn} onPress={() => { setCustomMode(true); setCustomText(selectedPreset); }} activeOpacity={0.7}>
+                  <Text style={[optSheetStyles.writeOwnText, { color: colors.textSecondary }]}>Write my own →</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          )}
+
+          <TouchableOpacity
+            style={[optSheetStyles.confirmBtn, { backgroundColor: canConfirm ? colors.primary : (isDark ? '#222' : '#DDD') }]}
+            onPress={handleConfirm}
+            disabled={!canConfirm}
+            activeOpacity={0.85}
+          >
+            <Text style={optSheetStyles.confirmBtnText}>Confirm</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+const optSheetStyles = StyleSheet.create({
+  wrapper: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
+  sheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    maxHeight: '90%',
+  },
+  handle: { alignItems: 'center', paddingVertical: 10 },
+  handleBar: { width: 40, height: 4, borderRadius: 2 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  title: { fontSize: 20, fontWeight: '900', letterSpacing: -0.3 },
+  closeBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  support: { fontSize: 14, fontWeight: '500', marginBottom: 16, lineHeight: 20 },
+  presetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  presetText: { fontSize: 15, fontWeight: '600' },
+  customRow: { marginTop: 8 },
+  customInput: {
+    fontSize: 15,
+    fontWeight: '600',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  writeOwnBtn: { paddingVertical: 14, paddingHorizontal: 4, marginTop: 4 },
+  writeOwnText: { fontSize: 15, fontWeight: '700' },
+  bedtimeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 16 },
+  minSec: { flexDirection: 'row', gap: 8 },
+  periodCol: { flexDirection: 'row', gap: 8 },
+  timePill: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  timePillText: { fontSize: 15 },
+  confirmBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 16,
+    marginTop: 16,
+  },
+  confirmBtnText: { fontSize: 17, fontWeight: '800', color: '#000' },
+});
 
 // ─── GoalPlanScreen styles below ─────────────────────────────────────────────
 
@@ -930,6 +1241,34 @@ const goalPlanStyles = StyleSheet.create({
     color: '#666',
     marginBottom: 12,
     lineHeight: 18,
+  },
+  optionalAddRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#2A2A2A',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 10,
+  },
+  optionalAddText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#888',
+  },
+  removeRow: {
+    alignSelf: 'flex-end',
+    marginTop: 6,
+    marginRight: 4,
+  },
+  removeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#555',
+    textDecorationLine: 'underline',
   },
   addBtn: {
     flexDirection: 'row',

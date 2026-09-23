@@ -61,7 +61,7 @@ import {
 import { calculateFatLoss, parseFatLossGoal, deriveTargetWeight, detectBodyCompositionSubtype } from '@/lib/bodyComposition';
 import type { FatLossInput } from '@/lib/bodyComposition';
 import type { BodyCompositionData, BodyCompStackInput, FatLossCalculationResult } from './flow/types';
-import { AnchorScreen, AddInputScreen, GoalLockedScreen, GoalBadge, formatGoalLabel, displayGoalLabel, GoalPlanScreen, GoalPlanInput } from './flow/AnchorScreens';
+import { AnchorScreen, AddInputScreen, GoalLockedScreen, GoalBadge, formatGoalLabel, displayGoalLabel, GoalPlanScreen, GoalPlanInput, OptionalAdditionType, OptionalAdditionSheet } from './flow/AnchorScreens';
 import { AiDailyInputsScreen } from './flow/AiDailyInputsScreen';
 import { logInputFeedback, InputSource } from './flow/InputValidation';
 import { IdentityScreen, deriveIdentityLine, formatTargetDisplay } from './flow/IdentityScreens';
@@ -698,6 +698,12 @@ export default function IdentityBuilder({ onComplete }: Props) {
     selectedInputs: BodyCompStackInput[];
     confirmedInputs: BodyCompStackInput[];
   }>>({});
+  const [optionalSheet, setOptionalSheet] = useState<{
+    visible: boolean;
+    type: OptionalAdditionType | null;
+    editId?: string;
+    editValue?: string;
+  }>({ visible: false, type: null });
 
 
 
@@ -1586,17 +1592,32 @@ export default function IdentityBuilder({ onComplete }: Props) {
 
         // Build GoalPlanInput[] from the appropriate source
         let planInputs: GoalPlanInput[];
+        let optionalAdditions: { type: OptionalAdditionType; label: string }[] = [];
         if (isBodyComp) {
           const bcInputs = bcState!.selectedInputs ?? buildDefaultStackInputs(bcState!.calculationResult!);
-          planInputs = bcInputs.map(inp => ({
-            id: inp.id,
-            title: inp.label,
-            target: inp.valueDetail || '',
-            selected: inp.selected,
-            editable: inp.category === 'calories' || inp.category === 'protein' || inp.category === 'steps' || inp.category === 'exercise',
-            category: inp.category,
-            optional: inp.category === 'nutrition_rule' || inp.category === 'hydration' || inp.category === 'bedtime',
-          }));
+          const optionalCats: string[] = ['nutrition_rule', 'hydration', 'bedtime'];
+          const optionalLabels: Record<string, string> = {
+            nutrition_rule: 'Add a nutrition rule',
+            hydration: 'Add a hydration target',
+            bedtime: 'Add a bedtime',
+          };
+          // Only include optionals that have been configured (have a valueDetail)
+          planInputs = bcInputs
+            .filter(inp => !optionalCats.includes(inp.category) || (inp.valueDetail && inp.valueDetail.trim().length > 0))
+            .map(inp => ({
+              id: inp.id,
+              title: inp.label,
+              target: inp.valueDetail || '',
+              selected: inp.selected,
+              editable: inp.category === 'calories' || inp.category === 'protein' || inp.category === 'steps' || inp.category === 'exercise',
+              category: inp.category,
+              optional: optionalCats.includes(inp.category),
+              configured: optionalCats.includes(inp.category) && !!inp.valueDetail && inp.valueDetail.trim().length > 0,
+            }));
+          // Only show optional additions that aren't yet configured
+          optionalAdditions = bcInputs
+            .filter(inp => optionalCats.includes(inp.category) && (!inp.valueDetail || inp.valueDetail.trim().length === 0))
+            .map(inp => ({ type: inp.category as OptionalAdditionType, label: optionalLabels[inp.category] }));
         } else {
           // Standard path: build from locked goal + additional inputs
           const lockedGoal = locked.find(l => l.goalId === goal.id);
@@ -1639,6 +1660,46 @@ export default function IdentityBuilder({ onComplete }: Props) {
                 ...prev[goalIdx],
                 selectedInputs: (prev[goalIdx]?.selectedInputs ?? []).map(inp =>
                   inp.id === id ? { ...inp, valueDetail: detail } : inp
+                ),
+              },
+            }));
+          }
+        };
+
+        const onConfigureOptional = (type: OptionalAdditionType, existingId?: string, existingValue?: string) => {
+          setOptionalSheet({ visible: true, type, editId: existingId, editValue: existingValue });
+        };
+
+        const onOptionalConfirm = (value: string) => {
+          if (!optionalSheet.type) return;
+          const cat = optionalSheet.type;
+          const editId = optionalSheet.editId;
+          setBodyCompStates(prev => ({
+            ...prev,
+            [goalIdx]: {
+              ...prev[goalIdx],
+              selectedInputs: (prev[goalIdx]?.selectedInputs ?? []).map(inp => {
+                if (editId && inp.id === editId) {
+                  return { ...inp, valueDetail: value, selected: true };
+                }
+                if (!editId && inp.category === cat) {
+                  return { ...inp, valueDetail: value, selected: true };
+                }
+                return inp;
+              }),
+            },
+          }));
+          setOptionalSheet({ visible: false, type: null });
+        };
+
+        const onRemoveInput = (id: string) => {
+          if (isBodyComp) {
+            setBodyCompStates(prev => ({
+              ...prev,
+              [goalIdx]: {
+                ...prev[goalIdx],
+                selectedInputs: (prev[goalIdx]?.selectedInputs ?? []).map(inp =>
+                  inp.id === id ? { ...inp, valueDetail: '', selected: false } : inp
                 ),
               },
             }));
@@ -1688,16 +1749,28 @@ export default function IdentityBuilder({ onComplete }: Props) {
         );
 
         return (
-          <GoalPlanScreen
-            n={goalIdx + 1}
-            total={challengeGoalIndices.length || goals.length}
-            goalLabel={goalLabel}
-            inputs={planInputs}
-            onToggleInput={onToggleInput}
-            onEditInputDetail={onEditInputDetail}
-            onAddInput={() => navigate({ kind: 'add-input', goalIdx, prefillText: aiRemaining[0] })}
-            onLock={handleLockGoal}
-          />
+          <>
+            <GoalPlanScreen
+              n={goalIdx + 1}
+              total={challengeGoalIndices.length || goals.length}
+              goalLabel={goalLabel}
+              inputs={planInputs}
+              optionalAdditions={optionalAdditions}
+              onToggleInput={onToggleInput}
+              onEditInputDetail={onEditInputDetail}
+              onAddInput={() => navigate({ kind: 'add-input', goalIdx, prefillText: aiRemaining[0] })}
+              onConfigureOptional={onConfigureOptional}
+              onRemoveInput={onRemoveInput}
+              onLock={handleLockGoal}
+            />
+            <OptionalAdditionSheet
+              visible={optionalSheet.visible}
+              type={optionalSheet.type}
+              initialValue={optionalSheet.editValue}
+              onClose={() => setOptionalSheet({ visible: false, type: null })}
+              onConfirm={onOptionalConfirm}
+            />
+          </>
         );
       }
 
