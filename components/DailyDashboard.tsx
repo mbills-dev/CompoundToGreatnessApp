@@ -686,6 +686,7 @@ export default function DailyDashboard({
       .eq('id', goal.id);
 
     refreshCompletions();
+    refreshStreakSummary();
     if (user) {
       try {
         const updatedGoal = { ...goal, ...updates };
