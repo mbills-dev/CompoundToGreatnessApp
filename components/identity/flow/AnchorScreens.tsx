@@ -382,50 +382,27 @@ export function AddInputScreen({
   prefillText,
 }: {
   goal: FlowGoal;
-  onDone: (dailyInput: string, when: string, where: string, schedule: WhenPickerValue | null, wasFlaggedNonSpecific: boolean) => void;
+  onDone: (dailyInput: string, wasFlaggedNonSpecific: boolean) => void;
   onCancel: () => void;
   prefillText?: string;
 }) {
   const { colors, isDark } = useTheme();
   const [text, setText] = useState(prefillText ?? '');
-  const [whenPickerOpen, setWhenPickerOpen] = useState(false);
-  const [whenValue, setWhenValue] = useState<WhenPickerValue | null>(null);
-  const [where, setWhere] = useState('');
   const specificity = useInputSpecificity();
-  const scrollRef = useRef<KeyboardStepWrapperRef>(null);
-  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const debouncedScrollToEnd = useCallback(() => {
-    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
-    scrollTimerRef.current = setTimeout(() => {
-      scrollRef.current?.scrollToEnd({ animated: true });
-    }, 160);
-  }, []);
-
-  const canCommit =
-    text.trim().length > 0 && whenValue !== null && where.trim().length > 0;
+  const canCommit = text.trim().length > 0;
 
   const handleFinalize = () => {
     if (!canCommit) return;
-    onDone(text.trim(), whenValue ? formatWhen(whenValue) : '', where.trim(), whenValue, !!specificity.result);
-  };
-
-  const formatWhen = (v: WhenPickerValue) => {
-    const days =
-      v.days.length === 7
-        ? 'every day'
-        : v.days.length === 5 &&
-          ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].every(d => v.days.includes(d))
-        ? 'weekdays'
-        : v.days.join(', ');
-    if (v.allDay) return `All day · ${days}`;
-    const min = String(v.minute).padStart(2, '0');
-    return `${v.hour}:${min} ${v.period} · ${days}`;
+    onDone(text.trim(), !!specificity.result);
   };
 
   return (
-    <KeyboardStepWrapper ref={scrollRef} contentContainerStyle={styles.decodeScroll}>
+    <KeyboardStepWrapper contentContainerStyle={styles.decodeScroll}>
       <Text style={[styles.fieldLabel, { color: colors.primary }]}>WHAT</Text>
+      <Text style={[goalPlanStyles.support, { marginBottom: 16, marginTop: 4 }]}>
+        What daily action will move you toward this goal?
+      </Text>
       <TextInput
         style={[
           styles.startingInput,
@@ -458,54 +435,6 @@ export function AddInputScreen({
         />
       )}
 
-      <Text style={[styles.fieldLabel, { color: colors.primary, marginTop: 24 }]}>
-        WHEN
-      </Text>
-      <TouchableOpacity
-        style={[
-          styles.whenField,
-          {
-            backgroundColor: isDark ? colors.backgroundSecondary : '#F5F5F5',
-            borderColor: whenValue ? colors.primary + '60' : colors.border,
-          },
-        ]}
-        onPress={() => setWhenPickerOpen(true)}
-        activeOpacity={0.8}
-      >
-        {whenValue ? (
-          <Text style={[styles.whenFieldText, { color: colors.text }]}>
-            {formatWhen(whenValue)}
-          </Text>
-        ) : (
-          <Text style={[styles.whenFieldText, { color: colors.textTertiary }]}>
-            Tap to set schedule...
-          </Text>
-        )}
-        <Pencil size={14} color={colors.textTertiary} strokeWidth={2} />
-      </TouchableOpacity>
-
-      <Text style={[styles.fieldLabel, { color: colors.primary, marginTop: 24 }]}>
-        WHERE
-      </Text>
-      <TextInput
-        style={[
-          styles.whereInput,
-          {
-            color: colors.text,
-            borderColor: where.trim() ? colors.primary + '60' : colors.border,
-            backgroundColor: isDark
-              ? 'rgba(255,255,255,0.04)'
-              : 'rgba(0,0,0,0.03)',
-          },
-        ]}
-        value={where}
-        onChangeText={(t) => { setWhere(t); debouncedScrollToEnd(); }}
-        placeholder="e.g. outside around the block"
-        placeholderTextColor={colors.textTertiary}
-        autoCapitalize="sentences"
-        inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
-      />
-
       <TouchableOpacity
         style={[
           styles.revealBtn,
@@ -515,10 +444,7 @@ export function AddInputScreen({
             marginTop: 28,
           },
         ]}
-        onPress={() =>
-          canCommit &&
-          handleFinalize()
-        }
+        onPress={() => canCommit && handleFinalize()}
         disabled={!canCommit}
         activeOpacity={0.85}
       >
@@ -537,16 +463,6 @@ export function AddInputScreen({
           Cancel
         </Text>
       </TouchableOpacity>
-
-      <WhenPickerModal
-        visible={whenPickerOpen}
-        onClose={() => setWhenPickerOpen(false)}
-        onConfirm={v => {
-          setWhenValue(v);
-          setWhenPickerOpen(false);
-        }}
-        initialValue={whenValue ?? undefined}
-      />
     </KeyboardStepWrapper>
   );
 }
@@ -562,6 +478,7 @@ export interface GoalPlanInput {
   category?: string;
   optional?: boolean;
   configured?: boolean;
+  removable?: boolean;
 }
 
 export type OptionalAdditionType = 'nutrition_rule' | 'hydration' | 'bedtime';
@@ -783,10 +700,15 @@ function GoalPlanInputCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [targetDraft, setTargetDraft] = useState(input.target);
+  const [titleDraft, setTitleDraft] = useState(input.title);
 
   const handleDoneEdit = () => {
     setEditing(false);
-    if (targetDraft.trim() !== input.target) {
+    if (input.category === 'custom') {
+      if (titleDraft.trim() !== input.title) {
+        onEditDetail(titleDraft.trim());
+      }
+    } else if (targetDraft.trim() !== input.target) {
       onEditDetail(targetDraft.trim());
     }
   };
@@ -797,12 +719,17 @@ function GoalPlanInputCard({
     : (isDark ? '#161616' : '#ECECEC');
   const lime = '#CCFF00';
   const isOptionalConfigured = input.optional && input.configured;
+  const isCustom = input.category === 'custom';
 
   const handleEditTap = () => {
     if (isOptionalConfigured && onEditOptional) {
       onEditOptional(input.target);
     } else if (input.editable) {
-      setTargetDraft(input.target);
+      if (isCustom) {
+        setTitleDraft(input.title);
+      } else {
+        setTargetDraft(input.target);
+      }
       setEditing(true);
     }
   };
@@ -812,44 +739,68 @@ function GoalPlanInputCard({
       <View style={goalPlanStyles.inputCardRow}>
         <Text style={goalPlanStyles.inputNumber}>{String(index).padStart(2, '0')}</Text>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text
-            style={[
-              goalPlanStyles.inputTitle,
-              { color: input.selected ? (isDark ? '#FFF' : '#000') : (isDark ? '#555' : '#999') },
-            ]}
-            numberOfLines={2}
-          >
-            {input.title}
-          </Text>
-          {input.selected && input.target ? (
-            input.editable && editing && !isOptionalConfigured ? (
-              <View style={goalPlanStyles.editRow}>
-                <TextInput
-                  style={[goalPlanStyles.editInput, { color: isDark ? '#FFF' : '#000', borderColor: lime + '80', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}
-                  value={targetDraft}
-                  onChangeText={setTargetDraft}
-                  autoFocus
-                  returnKeyType="done"
-                  blurOnSubmit={true}
-                  onSubmitEditing={handleDoneEdit}
-                />
-                <TouchableOpacity style={[goalPlanStyles.editConfirm, { backgroundColor: lime }]} onPress={handleDoneEdit}>
-                  <Check size={14} color="#000" strokeWidth={3} />
+          {isCustom && editing ? (
+            <View style={goalPlanStyles.editRow}>
+              <TextInput
+                style={[goalPlanStyles.editInput, { color: isDark ? '#FFF' : '#000', borderColor: lime + '80', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}
+                value={titleDraft}
+                onChangeText={setTitleDraft}
+                autoFocus
+                returnKeyType="done"
+                blurOnSubmit={true}
+                onSubmitEditing={handleDoneEdit}
+              />
+              <TouchableOpacity style={[goalPlanStyles.editConfirm, { backgroundColor: lime }]} onPress={handleDoneEdit}>
+                <Check size={14} color="#000" strokeWidth={3} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <Text
+                style={[
+                  goalPlanStyles.inputTitle,
+                  { color: input.selected ? (isDark ? '#FFF' : '#000') : (isDark ? '#555' : '#999') },
+                ]}
+                numberOfLines={2}
+              >
+                {input.title}
+              </Text>
+              {input.selected && input.target ? (
+                input.editable && editing && !isOptionalConfigured ? (
+                  <View style={goalPlanStyles.editRow}>
+                    <TextInput
+                      style={[goalPlanStyles.editInput, { color: isDark ? '#FFF' : '#000', borderColor: lime + '80', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}
+                      value={targetDraft}
+                      onChangeText={setTargetDraft}
+                      autoFocus
+                      returnKeyType="done"
+                      blurOnSubmit={true}
+                      onSubmitEditing={handleDoneEdit}
+                    />
+                    <TouchableOpacity style={[goalPlanStyles.editConfirm, { backgroundColor: lime }]} onPress={handleDoneEdit}>
+                      <Check size={14} color="#000" strokeWidth={3} />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={goalPlanStyles.targetRow}>
+                    <Text style={goalPlanStyles.targetText}>
+                      {input.target}
+                    </Text>
+                    {(input.editable || isOptionalConfigured) && (
+                      <TouchableOpacity onPress={handleEditTap} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Pencil size={12} color={isDark ? '#555' : '#999'} strokeWidth={2} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )
+              ) : null}
+              {isCustom && input.editable && !editing && (
+                <TouchableOpacity onPress={handleEditTap} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginTop: 2 }}>
+                  <Pencil size={12} color={isDark ? '#555' : '#999'} strokeWidth={2} />
                 </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={goalPlanStyles.targetRow}>
-                <Text style={goalPlanStyles.targetText}>
-                  {input.target}
-                </Text>
-                {(input.editable || isOptionalConfigured) && (
-                  <TouchableOpacity onPress={handleEditTap} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Pencil size={12} color={isDark ? '#555' : '#999'} strokeWidth={2} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            )
-          ) : null}
+              )}
+            </>
+          )}
         </View>
         <TouchableOpacity onPress={onToggle} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <View style={[
@@ -863,8 +814,8 @@ function GoalPlanInputCard({
           </View>
         </TouchableOpacity>
       </View>
-      {/* Remove affordance for configured optional inputs */}
-      {isOptionalConfigured && onRemove && (
+      {/* Remove affordance for configured optional or custom inputs */}
+      {(isOptionalConfigured || input.removable) && onRemove && (
         <TouchableOpacity style={goalPlanStyles.removeRow} onPress={onRemove} activeOpacity={0.7} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
           <Text style={goalPlanStyles.removeText}>Remove</Text>
         </TouchableOpacity>

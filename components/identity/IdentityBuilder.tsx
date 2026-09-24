@@ -989,16 +989,43 @@ export default function IdentityBuilder({ onComplete }: Props) {
     navigate({ kind: 'goal-plan', goalIdx });
   };
 
-  const handleAddInputDone = (goalIdx: number, inp: AnchoredInput, wasFlaggedNonSpecific?: boolean) => {
+  const handleAddInputDone = (goalIdx: number, dailyInputText: string, wasFlaggedNonSpecific?: boolean) => {
     const goal = goals[goalIdx];
     const goalLabel = formatGoalLabel(goal, goalLabelOverrides);
-    setLocked(prev => prev.map(l => l.goalId === goal.id ? { ...l, additionalInputs: [...l.additionalInputs, inp] } : l));
-    const isFromAi = (aiSelectedInputs[goalIdx] ?? []).includes(inp.dailyInput);
+    const bcState = bodyCompStates[goalIdx];
+    const isBodyComp = !!bcState?.calculationResult;
+
+    if (isBodyComp) {
+      const newInput: BodyCompStackInput = {
+        id: `custom-${Date.now()}`,
+        label: dailyInputText,
+        dailyInput: dailyInputText,
+        when: '',
+        where: '',
+        category: 'custom',
+        selected: true,
+        valueDetail: '',
+      };
+      setBodyCompStates(prev => ({
+        ...prev,
+        [goalIdx]: {
+          ...prev[goalIdx],
+          selectedInputs: [...(prev[goalIdx]?.selectedInputs ?? []), newInput],
+        },
+      }));
+    } else {
+      setLocked(prev => prev.map(l => l.goalId === goal.id ? {
+        ...l,
+        additionalInputs: [...l.additionalInputs, { dailyInput: dailyInputText, when: '', where: '', schedule: null }],
+      } : l));
+    }
+
+    const isFromAi = (aiSelectedInputs[goalIdx] ?? []).includes(dailyInputText);
     const source: InputSource = isFromAi ? 'ai_suggested' : 'user_written';
     logInputFeedback({
       goalText: goalLabel,
       source,
-      finalInputText: inp.dailyInput,
+      finalInputText: dailyInputText,
       specificityFlagTriggered: !!wasFlaggedNonSpecific,
     });
     navigate({ kind: 'goal-plan', goalIdx });
@@ -1454,7 +1481,7 @@ export default function IdentityBuilder({ onComplete }: Props) {
               <AddInputScreen
                 goal={goal}
                 prefillText={prefillText}
-                onDone={(dailyInput, when, where, schedule, wasFlaggedNonSpecific) => handleAddInputDone(goalIdx, { dailyInput, when, where, schedule }, wasFlaggedNonSpecific)}
+                onDone={(dailyInput, wasFlaggedNonSpecific) => handleAddInputDone(goalIdx, dailyInput, wasFlaggedNonSpecific)}
                 onCancel={() => navigate({ kind: 'goal-plan', goalIdx })}
               />
             </ScrollView>
@@ -1606,13 +1633,14 @@ export default function IdentityBuilder({ onComplete }: Props) {
             .filter(inp => !optionalCats.includes(inp.category) || (inp.valueDetail && inp.valueDetail.trim().length > 0))
             .map(inp => ({
               id: inp.id,
-              title: inp.label,
+              title: inp.category === 'custom' ? inp.label : inp.label,
               target: inp.valueDetail || '',
               selected: inp.selected,
-              editable: inp.category === 'calories' || inp.category === 'protein' || inp.category === 'steps' || inp.category === 'exercise',
+              editable: inp.category === 'calories' || inp.category === 'protein' || inp.category === 'steps' || inp.category === 'exercise' || inp.category === 'custom',
               category: inp.category,
               optional: optionalCats.includes(inp.category),
               configured: optionalCats.includes(inp.category) && !!inp.valueDetail && inp.valueDetail.trim().length > 0,
+              removable: inp.category === 'custom' || (optionalCats.includes(inp.category) && !!inp.valueDetail && inp.valueDetail.trim().length > 0),
             }));
           // Only show optional additions that aren't yet configured
           optionalAdditions = bcInputs
@@ -1658,9 +1686,13 @@ export default function IdentityBuilder({ onComplete }: Props) {
               ...prev,
               [goalIdx]: {
                 ...prev[goalIdx],
-                selectedInputs: (prev[goalIdx]?.selectedInputs ?? []).map(inp =>
-                  inp.id === id ? { ...inp, valueDetail: detail } : inp
-                ),
+                selectedInputs: (prev[goalIdx]?.selectedInputs ?? []).map(inp => {
+                  if (inp.id !== id) return inp;
+                  if (inp.category === 'custom') {
+                    return { ...inp, label: detail, dailyInput: detail };
+                  }
+                  return { ...inp, valueDetail: detail };
+                }),
               },
             }));
           }
@@ -1694,26 +1726,43 @@ export default function IdentityBuilder({ onComplete }: Props) {
 
         const onRemoveInput = (id: string) => {
           if (isBodyComp) {
-            setBodyCompStates(prev => ({
-              ...prev,
-              [goalIdx]: {
-                ...prev[goalIdx],
-                selectedInputs: (prev[goalIdx]?.selectedInputs ?? []).map(inp =>
-                  inp.id === id ? { ...inp, valueDetail: '', selected: false } : inp
-                ),
-              },
-            }));
+            setBodyCompStates(prev => {
+              const current = prev[goalIdx]?.selectedInputs ?? [];
+              const target = current.find(inp => inp.id === id);
+              if (!target) return prev;
+              if (target.category === 'custom') {
+                return {
+                  ...prev,
+                  [goalIdx]: {
+                    ...prev[goalIdx],
+                    selectedInputs: current.filter(inp => inp.id !== id),
+                  },
+                };
+              }
+              return {
+                ...prev,
+                [goalIdx]: {
+                  ...prev[goalIdx],
+                  selectedInputs: current.map(inp =>
+                    inp.id === id ? { ...inp, valueDetail: '', selected: false } : inp
+                  ),
+                },
+              };
+            });
           }
         };
 
         const handleLockGoal = () => {
           if (isBodyComp) {
-            const confirmed = (bodyCompStates[goalIdx]?.selectedInputs ?? [])
-              .filter(i => i.selected && i.valueDetail);
+            const allInputs = (bodyCompStates[goalIdx]?.selectedInputs ?? [])
+              .filter(i => i.selected);
+            const confirmed = allInputs.filter(i =>
+              i.category === 'custom' ? i.label.trim().length > 0 : (i.valueDetail && i.valueDetail.trim().length > 0)
+            );
             if (confirmed.length === 0) return;
             const first = confirmed[0];
             const additionalInputs: AnchoredInput[] = confirmed.slice(1).map(inp => ({
-              dailyInput: inp.valueDetail || inp.dailyInput,
+              dailyInput: inp.category === 'custom' ? inp.label : (inp.valueDetail || inp.dailyInput),
               when: inp.when,
               where: inp.where,
               schedule: null,
@@ -1725,19 +1774,19 @@ export default function IdentityBuilder({ onComplete }: Props) {
               ...prev.filter(l => l.goalId !== goal.id),
               {
                 goalId: goal.id,
-                dailyInput: first.valueDetail || first.dailyInput,
+                dailyInput: first.category === 'custom' ? first.label : (first.valueDetail || first.dailyInput),
                 goalLabel,
                 originalGoalLabel: goal.label,
                 decodePath: 'body_composition' as const,
                 identityLine,
-                what: first.valueDetail || first.dailyInput,
+                what: first.category === 'custom' ? first.label : (first.valueDetail || first.dailyInput),
                 when: first.when || 'Throughout the day',
                 where: first.where || '',
                 schedule: null,
                 additionalInputs,
               },
             ]);
-            setDecodeResults(prev => ({ ...prev, [goalIdx]: first.valueDetail || first.dailyInput }));
+            setDecodeResults(prev => ({ ...prev, [goalIdx]: first.category === 'custom' ? first.label : (first.valueDetail || first.dailyInput) }));
           }
           // For standard paths, locked state was already set by handleAnchorDone
           handleLockedNext(goalIdx);

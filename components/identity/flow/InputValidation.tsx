@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { CircleAlert as AlertCircle, ArrowRight } from 'lucide-react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ArrowRight, Check } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { logEdgeFunctionCall } from '@/lib/edgeFunctionLogger';
@@ -117,10 +117,9 @@ export function useInputSpecificity() {
 }
 
 /**
- * Inline banner shown below a daily-input field when the specificity
- * check returns `specific: false`. Shows the nudge text and tappable
- * example chips. Tapping an example calls `onAcceptExample` with the
- * chosen string.
+ * Inline refinement panel shown below a daily-input field when the specificity
+ * check returns `specific: false`. Presented as helpful refinement in the CTG
+ * design system — dark cards, lime accent, no orange warning.
  */
 export function SpecificityNudgeBanner({
   result,
@@ -132,90 +131,189 @@ export function SpecificityNudgeBanner({
   onDismiss: () => void;
 }) {
   const { colors, isDark } = useTheme();
+  const [customMode, setCustomMode] = useState(false);
+  const [customText, setCustomText] = useState('');
+
+  const examples = result.examples ?? [];
+
+  const handleCustomConfirm = () => {
+    const trimmed = customText.trim();
+    if (trimmed.length > 0) {
+      onAcceptExample(trimmed);
+      setCustomMode(false);
+      setCustomText('');
+    }
+  };
 
   return (
-    <View
-      style={[
-        nudgeStyles.container,
-        {
-          backgroundColor: isDark ? 'rgba(255,179,0,0.08)' : 'rgba(255,179,0,0.06)',
-          borderColor: 'rgba(255,179,0,0.3)',
-        },
-      ]}
-    >
-      <View style={nudgeStyles.headerRow}>
-        <AlertCircle size={16} color="#FFB300" strokeWidth={2.5} />
-        <Text style={nudgeStyles.nudgeText}>{result.nudge ?? 'Try adding a number or clear done/not-done rule.'}</Text>
-      </View>
-      {result.examples && result.examples.length > 0 && (
-        <View style={nudgeStyles.examplesRow}>
-          <Text style={[nudgeStyles.examplesLabel, { color: colors.textSecondary }]}>
-            Try instead:
-          </Text>
-          {result.examples.map((ex, i) => (
+    <View style={[
+      nudgeStyles.container,
+      {
+        backgroundColor: isDark ? '#0F0F0F' : '#F5F5F5',
+        borderColor: isDark ? '#1F1F1F' : '#E0E0E0',
+      },
+    ]}>
+      <Text style={nudgeStyles.eyebrow}>MAKE IT MEASURABLE</Text>
+      <Text style={[nudgeStyles.headline, { color: isDark ? '#FFF' : '#000' }]}>
+        Could you tell if you{'\n'}completed this today?
+      </Text>
+      <Text style={[nudgeStyles.support, { color: isDark ? '#888' : '#777' }]}>
+        {result.nudge ?? 'Try adding a number or a clear yes/no rule.'}
+      </Text>
+
+      {examples.length > 0 && !customMode && (
+        <View style={nudgeStyles.examplesCol}>
+          <Text style={nudgeStyles.tryLabel}>Try one of these:</Text>
+          {examples.map((ex, i) => (
             <TouchableOpacity
               key={i}
               style={[
-                nudgeStyles.exampleChip,
+                nudgeStyles.exampleCard,
                 {
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-                  borderColor: colors.primary + '50',
+                  backgroundColor: isDark ? '#161616' : '#FAFAFA',
+                  borderColor: isDark ? '#222' : '#E8E8E8',
                 },
               ]}
               onPress={() => onAcceptExample(ex)}
               activeOpacity={0.7}
             >
-              <Text style={[nudgeStyles.exampleText, { color: colors.text }]}>{ex}</Text>
-              <ArrowRight size={13} color={colors.primary} strokeWidth={2.5} />
+              <Text style={[nudgeStyles.exampleText, { color: isDark ? '#FFF' : '#000' }]}>
+                {ex}
+              </Text>
+              <ArrowRight size={14} color="#CCFF00" strokeWidth={2.5} />
             </TouchableOpacity>
           ))}
         </View>
       )}
+
+      {customMode ? (
+        <View style={nudgeStyles.customRow}>
+          <TextInput
+            style={[
+              nudgeStyles.customInput,
+              {
+                color: isDark ? '#FFF' : '#000',
+                borderColor: '#CCFF00' + '80',
+                backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+              },
+            ]}
+            value={customText}
+            onChangeText={setCustomText}
+            autoFocus
+            placeholder="Type your measurable input..."
+            placeholderTextColor={isDark ? '#555' : '#999'}
+            returnKeyType="done"
+            blurOnSubmit={true}
+            onSubmitEditing={handleCustomConfirm}
+          />
+          <TouchableOpacity style={nudgeStyles.customConfirmBtn} onPress={handleCustomConfirm} activeOpacity={0.85}>
+            <Check size={16} color="#000" strokeWidth={3} />
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity style={nudgeStyles.writeOwnBtn} onPress={() => setCustomMode(true)} activeOpacity={0.7}>
+          <Text style={nudgeStyles.writeOwnText}>Write my own →</Text>
+        </TouchableOpacity>
+      )}
+
+      <TouchableOpacity style={nudgeStyles.dismissBtn} onPress={onDismiss} activeOpacity={0.7}>
+        <Text style={nudgeStyles.dismissText}>Keep as-is</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 const nudgeStyles = StyleSheet.create({
   container: {
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 14,
-    gap: 10,
+    padding: 18,
+    gap: 12,
+    marginTop: 12,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
+  eyebrow: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    color: '#CCFF00',
   },
-  nudgeText: {
-    flex: 1,
+  headline: {
+    fontSize: 20,
+    fontWeight: '900',
+    lineHeight: 26,
+    letterSpacing: -0.3,
+  },
+  support: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     lineHeight: 20,
-    color: '#FFB300',
   },
-  examplesRow: {
+  examplesCol: {
     gap: 8,
+    marginTop: 4,
   },
-  examplesLabel: {
+  tryLabel: {
     fontSize: 12,
     fontWeight: '700',
+    color: '#666',
     letterSpacing: 0.3,
   },
-  exampleChip: {
+  exampleCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   exampleText: {
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 19,
+  },
+  writeOwnBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 2,
+    marginTop: 2,
+  },
+  writeOwnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#888',
+  },
+  customRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  customInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  customConfirmBtn: {
+    backgroundColor: '#CCFF00',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  dismissBtn: {
+    alignSelf: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginTop: 4,
+  },
+  dismissText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#555',
   },
 });

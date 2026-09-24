@@ -41,7 +41,7 @@ export interface BodyCompStackInput {
   dailyInput: string;
   when: string;
   where: string;
-  category: 'calories' | 'protein' | 'steps' | 'exercise' | 'nutrition_rule' | 'hydration' | 'bedtime';
+  category: 'calories' | 'protein' | 'steps' | 'exercise' | 'nutrition_rule' | 'hydration' | 'bedtime' | 'custom';
   selected: boolean;
   valueDetail?: string;
 }
