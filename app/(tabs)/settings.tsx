@@ -677,7 +677,7 @@ export default function SettingsScreen() {
             /> */}
             <ToggleRow
               icon={<ImagePlus size={18} color={colors.primary} strokeWidth={2} />}
-              title="Save Progress Photos"
+              title="Save Evidence Photos"
               description="Save to camera roll automatically"
               value={saveProgressPhotos}
               onValueChange={handleSaveProgressPhotosToggle}

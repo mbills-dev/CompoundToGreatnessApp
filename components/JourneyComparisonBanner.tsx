@@ -59,7 +59,7 @@ export default function JourneyComparisonBanner({ goalId, currentChallengeDay }:
             <Text style={styles.titleLime}>Journey.</Text>
           </Text>
           <Text style={[styles.subtitle, { color: textMuted }]}>
-            Day {earliestPhoto.challenge_day} → Day {latestPhoto.challenge_day} · {photoCount} photos captured
+            Day {earliestPhoto.challenge_day} → Day {latestPhoto.challenge_day} · {photoCount} pieces of evidence
           </Text>
         </View>
 
@@ -98,7 +98,7 @@ export default function JourneyComparisonBanner({ goalId, currentChallengeDay }:
           </View>
           <View style={[styles.statTile, { backgroundColor: statTileBg }]}>
             <Text style={styles.statValue}>{photoCount}</Text>
-            <Text style={[styles.statLabel, { color: textMuted }]}>PHOTOS</Text>
+            <Text style={[styles.statLabel, { color: textMuted }]}>EVIDENCE</Text>
           </View>
         </View>
 
@@ -311,7 +311,7 @@ export function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto, 
               </View>
 
               <Text style={modalStyles.daysApart}>{daysApart} DAYS APART</Text>
-              <Text style={modalStyles.daysApartSub}>Proof looks different when you put it side by side.</Text>
+              <Text style={modalStyles.daysApartSub}>Progress looks different when you put it side by side.</Text>
 
               {/* EVIDENCE ENTRY */}
               {evidenceContent && evidenceDay !== null && (

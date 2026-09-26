@@ -222,7 +222,7 @@ export default function ProgressSection({ goal, completions, activities }: Progr
         </View>
       )}
 
-      {/* YOUR JOURNEY — Progress Photos / Transformation */}
+      {/* YOUR JOURNEY — Proof of Progress */}
       <View style={styles.section}>
         <View style={styles.eyebrowPill}>
           <Text style={styles.eyebrowPillText}>YOUR JOURNEY</Text>
@@ -265,9 +265,9 @@ export default function ProgressSection({ goal, completions, activities }: Progr
             <View style={styles.journeyEmptyIcon}>
               <Camera size={28} color={LIME} strokeWidth={1.5} />
             </View>
-            <Text style={styles.journeyEmptyTitle}>Document your transformation</Text>
+            <Text style={styles.journeyEmptyTitle}>Document your progress</Text>
             <Text style={styles.journeyEmptySub}>
-              Add progress photos from any completed day to see how far you've come.
+              Add visual evidence from any completed day to see how far you've come.
             </Text>
           </View>
         )}

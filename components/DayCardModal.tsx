@@ -334,8 +334,8 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
   const handlePickPhoto = () => {
     if (day == null) return;
     Alert.alert(
-      'Add Photo',
-      undefined,
+      'Capture the Proof',
+      'Document where you are today.',
       [
         { text: 'Take Photo', onPress: takePhotoWithCamera },
         { text: 'Choose from Library', onPress: pickFromLibrary },
@@ -361,7 +361,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
     if (Platform.OS === 'web') {
       Alert.alert('Share', photo.storage_url);
     } else {
-      await Share.share({ url: photo.storage_url, message: `Day ${day} progress photo` });
+      await Share.share({ url: photo.storage_url, message: `Day ${day} — proof of progress` });
     }
   };
 
@@ -484,7 +484,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
                 </View>
 
                 <View style={[styles.section, { borderBottomWidth: 0, paddingBottom: 48 }]}>
-                  <Text style={styles.sectionLabel}>PROGRESS PHOTO</Text>
+                  <Text style={styles.sectionLabel}>CAPTURE THE PROOF</Text>
                   {photo ? (
                     <View style={styles.photoWrapper}>
                       <TouchableOpacity activeOpacity={0.9} onPress={() => setShowFullPhoto(true)}>
@@ -510,7 +510,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
                       ) : (
                         <>
                           <Camera size={22} color={textMuted} strokeWidth={1.5} />
-                          <Text style={[styles.photoPlaceholderText, { color: textMuted }]}>Add photo</Text>
+                          <Text style={[styles.photoPlaceholderText, { color: textMuted }]}>Add visual evidence</Text>
                         </>
                       )}
                     </TouchableOpacity>
