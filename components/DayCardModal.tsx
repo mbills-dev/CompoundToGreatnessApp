@@ -14,10 +14,10 @@ import {
   Animated,
   useWindowDimensions,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import { Camera, X, Share2 } from 'lucide-react-native';
+import CaptureProofCamera from './CaptureProofCamera';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { responsiveStyle } from '@/components/ResponsiveContainer';
@@ -80,6 +80,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
 
   const translateY = useRef(new Animated.Value(windowHeight)).current;
   const scale = useRef(new Animated.Value(0.97)).current;
@@ -300,48 +301,14 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
     }
   };
 
-  const pickFromLibrary = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission required', 'Please allow photo library access to upload a photo.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-      allowsEditing: true,
-      aspect: [4, 3],
-    });
-    if (result.canceled || !result.assets[0]) return;
-    await uploadPickedPhoto(result.assets[0].uri);
-  };
-
-  const takePhotoWithCamera = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission required', 'Please allow camera access to take a photo.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      quality: 0.8,
-      allowsEditing: true,
-      aspect: [4, 3],
-    });
-    if (result.canceled || !result.assets[0]) return;
-    await uploadPickedPhoto(result.assets[0].uri);
-  };
-
-  const handlePickPhoto = () => {
+  const handleOpenCamera = () => {
     if (day == null) return;
-    Alert.alert(
-      'Capture the Proof',
-      'Document where you are today.',
-      [
-        { text: 'Take Photo', onPress: takePhotoWithCamera },
-        { text: 'Choose from Library', onPress: pickFromLibrary },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    setShowCamera(true);
+  };
+
+  const handleCameraImage = async (uri: string) => {
+    setShowCamera(false);
+    await uploadPickedPhoto(uri);
   };
 
   const handleShareWithWatchers = async () => {
@@ -502,7 +469,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
                   ) : (
                     <TouchableOpacity
                       style={[styles.photoPlaceholder, { backgroundColor: placeholderBg }]}
-                      onPress={handlePickPhoto}
+                      onPress={handleOpenCamera}
                       disabled={uploadingPhoto}
                     >
                       {uploadingPhoto ? (
@@ -577,6 +544,13 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      <CaptureProofCamera
+        visible={showCamera}
+        onClose={() => setShowCamera(false)}
+        onImageReady={handleCameraImage}
+        challengeDay={day}
+      />
     </View>
   );
 }
