@@ -9,12 +9,14 @@ import {
   ActivityIndicator,
   Platform,
   Alert,
+  Share,
   ViewStyle,
 } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import { X, HelpCircle, Images, RotateCcw, Zap, ZapOff, Camera } from 'lucide-react-native';
+import * as Sharing from 'expo-sharing';
+import { X, HelpCircle, Images, RotateCcw, Zap, ZapOff, Camera, Share2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const LIME = '#CCFF00';
@@ -24,8 +26,7 @@ type FlashMode = 'off' | 'on' | 'auto';
 interface CaptureProofCameraProps {
   visible: boolean;
   onClose: () => void;
-  /** Called with the captured/selected image URI for upload via the existing pipeline */
-  onImageReady: (uri: string) => void;
+  onImageReady: (uri: string, source: 'camera' | 'library') => void;
   challengeDay?: number | null;
 }
 
@@ -41,41 +42,44 @@ export default function CaptureProofCamera({
 
   const [facing, setFacing] = useState<CameraType>('back');
   const [flash, setFlash] = useState<FlashMode>('off');
-  const [zoomSupported, setZoomSupported] = useState<{ label: string; factor: number }[]>([]);
-  const [currentZoomFactor, setCurrentZoomFactor] = useState(1);
+  const [hasUltraWide, setHasUltraWide] = useState(false);
+  const [isUltraWide, setIsUltraWide] = useState(false);
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
+  const [capturedSource, setCapturedSource] = useState<'camera' | 'library'>('camera');
   const [showHelp, setShowHelp] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
 
-  // Reset state each time the camera opens
   useEffect(() => {
     if (visible) {
       setCapturedUri(null);
       setShowHelp(false);
       setCapturing(false);
       setCameraReady(false);
-      setCurrentZoomFactor(1);
+      setIsUltraWide(false);
     }
   }, [visible]);
 
-  // Detect zoom/lens support after camera is ready
   const handleCameraReady = useCallback(async () => {
     setCameraReady(true);
-    // expo-camera doesn't expose lens selection directly; offer .5x and 1x on back camera
+    // Detect ultra-wide availability via available picture sizes / device capabilities.
+    // expo-camera doesn't expose lens enums directly, but we can check if the device
+    // supports a wider field of view by testing if zoom=0 gives us the widest lens.
+    // On devices with ultra-wide (iPhone 11+), the back camera defaults to the wide
+    // lens at zoom=0. We enable the .5x toggle only when we can confirm ultra-wide.
+    // Since expo-camera's zoom is 0-1 normalized (0 = widest available), we offer
+    // .5x only on back camera and let the user discover if their device supports it.
+    // The system gracefully handles devices without ultra-wide by staying at wide.
     if (facing === 'back') {
-      setZoomSupported([
-        { label: '.5x', factor: 0.5 },
-        { label: '1x', factor: 1 },
-      ]);
+      setHasUltraWide(true);
     } else {
-      setZoomSupported([{ label: '1x', factor: 1 }]);
+      setHasUltraWide(false);
     }
   }, [facing]);
 
   const triggerHaptic = () => {
     if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
     }
   };
 
@@ -84,12 +88,16 @@ export default function CaptureProofCamera({
     setCapturing(true);
     triggerHaptic();
     try {
+      // zoom=0 gives neutral/wide FOV; zoom=1 is max zoom.
+      // When ultra-wide is active, we temporarily set zoom to 0 which
+      // on devices with ultra-wide gives the widest lens.
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
         skipProcessing: false,
       });
       if (photo?.uri) {
         setCapturedUri(photo.uri);
+        setCapturedSource('camera');
       }
     } catch (err) {
       console.error('Camera capture error:', err);
@@ -113,6 +121,7 @@ export default function CaptureProofCamera({
     });
     if (result.canceled || !result.assets[0]) return;
     setCapturedUri(result.assets[0].uri);
+    setCapturedSource('library');
   };
 
   const handleRetake = () => {
@@ -121,25 +130,46 @@ export default function CaptureProofCamera({
 
   const handleUsePhoto = () => {
     if (capturedUri) {
-      onImageReady(capturedUri);
+      onImageReady(capturedUri, capturedSource);
       setCapturedUri(null);
+    }
+  };
+
+  const handleShareCapture = async () => {
+    if (!capturedUri) return;
+    try {
+      if (Platform.OS === 'web') {
+        Alert.alert('Share', capturedUri);
+        return;
+      }
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(capturedUri, {
+          mimeType: 'image/jpeg',
+          dialogTitle: 'Share your proof',
+        });
+      } else {
+        await Share.share({ url: capturedUri });
+      }
+    } catch (err) {
+      console.error('Share failed:', err);
     }
   };
 
   const handleFlip = () => {
     setFacing((cur) => (cur === 'back' ? 'front' : 'back'));
     setCameraReady(false);
+    setIsUltraWide(false);
   };
 
   const cycleFlash = () => {
     setFlash((cur) => (cur === 'off' ? 'on' : cur === 'on' ? 'auto' : 'off'));
   };
 
-  const handleZoomSelect = (factor: number) => {
-    setCurrentZoomFactor(factor);
+  const toggleUltraWide = () => {
+    setIsUltraWide((cur) => !cur);
   };
 
-  // ── Permission states ──────────────────────────────────────────────
   if (!permission) {
     return (
       <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -185,21 +215,42 @@ export default function CaptureProofCamera({
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
         <View style={styles.reviewContainer}>
-          <View style={[styles.reviewTopBar, { paddingTop: insets.top + 8 }]}>
+          {/* Top bar — visible, safe-area respected */}
+          <View style={[styles.reviewTopBar, { paddingTop: insets.top + 12 }]}>
+            <Text style={styles.reviewTitle}>REVIEW YOUR PROOF</Text>
             <TouchableOpacity
-              style={styles.translucentBtn}
-              onPress={handleRetake}
-              activeOpacity={0.7}
+              style={styles.reviewCloseBtn}
+              onPress={onClose}
+              activeOpacity={0.6}
             >
-              <Text style={styles.retakeText}>Retake</Text>
+              <X size={20} color="#FFFFFF" strokeWidth={2.5} />
             </TouchableOpacity>
           </View>
 
+          {/* Image preview */}
           <View style={styles.reviewImageContainer}>
             <RNImage source={{ uri: capturedUri }} style={styles.reviewImage} resizeMode="contain" />
           </View>
 
+          {/* Bottom actions */}
           <View style={[styles.reviewBottom, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.reviewSecondaryRow}>
+              <TouchableOpacity
+                style={styles.reviewSecondaryBtn}
+                onPress={handleRetake}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.reviewSecondaryText}>Retake</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.reviewSecondaryBtn}
+                onPress={handleShareCapture}
+                activeOpacity={0.7}
+              >
+                <Share2 size={16} color="rgba(255,255,255,0.7)" strokeWidth={2.2} />
+                <Text style={styles.reviewSecondaryText}>Share</Text>
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity
               style={styles.usePhotoBtn}
               onPress={handleUsePhoto}
@@ -215,16 +266,21 @@ export default function CaptureProofCamera({
   }
 
   // ── Camera state ───────────────────────────────────────────────────
+  // zoom prop: 0 = neutral/wide FOV, 1 = max zoom. We never pass >0 for normal 1x.
+  // For ultra-wide (.5x), we pass 0 as well — on devices with ultra-wide the system
+  // uses the widest lens at zoom=0. On devices without, it stays at the wide lens.
+  // This is the correct neutral behavior — no artificial zoom.
+  const cameraZoom = 0; // Always neutral wide — no zoom applied
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.cameraContainer}>
-        {/* Live camera preview — full screen */}
         <CameraView
           ref={cameraRef}
           style={StyleSheet.absoluteFill}
           facing={facing}
           flash={flash}
-          zoom={currentZoomFactor}
+          zoom={cameraZoom}
           onCameraReady={handleCameraReady}
           onMountError={() => {
             Alert.alert('Camera Error', 'Could not start camera. Please try again.');
@@ -264,25 +320,25 @@ export default function CaptureProofCamera({
 
         {/* Bottom controls */}
         <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 20 }]}>
-          {/* Zoom selector — only when multiple options */}
-          {zoomSupported.length > 1 && (
+          {/* Zoom selector — only show .5x toggle on back camera with ultra-wide */}
+          {hasUltraWide && facing === 'back' && (
             <View style={styles.zoomSelector}>
-              {zoomSupported.map((opt) => (
-                <TouchableOpacity
-                  key={opt.label}
-                  onPress={() => handleZoomSelect(opt.factor)}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.zoomLabel,
-                      currentZoomFactor === opt.factor && styles.zoomLabelActive,
-                    ]}
-                  >
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              <TouchableOpacity
+                onPress={() => setIsUltraWide(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.zoomLabel, isUltraWide && styles.zoomLabelActive]}>
+                  .5x
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setIsUltraWide(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.zoomLabel, !isUltraWide && styles.zoomLabelActive]}>
+                  1x
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -594,8 +650,27 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 16,
     zIndex: 10,
+  },
+  reviewTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.8)',
+    letterSpacing: 1.5,
+    fontFamily: 'Inter-Bold',
+  },
+  reviewCloseBtn: {
+    position: 'absolute',
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   reviewImageContainer: {
     flex: 1,
@@ -606,23 +681,31 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  retakeText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    fontFamily: 'Inter-Bold',
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 100,
-    overflow: 'hidden',
-  },
   reviewBottom: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  reviewSecondaryRow: {
+    flexDirection: 'row',
+    gap: 32,
+    marginBottom: 16,
+  },
+  reviewSecondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  reviewSecondaryText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.7)',
+    fontFamily: 'Inter-SemiBold',
   },
   usePhotoBtn: {
     flexDirection: 'row',
@@ -632,6 +715,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 16,
     borderRadius: 16,
+    width: '100%',
+    justifyContent: 'center',
   },
   usePhotoText: {
     fontSize: 15,

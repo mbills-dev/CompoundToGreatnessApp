@@ -11,12 +11,16 @@ import {
   Alert,
   TextInput,
   ScrollView,
-  Share,
+  KeyboardAvoidingView,
+  Keyboard,
+  TouchableWithoutFeedback,
+  Share as RNShare,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
-import { X, Check, Plus, Share2, Camera } from 'lucide-react-native';
+import { X, Check, Plus, Share2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -77,22 +81,37 @@ export default function ProofCaptureFlow({
   }, [defaultGoalId]);
 
   const handleClose = () => {
+    Keyboard.dismiss();
     resetState();
     onClose();
   };
 
-  const handleImageReady = (uri: string) => {
+  const handleImageReady = (uri: string, source: 'camera' | 'library') => {
     setImageUri(uri);
-    setPhase(showGoalPicker ? 'goal' : 'note');
+    setImageSource(source);
+    if (showGoalPicker) {
+      setPhase('goal');
+    } else {
+      setSelectedGoalId(defaultGoalId);
+      setPhase('note');
+    }
+  };
+
+  const triggerGoalHaptic = () => {
+    if (Platform.OS !== 'web') {
+      try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+    }
   };
 
   const handleGoalSelected = (goalId: string | null) => {
+    triggerGoalHaptic();
     setSelectedGoalId(goalId);
     setPhase('note');
   };
 
   const handleSave = async () => {
     if (!imageUri || !user) return;
+    Keyboard.dismiss();
     setPhase('saving');
 
     try {
@@ -134,7 +153,7 @@ export default function ProofCaptureFlow({
       setSavedPhotoUrl(urlData.publicUrl);
 
       if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
       }
 
       setPhase('confirm');
@@ -146,19 +165,30 @@ export default function ProofCaptureFlow({
     }
   };
 
-  const handleShareOriginal = async () => {
+  const handleShareSaved = async () => {
     if (!savedPhotoUrl) return;
-    if (Platform.OS === 'web') {
-      Alert.alert('Share', savedPhotoUrl);
-    } else {
-      try {
-        await Share.share({
-          url: savedPhotoUrl,
-          message: `Day ${challengeDay} — proof of progress`,
-        });
-      } catch (err) {
-        console.error('Share failed:', err);
+    try {
+      if (Platform.OS === 'web') {
+        Alert.alert('Share', savedPhotoUrl);
+        return;
       }
+      // For remote URLs, download to a temp file first, then share via expo-sharing
+      const localPath = `${FileSystem.cacheDirectory}share_proof_${Date.now()}.jpg`;
+      const downloadRes = await FileSystem.downloadAsync(savedPhotoUrl, localPath);
+      if (downloadRes.status !== 200) throw new Error('Download failed');
+
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(downloadRes.uri, {
+          mimeType: 'image/jpeg',
+          dialogTitle: 'Share your proof',
+        });
+      } else {
+        await RNShare.share({ url: downloadRes.uri });
+      }
+    } catch (err) {
+      console.error('Share failed:', err);
+      Alert.alert('Share Error', 'Could not share this image. Please try again.');
     }
   };
 
@@ -217,7 +247,7 @@ export default function ProofCaptureFlow({
             <View style={[styles.confirmActions, { paddingBottom: insets.bottom + 20 }]}>
               <TouchableOpacity
                 style={styles.confirmShareBtn}
-                onPress={handleShareOriginal}
+                onPress={handleShareSaved}
                 activeOpacity={0.85}
               >
                 <Share2 size={17} color="#000000" strokeWidth={2.5} />
@@ -265,8 +295,12 @@ export default function ProofCaptureFlow({
             </View>
           )}
 
-          <ScrollView style={styles.goalList} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
-            <Text style={styles.goalSubtitle}>Add any goal this relates to.</Text>
+          <ScrollView
+            style={styles.goalList}
+            contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Text style={styles.goalSubtitle}>Choose the goal this evidence belongs to.</Text>
             {goalOptions.map((option) => (
               <TouchableOpacity
                 key={option.id ?? 'general'}
@@ -297,51 +331,77 @@ export default function ProofCaptureFlow({
     );
   }
 
-  // ── Note phase ───────────────────────────────────────────────────
+  // ── Note/context phase ───────────────────────────────────────────
   if (phase === 'note') {
     const selectedGoal = goals.find((g) => g.id === selectedGoalId);
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
-        <View style={styles.noteContainer}>
+        <KeyboardAvoidingView
+          style={styles.noteContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
           <View style={[styles.noteHeader, { paddingTop: insets.top + 16 }]}>
-            <TouchableOpacity style={styles.noteBackBtn} onPress={() => setPhase(showGoalPicker ? 'goal' : 'camera')} activeOpacity={0.6}>
+            <TouchableOpacity
+              style={styles.noteBackBtn}
+              onPress={() => {
+                Keyboard.dismiss();
+                setPhase(showGoalPicker ? 'goal' : 'camera');
+              }}
+              activeOpacity={0.6}
+            >
               <Text style={styles.noteBackText}>Back</Text>
             </TouchableOpacity>
+            <Text style={styles.noteHeaderTitle}>ADD CONTEXT</Text>
             <TouchableOpacity style={styles.noteCloseBtn} onPress={handleClose} activeOpacity={0.6}>
               <X size={20} color="#FFFFFF" strokeWidth={2.5} />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.noteImageWrapper}>
-            {imageUri && (
-              <RNImage source={{ uri: imageUri }} style={styles.noteImage} resizeMode="contain" />
-            )}
-          </View>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <ScrollView
+              style={styles.noteScroll}
+              contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.noteImageWrapper}>
+                {imageUri && (
+                  <RNImage source={{ uri: imageUri }} style={styles.noteImage} resizeMode="contain" />
+                )}
+              </View>
 
-          <View style={[styles.noteBottom, { paddingBottom: insets.bottom + 20 }]}>
-            {selectedGoal && (
-              <Text style={styles.noteGoalTag}>{selectedGoal.title}</Text>
-            )}
-            {!selectedGoal && (
-              <Text style={styles.noteGoalTag}>General progress</Text>
-            )}
-            <Text style={styles.notePrompt}>ADD A NOTE (OPTIONAL)</Text>
-            <TextInput
-              style={styles.noteInput}
-              placeholder="e.g. Hit 27,418 subscribers today."
-              placeholderTextColor="rgba(255,255,255,0.25)"
-              value={note}
-              onChangeText={setNote}
-              maxLength={200}
-              multiline
-              returnKeyType="done"
-              blurOnSubmit
-            />
-            <TouchableOpacity style={styles.noteSaveBtn} onPress={handleSave} activeOpacity={0.85}>
-              <Text style={styles.noteSaveText}>SAVE PROOF</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+              <View style={styles.noteBottom}>
+                {selectedGoal && (
+                  <Text style={styles.noteGoalTag}>{selectedGoal.title}</Text>
+                )}
+                {!selectedGoal && (
+                  <Text style={styles.noteGoalTag}>General progress</Text>
+                )}
+                <Text style={styles.notePrompt}>What will you want to remember about this moment?</Text>
+                <TextInput
+                  style={styles.noteInput}
+                  placeholder="e.g. Hit 27,418 subscribers today."
+                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  value={note}
+                  onChangeText={setNote}
+                  maxLength={200}
+                  multiline
+                  returnKeyType="done"
+                  blurOnSubmit
+                />
+                <View style={styles.noteActions}>
+                  <TouchableOpacity style={styles.noteSkipBtn} onPress={handleSave} activeOpacity={0.7}>
+                    <Text style={styles.noteSkipText}>Skip</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.noteSaveBtn} onPress={handleSave} activeOpacity={0.85}>
+                    <Text style={styles.noteSaveText}>SAVE PROOF</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
     );
   }
@@ -543,6 +603,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 8,
   },
+  noteHeaderTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 1,
+    fontFamily: 'Inter-Bold',
+  },
   noteBackBtn: {
     paddingVertical: 8,
     paddingRight: 12,
@@ -561,10 +628,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  noteImageWrapper: {
+  noteScroll: {
     flex: 1,
-    paddingHorizontal: 20,
-    justifyContent: 'center',
+  },
+  noteImageWrapper: {
+    width: '100%',
+    height: 240,
+    marginBottom: 16,
+    overflow: 'hidden',
   },
   noteImage: {
     width: '100%',
@@ -572,7 +643,6 @@ const styles = StyleSheet.create({
   },
   noteBottom: {
     paddingHorizontal: 24,
-    paddingTop: 16,
   },
   noteGoalTag: {
     fontSize: 11,
@@ -583,12 +653,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   notePrompt: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.35)',
-    letterSpacing: 1,
-    fontFamily: 'Inter-Bold',
-    marginBottom: 8,
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: 'Inter-SemiBold',
+    marginBottom: 10,
   },
   noteInput: {
     backgroundColor: '#191919',
@@ -600,13 +669,31 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     minHeight: 50,
     maxHeight: 80,
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  noteSaveBtn: {
-    backgroundColor: LIME,
+  noteActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  noteSkipBtn: {
+    flex: 1,
     alignItems: 'center',
     paddingVertical: 16,
     borderRadius: 14,
+    backgroundColor: '#191919',
+  },
+  noteSkipText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: 'Inter-Bold',
+  },
+  noteSaveBtn: {
+    flex: 2,
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderRadius: 14,
+    backgroundColor: LIME,
   },
   noteSaveText: {
     fontSize: 15,
