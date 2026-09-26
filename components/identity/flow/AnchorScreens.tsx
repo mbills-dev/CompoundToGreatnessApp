@@ -389,12 +389,29 @@ export function AddInputScreen({
   const { colors, isDark } = useTheme();
   const [text, setText] = useState(prefillText ?? '');
   const specificity = useInputSpecificity();
+  const [awaitingRefiner, setAwaitingRefiner] = useState(false);
 
   const canCommit = text.trim().length > 0;
 
-  const handleFinalize = () => {
+  const handleSubmit = async () => {
     if (!canCommit) return;
-    onDone(text.trim(), !!specificity.result);
+    const result = await specificity.validate(text);
+    if (result && !result.specific) {
+      setAwaitingRefiner(true);
+      return;
+    }
+    onDone(text.trim(), false);
+  };
+
+  const handleAcceptRefinement = (refined: string) => {
+    setText(refined);
+    specificity.dismiss();
+    onDone(refined, true);
+  };
+
+  const handleKeepAsIs = () => {
+    specificity.dismiss();
+    onDone(text.trim(), true);
   };
 
   return (
@@ -415,7 +432,7 @@ export function AddInputScreen({
           },
         ]}
         value={text}
-        onChangeText={setText}
+        onChangeText={(t) => { setText(t); if (awaitingRefiner) setAwaitingRefiner(false); }}
         placeholder={`e.g. 10,000 steps`}
         placeholderTextColor={colors.textTertiary}
         multiline
@@ -424,35 +441,37 @@ export function AddInputScreen({
         autoCapitalize="sentences"
         autoFocus
         inputAccessoryViewID={KEYBOARD_DONE_ACCESSORY_ID}
-        onBlur={() => specificity.validate(text)}
+        onBlur={() => { if (!awaitingRefiner) specificity.validate(text); }}
       />
 
       {specificity.result && (
         <SpecificityNudgeBanner
           result={specificity.result}
-          onAcceptExample={(ex) => { setText(ex); specificity.dismiss(); }}
-          onDismiss={specificity.dismiss}
+          onAcceptExample={handleAcceptRefinement}
+          onDismiss={handleKeepAsIs}
         />
       )}
 
-      <TouchableOpacity
-        style={[
-          styles.revealBtn,
-          {
-            backgroundColor: canCommit ? colors.primary : colors.border,
-            opacity: canCommit ? 1 : 0.45,
-            marginTop: 28,
-          },
-        ]}
-        onPress={() => canCommit && handleFinalize()}
-        disabled={!canCommit}
-        activeOpacity={0.85}
-      >
-        <Check size={18} color={canCommit ? '#000' : colors.textTertiary} strokeWidth={3} />
-        <Text style={[styles.revealBtnText, { color: canCommit ? '#000' : colors.textTertiary }]}>
-          Add this input
-        </Text>
-      </TouchableOpacity>
+      {!specificity.result && (
+        <TouchableOpacity
+          style={[
+            styles.revealBtn,
+            {
+              backgroundColor: canCommit ? colors.primary : colors.border,
+              opacity: canCommit ? 1 : 0.45,
+              marginTop: 28,
+            },
+          ]}
+          onPress={handleSubmit}
+          disabled={!canCommit || specificity.checking}
+          activeOpacity={0.85}
+        >
+          <Check size={18} color={canCommit ? '#000' : colors.textTertiary} strokeWidth={3} />
+          <Text style={[styles.revealBtnText, { color: canCommit ? '#000' : colors.textTertiary }]}>
+            {specificity.checking ? 'Checking...' : 'Add this input'}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity
         style={styles.standardsSkipBtn}
