@@ -122,11 +122,13 @@ export interface ChallengeArchive {
 export interface ProgressPhoto {
   id: string;
   user_id: string;
-  goal_id: string;
+  goal_id: string | null;
   challenge_day: number;
   storage_url: string;
   is_milestone: boolean;
   is_shared_with_watchers: boolean;
+  source: 'camera' | 'library';
+  note: string | null;
   created_at: string;
 }
 

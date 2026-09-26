@@ -57,6 +57,7 @@ import ReactionBurst from './ReactionBurst';
 import EncouragementToast from './EncouragementToast';
 import BrandedLoadingScreen from '@/components/BrandedLoadingScreen';
 import DayView from './DayView';
+import ProofTodayModule from './ProofTodayModule';
 
 let Haptics: any = null;
 if (Platform.OS !== 'web') {
@@ -250,6 +251,7 @@ export default function DailyDashboard({
   const [realtimeGen, setRealtimeGen] = useState(0);
   const [showIdentityModal, setShowIdentityModal] = useState(false);
   const [showDayView, setShowDayView] = useState(false);
+  const [activeGoals, setActiveGoals] = useState<Goal[]>([]);
 
   const [showWatcherSheet, setShowWatcherSheet] = useState(false);
   const [watcherProfiles, setWatcherProfiles] = useState<{ id: string; display_name: string; username: string; photo_url: string | null; created_at: string }[]>([]);
@@ -263,6 +265,20 @@ export default function DailyDashboard({
   const { streak, perfectDays, phase2ThisMonth, invalidate: refreshStreakSummary } = useStreakSummary(goal.id);
   const queryClient = useQueryClient();
   const refreshCompletions = () => queryClient.invalidateQueries({ queryKey: completionsKey(goal.id) });
+
+  useEffect(() => {
+    if (user) {
+      supabase
+        .from('goals')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .then(({ data }) => {
+          if (data) setActiveGoals(data);
+        });
+    }
+  }, [user]);
 
   useEffect(() => {
     if (streak > bestStreak) {
@@ -1223,6 +1239,11 @@ export default function DailyDashboard({
                 {completedActivities.length} of {activities.length} complete
               </Text>
             </View>
+
+            <ProofTodayModule
+              challengeDay={displayDay}
+              goals={activeGoals.length > 0 ? activeGoals : [goal]}
+            />
           </View>
 
           <View style={styles.content}>

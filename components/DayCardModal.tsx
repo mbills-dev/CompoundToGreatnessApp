@@ -270,29 +270,16 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
         storage_url: urlData.publicUrl,
         is_milestone: isMilestoneDay(day),
         is_shared_with_watchers: false,
+        source: 'camera' as const,
       };
 
-      let savedPhoto: ProgressPhoto;
-      if (photo) {
-        const { data, error } = await supabase
-          .from('progress_photos')
-          .update({ storage_url: urlData.publicUrl })
-          .eq('id', photo.id)
-          .select()
-          .single();
-        if (error) throw error;
-        savedPhoto = data;
-      } else {
-        const { data, error } = await supabase
-          .from('progress_photos')
-          .insert(record)
-          .select()
-          .single();
-        if (error) throw error;
-        savedPhoto = data;
-      }
-
-      setPhoto(savedPhoto);
+      const { data, error } = await supabase
+        .from('progress_photos')
+        .insert(record)
+        .select()
+        .single();
+      if (error) throw error;
+      setPhoto(data);
     } catch (err) {
       console.error('Photo upload error:', err);
       Alert.alert('Error', 'Failed to upload photo. Please try again.');
