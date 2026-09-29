@@ -41,6 +41,7 @@ interface ProofCaptureFlowProps {
   challengeDay: number;
   goals: Goal[];
   defaultGoalId: string | null;
+  challengeRunId: string | null;
   onSaved: () => void;
 }
 
@@ -52,6 +53,7 @@ export default function ProofCaptureFlow({
   challengeDay,
   goals,
   defaultGoalId,
+  challengeRunId,
   onSaved,
 }: ProofCaptureFlowProps) {
   const insets = useSafeAreaInsets();
@@ -146,6 +148,7 @@ export default function ProofCaptureFlow({
         is_shared_with_watchers: false,
         source: imageSource,
         note: note.trim() || null,
+        challenge_run_id: challengeRunId,
       });
 
       if (dbError) throw dbError;
@@ -172,7 +175,6 @@ export default function ProofCaptureFlow({
         Alert.alert('Share', savedPhotoUrl);
         return;
       }
-      // For remote URLs, download to a temp file first, then share via expo-sharing
       const localPath = `${FileSystem.cacheDirectory}share_proof_${Date.now()}.jpg`;
       const downloadRes = await FileSystem.downloadAsync(savedPhotoUrl, localPath);
       if (downloadRes.status !== 200) throw new Error('Download failed');
@@ -181,7 +183,7 @@ export default function ProofCaptureFlow({
       if (isAvailable) {
         await Sharing.shareAsync(downloadRes.uri, {
           mimeType: 'image/jpeg',
-          dialogTitle: 'Share your proof',
+          dialogTitle: 'Share My Progress',
         });
       } else {
         await RNShare.share({ url: downloadRes.uri });
@@ -372,12 +374,10 @@ export default function ProofCaptureFlow({
               </View>
 
               <View style={styles.noteBottom}>
-                {selectedGoal && (
-                  <Text style={styles.noteGoalTag}>{selectedGoal.title}</Text>
-                )}
-                {!selectedGoal && (
-                  <Text style={styles.noteGoalTag}>General progress</Text>
-                )}
+                <Text style={styles.noteGoalTag}>
+                  {selectedGoal ? selectedGoal.title : 'General progress'}
+                </Text>
+                <Text style={styles.noteDayLabel}>DAY {challengeDay}</Text>
                 <Text style={styles.notePrompt}>What will you want to remember about this moment?</Text>
                 <TextInput
                   style={styles.noteInput}
@@ -424,7 +424,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
   },
 
-  // Confirmation
   confirmContainer: {
     flex: 1,
     backgroundColor: '#050505',
@@ -518,7 +517,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
   },
 
-  // Goal selection
   goalContainer: {
     flex: 1,
     backgroundColor: '#050505',
@@ -591,7 +589,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // Note phase
   noteContainer: {
     flex: 1,
     backgroundColor: '#050505',
@@ -649,6 +646,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: LIME,
     letterSpacing: 0.5,
+    fontFamily: 'Inter-Bold',
+    marginBottom: 4,
+  },
+  noteDayLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.3)',
+    letterSpacing: 1,
     fontFamily: 'Inter-Bold',
     marginBottom: 16,
   },

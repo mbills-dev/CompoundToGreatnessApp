@@ -129,6 +129,7 @@ export interface ProgressPhoto {
   is_shared_with_watchers: boolean;
   source: 'camera' | 'library';
   note: string | null;
+  challenge_run_id: string | null;
   created_at: string;
 }
 

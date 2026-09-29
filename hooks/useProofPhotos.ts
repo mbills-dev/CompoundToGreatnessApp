@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProgressPhoto } from '@/types/database';
 
-export function useProofPhotos(challengeDay?: number) {
+export function useProofPhotos(challengeDay?: number, challengeRunId?: string | null) {
   const { user } = useAuth();
   const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,10 +19,13 @@ export function useProofPhotos(challengeDay?: number) {
     if (challengeDay != null) {
       query = query.eq('challenge_day', challengeDay);
     }
+    if (challengeRunId) {
+      query = query.eq('challenge_run_id', challengeRunId);
+    }
     const { data } = await query;
     setPhotos(data || []);
     setLoading(false);
-  }, [user, challengeDay]);
+  }, [user, challengeDay, challengeRunId]);
 
   useEffect(() => {
     loadPhotos();
@@ -31,7 +34,7 @@ export function useProofPhotos(challengeDay?: number) {
   return { photos, loading, refresh: loadPhotos };
 }
 
-export function useAllProofPhotos() {
+export function useAllProofPhotos(challengeRunId?: string | null) {
   const { user } = useAuth();
   const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,14 +42,18 @@ export function useAllProofPhotos() {
   const loadPhotos = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
+    let query = supabase
       .from('progress_photos')
       .select('*')
       .eq('user_id', user.id)
       .order('challenge_day', { ascending: true });
+    if (challengeRunId) {
+      query = query.eq('challenge_run_id', challengeRunId);
+    }
+    const { data } = await query;
     setPhotos(data || []);
     setLoading(false);
-  }, [user]);
+  }, [user, challengeRunId]);
 
   useEffect(() => {
     loadPhotos();

@@ -1243,6 +1243,8 @@ export default function DailyDashboard({
             <ProofTodayModule
               challengeDay={displayDay}
               goals={activeGoals.length > 0 ? activeGoals : [goal]}
+              challengeRunId={`${goal.id}_${goal.total_restarts || 0}`}
+              onOpenProof={() => setShowDayView(true)}
             />
           </View>
 

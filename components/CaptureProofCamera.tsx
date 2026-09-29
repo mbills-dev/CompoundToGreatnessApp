@@ -11,6 +11,8 @@ import {
   Alert,
   Share,
   ViewStyle,
+  PanResponder,
+  Animated,
 } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -49,6 +51,10 @@ export default function CaptureProofCamera({
   const [showHelp, setShowHelp] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const [cameraKey, setCameraKey] = useState(0);
+
+  const cameraReadyRef = useRef(false);
+  const capturingRef = useRef(false);
 
   useEffect(() => {
     if (visible) {
@@ -57,19 +63,20 @@ export default function CaptureProofCamera({
       setCapturing(false);
       setCameraReady(false);
       setIsUltraWide(false);
+      cameraReadyRef.current = false;
+      capturingRef.current = false;
     }
   }, [visible]);
 
-  const handleCameraReady = useCallback(async () => {
+  const triggerHaptic = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
+    if (Platform.OS !== 'web') {
+      try { Haptics.impactAsync(style); } catch {}
+    }
+  };
+
+  const handleCameraReady = useCallback(() => {
     setCameraReady(true);
-    // Detect ultra-wide availability via available picture sizes / device capabilities.
-    // expo-camera doesn't expose lens enums directly, but we can check if the device
-    // supports a wider field of view by testing if zoom=0 gives us the widest lens.
-    // On devices with ultra-wide (iPhone 11+), the back camera defaults to the wide
-    // lens at zoom=0. We enable the .5x toggle only when we can confirm ultra-wide.
-    // Since expo-camera's zoom is 0-1 normalized (0 = widest available), we offer
-    // .5x only on back camera and let the user discover if their device supports it.
-    // The system gracefully handles devices without ultra-wide by staying at wide.
+    cameraReadyRef.current = true;
     if (facing === 'back') {
       setHasUltraWide(true);
     } else {
@@ -77,21 +84,16 @@ export default function CaptureProofCamera({
     }
   }, [facing]);
 
-  const triggerHaptic = () => {
-    if (Platform.OS !== 'web') {
-      try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
-    }
-  };
-
   const handleTakePhoto = async () => {
-    if (!cameraRef.current || capturing) return;
+    if (capturingRef.current) return;
+    const ref = cameraRef.current;
+    if (!ref) return;
+
+    capturingRef.current = true;
     setCapturing(true);
     triggerHaptic();
     try {
-      // zoom=0 gives neutral/wide FOV; zoom=1 is max zoom.
-      // When ultra-wide is active, we temporarily set zoom to 0 which
-      // on devices with ultra-wide gives the widest lens.
-      const photo = await cameraRef.current.takePictureAsync({
+      const photo = await ref.takePictureAsync({
         quality: 0.8,
         skipProcessing: false,
       });
@@ -103,6 +105,7 @@ export default function CaptureProofCamera({
       console.error('Camera capture error:', err);
       Alert.alert('Error', 'Failed to capture photo. Please try again.');
     } finally {
+      capturingRef.current = false;
       setCapturing(false);
     }
   };
@@ -126,6 +129,9 @@ export default function CaptureProofCamera({
 
   const handleRetake = () => {
     setCapturedUri(null);
+    setCameraReady(false);
+    cameraReadyRef.current = false;
+    setCameraKey((k) => k + 1);
   };
 
   const handleUsePhoto = () => {
@@ -146,7 +152,7 @@ export default function CaptureProofCamera({
       if (isAvailable) {
         await Sharing.shareAsync(capturedUri, {
           mimeType: 'image/jpeg',
-          dialogTitle: 'Share your proof',
+          dialogTitle: 'Share Photo',
         });
       } else {
         await Share.share({ url: capturedUri });
@@ -157,18 +163,38 @@ export default function CaptureProofCamera({
   };
 
   const handleFlip = () => {
+    triggerHaptic();
     setFacing((cur) => (cur === 'back' ? 'front' : 'back'));
     setCameraReady(false);
+    cameraReadyRef.current = false;
     setIsUltraWide(false);
+    setCameraKey((k) => k + 1);
   };
 
   const cycleFlash = () => {
     setFlash((cur) => (cur === 'off' ? 'on' : cur === 'on' ? 'auto' : 'off'));
   };
 
-  const toggleUltraWide = () => {
-    setIsUltraWide((cur) => !cur);
-  };
+  const switchLens = useCallback((toUltraWide: boolean) => {
+    if (toUltraWide === isUltraWide) return;
+    triggerHaptic();
+    setIsUltraWide(toUltraWide);
+  }, [isUltraWide]);
+
+  // Swipe gesture for lens switching (back camera only)
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        facing === 'back' && Math.abs(gestureState.dx) > 20 && Math.abs(gestureState.dy) < 40,
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dx > 30) {
+          switchLens(false);
+        } else if (gestureState.dx < -30) {
+          switchLens(true);
+        }
+      },
+    })
+  ).current;
 
   if (!permission) {
     return (
@@ -215,7 +241,6 @@ export default function CaptureProofCamera({
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
         <View style={styles.reviewContainer}>
-          {/* Top bar — visible, safe-area respected */}
           <View style={[styles.reviewTopBar, { paddingTop: insets.top + 12 }]}>
             <Text style={styles.reviewTitle}>REVIEW YOUR PROOF</Text>
             <TouchableOpacity
@@ -227,12 +252,10 @@ export default function CaptureProofCamera({
             </TouchableOpacity>
           </View>
 
-          {/* Image preview */}
           <View style={styles.reviewImageContainer}>
             <RNImage source={{ uri: capturedUri }} style={styles.reviewImage} resizeMode="contain" />
           </View>
 
-          {/* Bottom actions */}
           <View style={[styles.reviewBottom, { paddingBottom: insets.bottom + 16 }]}>
             <View style={styles.reviewSecondaryRow}>
               <TouchableOpacity
@@ -266,16 +289,17 @@ export default function CaptureProofCamera({
   }
 
   // ── Camera state ───────────────────────────────────────────────────
-  // zoom prop: 0 = neutral/wide FOV, 1 = max zoom. We never pass >0 for normal 1x.
-  // For ultra-wide (.5x), we pass 0 as well — on devices with ultra-wide the system
-  // uses the widest lens at zoom=0. On devices without, it stays at the wide lens.
-  // This is the correct neutral behavior — no artificial zoom.
-  const cameraZoom = 0; // Always neutral wide — no zoom applied
+  // expo-camera zoom: 0 = neutral (widest lens), 1 = max zoom.
+  // On dual/triple-lens iPhones, zoom=0 uses the wide (1x) lens.
+  // A very small non-zero value (~0.04) triggers the system to switch to
+  // the ultra-wide (.5x) lens on supported devices.
+  const cameraZoom = isUltraWide ? 0.04 : 0;
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.cameraContainer}>
+      <View style={styles.cameraContainer} {...panResponder.panHandlers}>
         <CameraView
+          key={cameraKey}
           ref={cameraRef}
           style={StyleSheet.absoluteFill}
           facing={facing}
@@ -310,7 +334,7 @@ export default function CaptureProofCamera({
           </TouchableOpacity>
         </View>
 
-        {/* Four universal corner framing guides */}
+        {/* Corner framing guides */}
         <View style={styles.cornerGuidesContainer} pointerEvents="none">
           <View style={[styles.cornerGuide, styles.cornerTL]} />
           <View style={[styles.cornerGuide, styles.cornerTR]} />
@@ -320,11 +344,11 @@ export default function CaptureProofCamera({
 
         {/* Bottom controls */}
         <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 20 }]}>
-          {/* Zoom selector — only show .5x toggle on back camera with ultra-wide */}
+          {/* Zoom selector — only on back camera with ultra-wide */}
           {hasUltraWide && facing === 'back' && (
             <View style={styles.zoomSelector}>
               <TouchableOpacity
-                onPress={() => setIsUltraWide(true)}
+                onPress={() => switchLens(true)}
                 activeOpacity={0.7}
               >
                 <Text style={[styles.zoomLabel, isUltraWide && styles.zoomLabelActive]}>
@@ -332,7 +356,7 @@ export default function CaptureProofCamera({
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => setIsUltraWide(false)}
+                onPress={() => switchLens(false)}
                 activeOpacity={0.7}
               >
                 <Text style={[styles.zoomLabel, !isUltraWide && styles.zoomLabelActive]}>
@@ -343,7 +367,7 @@ export default function CaptureProofCamera({
           )}
 
           <View style={styles.shutterRow}>
-            {/* Flash — bottom left */}
+            {/* Flash */}
             <TouchableOpacity style={styles.translucentBtn} onPress={cycleFlash} activeOpacity={0.7}>
               {flash === 'off' ? (
                 <ZapOff size={20} color="#FFFFFF" strokeWidth={2.2} />
@@ -352,11 +376,11 @@ export default function CaptureProofCamera({
               )}
             </TouchableOpacity>
 
-            {/* Shutter — center */}
+            {/* Shutter — enabled whenever ref exists and not capturing */}
             <TouchableOpacity
               style={styles.shutterOuter}
               onPress={handleTakePhoto}
-              disabled={capturing || !cameraReady}
+              disabled={capturing}
               activeOpacity={0.85}
             >
               {capturing ? (
@@ -366,7 +390,7 @@ export default function CaptureProofCamera({
               )}
             </TouchableOpacity>
 
-            {/* Gallery — bottom right */}
+            {/* Gallery */}
             <TouchableOpacity
               style={styles.translucentBtn}
               onPress={handlePickFromLibrary}
@@ -376,7 +400,7 @@ export default function CaptureProofCamera({
             </TouchableOpacity>
           </View>
 
-          {/* Flip camera — below shutter row, centered */}
+          {/* Flip camera */}
           <TouchableOpacity
             style={[styles.flipBtn, { marginTop: 12 }]}
             onPress={handleFlip}
@@ -434,7 +458,6 @@ export default function CaptureProofCamera({
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────
 const TRANSLUCENT_DARK: ViewStyle = {
   backgroundColor: 'rgba(0,0,0,0.35)',
   borderRadius: 100,
@@ -493,7 +516,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
   },
 
-  // Top overlay
   topOverlay: {
     position: 'absolute',
     top: 0,
@@ -532,7 +554,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Corner guides
   cornerGuidesContainer: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
@@ -574,7 +595,6 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 8,
   },
 
-  // Bottom controls
   bottomControls: {
     position: 'absolute',
     bottom: 0,
@@ -639,7 +659,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
   },
 
-  // Review state
   reviewContainer: {
     flex: 1,
     backgroundColor: '#000000',
@@ -731,7 +750,6 @@ const styles = StyleSheet.create({
     color: '#000000',
   },
 
-  // Help sheet
   helpOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
