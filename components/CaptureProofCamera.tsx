@@ -40,6 +40,13 @@ const ULTRA_WIDE_LENS_PATTERN = /\bultra\s*wide\b/i;
 // Failsafe only — see beginSwitch.
 const DEVICE_SWITCH_FAILSAFE_MS = 1500;
 
+// The rear lens list is a device fact that cannot change while the app runs.
+// This component remounts per capture session (the Proof flow unmounts it after
+// "Use This Photo"), so the list is kept at module scope: every session after
+// the first can select the physical wide lens on its very first render instead
+// of opening on iOS's default device and correcting after the lens event.
+let cachedBackLenses: string[] = [];
+
 type LensMode = 'wide' | 'ultraWide';
 // `remaining` = device swaps still to be confirmed (one onAvailableLensesChanged
 // per native swap); consecutive lens taps coalesce into one pending switch.
@@ -67,11 +74,10 @@ export default function CaptureProofCamera({
   const [facing, setFacing] = useState<CameraType>('back');
   const [flash, setFlash] = useState<FlashMode>('off');
   const [lensMode, setLensMode] = useState<LensMode>('wide');
-  const [ultraWideUsed, setUltraWideUsed] = useState(false);
-  // Lens names reported by expo-camera, cached per camera position. These are
-  // device facts (not session state), so they survive close/reopen.
+  // Lens names reported by expo-camera, per camera position. These are device
+  // facts (not session state); the rear list is seeded from the module cache.
   const [lensesByFacing, setLensesByFacing] = useState<Record<CameraType, string[]>>({
-    back: [],
+    back: cachedBackLenses,
     front: [],
   });
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
@@ -98,7 +104,6 @@ export default function CaptureProofCamera({
     if (visible) {
       setFacing('back');
       setLensMode('wide');
-      setUltraWideUsed(false);
       setCapturedUri(null);
       setShowHelp(false);
       setCapturing(false);
@@ -133,20 +138,14 @@ export default function CaptureProofCamera({
     facing === 'back' && ultraWideLensName !== null && wideLensName !== null;
   const isUltraWide = ultraWideSupported && lensMode === 'ultraWide';
 
-  // The wide lens is selected explicitly only once .5x has been used, so a
-  // session that never touches .5x keeps expo-camera's default 1x untouched
-  // (no extra device swap right after the lens list arrives on open).
-  if (isUltraWide && !ultraWideUsed) setUltraWideUsed(true);
-
-  // What the native side is told to use. The front camera, and any device
+  // What the native side is told to use. Once both physical lenses are
+  // detected, BOTH modes are explicit, including the initial 1x: iOS's default
+  // back device is not guaranteed to be the physical wide camera (on iPhone 16
+  // Pro Max it opens ultra-wide-capable). The front camera, and any device
   // where the lens names were not recognized, get undefined (default device).
-  const selectedLens = !ultraWideSupported
-    ? undefined
-    : isUltraWide
-      ? ultraWideLensName ?? undefined
-      : ultraWideUsed
-        ? wideLensName ?? undefined
-        : undefined;
+  const selectedLens = ultraWideSupported
+    ? (isUltraWide ? ultraWideLensName : wideLensName) ?? undefined
+    : undefined;
 
   // Single source of truth for the shutter.
   const canCapture = cameraReady && !capturing && !switching;
@@ -195,6 +194,9 @@ export default function CaptureProofCamera({
     setLensesByFacing((prev) =>
       prev[facing].join('|') === key ? prev : { ...prev, [facing]: lenses }
     );
+    // Only a rear list contains the wide "Back Camera", so a stale front list
+    // can never poison the cache.
+    if (lenses.some((name) => WIDE_LENS_PATTERN.test(name))) cachedBackLenses = lenses;
     if (pending) {
       pending.remaining -= 1;
       if (pending.remaining <= 0) finishSwitch(true);
