@@ -362,16 +362,6 @@ export default function DailyDashboard({
       openCelebration();
     }
 
-    if (user?.id) {
-      checkForNewReactions(user.id).then((groups) => {
-        if (groups.length > 0) {
-          setReactionBursts(groups);
-        }
-      }).catch((err) => {
-        console.error('checkForNewReactions failed:', err);
-      });
-    }
-
     loadWatcherCount();
 
     refetchIfDayChangedRef.current?.();
@@ -463,21 +453,7 @@ export default function DailyDashboard({
         }
       });
 
-    // Polling safety net: if the realtime socket silently misses an INSERT
-    // while the app stays continuously foregrounded (no AppState transition
-    // to trigger a rebuild), this guarantees delivery within ~20 seconds.
-    const pollInterval = setInterval(() => {
-      checkForNewReactions(user.id).then((groups) => {
-        if (groups.length > 0) {
-          setReactionBursts(groups);
-        }
-      }).catch((err) => {
-        console.error('checkForNewReactions failed:', err);
-      });
-    }, 20000);
-
     return () => {
-      clearInterval(pollInterval);
       supabase.removeChannel(channel);
       supabase.removeChannel(watcherChannel);
     };
@@ -493,15 +469,6 @@ export default function DailyDashboard({
       if (nextAppState === 'active' && (prev === 'background' || prev === 'inactive')) {
         setRealtimeGen(g => g + 1);
         loadWatcherCount();
-        if (user?.id) {
-          checkForNewReactions(user.id).then((groups) => {
-            if (groups.length > 0) {
-              setReactionBursts(groups);
-            }
-          }).catch((err) => {
-            console.error('checkForNewReactions failed:', err);
-          });
-        }
         refetchIfDayChangedRef.current?.();
       }
     });
