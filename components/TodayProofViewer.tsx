@@ -8,12 +8,14 @@ import {
   Image,
   FlatList,
   Platform,
+  Alert,
+  Pressable,
   ScrollView,
   useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import { X, Plus } from 'lucide-react-native';
+import { X, Plus, MoreHorizontal } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ProgressPhoto } from '@/types/database';
 
@@ -28,6 +30,8 @@ interface TodayProofViewerProps {
   onAddAnother: () => void;
   /** Called after the viewer has fully dismissed. */
   onViewJourney: () => void;
+  /** Permanently deletes one proof (resolves true only if deleted). Omit to hide the options control. */
+  onDeletePhoto?: (photo: ProgressPhoto) => Promise<boolean>;
 }
 
 export default function TodayProofViewer({
@@ -37,10 +41,14 @@ export default function TodayProofViewer({
   photos,
   onAddAnother,
   onViewJourney,
+  onDeletePhoto,
 }: TodayProofViewerProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [index, setIndex] = useState(0);
+  const [showOptions, setShowOptions] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const listRef = useRef<FlatList<ProgressPhoto>>(null);
   // Actions that open another modal or navigate run after this modal has
   // finished dismissing (iOS cannot present while a dismissal is in flight).
   const pendingActionRef = useRef<(() => void) | null>(null);
@@ -51,11 +59,55 @@ export default function TodayProofViewer({
   );
 
   useEffect(() => {
-    if (visible) setIndex(0);
+    if (visible) {
+      setIndex(0);
+      setShowOptions(false);
+    }
   }, [visible]);
 
   const safeIndex = Math.min(index, Math.max(items.length - 1, 0));
   const current = items[safeIndex];
+
+  // After a delete the pager's offset can point past the end or at the wrong
+  // page; realign it to the (clamped) selected proof.
+  useEffect(() => {
+    if (items.length > 0) {
+      listRef.current?.scrollToOffset({ offset: safeIndex * width, animated: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length]);
+
+  const handleDeleteConfirmed = async () => {
+    if (!current || deleting || !onDeletePhoto) return;
+    const wasOnlyProof = items.length === 1;
+    const deletedIndex = safeIndex;
+    setDeleting(true);
+    const deleted = await onDeletePhoto(current);
+    setDeleting(false);
+    if (!deleted) {
+      Alert.alert('Error', 'Could not delete this proof. Please try again.');
+      return;
+    }
+    if (wasOnlyProof) {
+      onClose();
+    } else {
+      // The next proof slides into this slot; if the last one was deleted,
+      // fall back to the new last (the previous proof).
+      setIndex(Math.min(deletedIndex, items.length - 2));
+    }
+  };
+
+  const handleDeletePress = () => {
+    setShowOptions(false);
+    Alert.alert(
+      'Delete this proof?',
+      'This photo will be permanently removed from your journey.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete Proof', style: 'destructive', onPress: handleDeleteConfirmed },
+      ]
+    );
+  };
 
   const closeThen = (action: () => void) => {
     pendingActionRef.current = action;
@@ -101,15 +153,29 @@ export default function TodayProofViewer({
             <Text style={styles.title}>YOUR PROOF</Text>
             {!!dateLabel && <Text style={styles.date}>{dateLabel}</Text>}
           </View>
-          <TouchableOpacity
-            style={styles.closeBtn}
-            onPress={onClose}
-            activeOpacity={0.6}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
-            <X size={20} color="#FFFFFF" strokeWidth={2.5} />
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            {!!onDeletePhoto && (
+              <TouchableOpacity
+                style={styles.closeBtn}
+                onPress={() => setShowOptions(true)}
+                disabled={!current || deleting}
+                activeOpacity={0.6}
+                accessibilityRole="button"
+                accessibilityLabel="Proof options"
+              >
+                <MoreHorizontal size={20} color="#FFFFFF" strokeWidth={2.5} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={onClose}
+              activeOpacity={0.6}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <X size={20} color="#FFFFFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView
@@ -118,6 +184,7 @@ export default function TodayProofViewer({
           showsVerticalScrollIndicator={false}
         >
           <FlatList
+            ref={listRef}
             data={items}
             keyExtractor={(item) => item.id}
             horizontal
@@ -169,6 +236,33 @@ export default function TodayProofViewer({
             <Text style={styles.journeyBtnText}>VIEW YOUR JOURNEY →</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Options sheet — an overlay (not a second Modal) so the destructive
+            confirmation can present cleanly right after it closes. */}
+        {showOptions && (
+          <View style={styles.sheetRoot}>
+            <Pressable style={styles.sheetBackdrop} onPress={() => setShowOptions(false)} />
+            <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+              <View style={styles.sheetHandle} />
+              <TouchableOpacity
+                style={styles.sheetRow}
+                onPress={handleDeletePress}
+                activeOpacity={0.6}
+                accessibilityRole="button"
+              >
+                <Text style={styles.sheetDeleteText}>Delete Proof</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.sheetRow, styles.sheetRowDivider]}
+                onPress={() => setShowOptions(false)}
+                activeOpacity={0.6}
+                accessibilityRole="button"
+              >
+                <Text style={styles.sheetCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
     </Modal>
   );
@@ -210,6 +304,10 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.45)',
     fontFamily: 'Inter-Bold',
     marginTop: 4,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 10,
   },
   closeBtn: {
     width: 36,
@@ -284,4 +382,48 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     fontFamily: 'Inter-Bold',
   },
+  sheetRoot: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+  },
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  sheet: {
+    backgroundColor: '#111111',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 10,
+    paddingHorizontal: 24,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    marginBottom: 8,
+  },
+  sheetRow: {
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  sheetRowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.12)',
+  },
+  sheetDeleteText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FF453A',
+    fontFamily: 'Inter-Bold',
+  },
+  sheetCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.7)',
+    fontFamily: 'Inter-Bold',
+  },
 });
+

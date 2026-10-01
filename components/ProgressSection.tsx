@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View,
   Text,
@@ -70,9 +71,12 @@ export default function ProgressSection({ goal, completions, activities }: Progr
     loadEvidenceLogs();
   }, [goal.id]);
 
-  useEffect(() => {
-    loadProgressPhotos();
-  }, [goal.id]);
+  // Reload on focus so proof deleted/added from Today is reflected here.
+  useFocusEffect(
+    useCallback(() => {
+      loadProgressPhotos();
+    }, [goal.id, user?.id])
+  );
 
   const loadEvidenceLogs = async () => {
     const { data } = await supabase
@@ -86,7 +90,8 @@ export default function ProgressSection({ goal, completions, activities }: Progr
 
   const loadProgressPhotos = async () => {
     if (!user) return;
-    setPhotosLoading(true);
+    // The spinner is for the first load only (initial state is true); a
+    // refocus refreshes in place without flashing it.
     const { data } = await supabase
       .from('progress_photos')
       .select('*')
@@ -749,3 +754,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+

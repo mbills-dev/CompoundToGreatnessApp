@@ -31,7 +31,7 @@ export default function ProofTodayModule({
   inputs,
   challengeRunId,
 }: ProofTodayModuleProps) {
-  const { photos, loading, refresh } = useProofPhotos(challengeDay, challengeRunId);
+  const { photos, loading, refresh, deletePhoto } = useProofPhotos(challengeDay, challengeRunId);
   const [showFlow, setShowFlow] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
   const [showJourney, setShowJourney] = useState(false);
@@ -148,6 +148,7 @@ export default function ProofTodayModule({
         photos={todaysPhotos}
         onAddAnother={() => setShowFlow(true)}
         onViewJourney={() => setShowJourney(true)}
+        onDeletePhoto={deletePhoto}
       />
 
       {/* The same Journey viewer Progress opens via SEE YOUR JOURNEY. */}
@@ -314,3 +315,4 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
   },
 });
+

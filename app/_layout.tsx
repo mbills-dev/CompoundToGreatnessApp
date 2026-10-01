@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Platform, Alert } from 'react-native';
+import { Platform } from 'react-native';
 import Purchases from 'react-native-purchases';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -15,7 +15,6 @@ import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import * as WebBrowser from 'expo-web-browser';
 
 WebBrowser.maybeCompleteAuthSession();
-import { getBreadcrumbs, clearBreadcrumbs } from '@/lib/crashBreadcrumbs';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { requestNotificationPermissions, resyncAllReminders } from '@/lib/notifications';
@@ -147,19 +146,6 @@ export default function RootLayout() {
     'Northwell': require('@/assets/fonts/Northwell.ttf'),
   });
 
-  useEffect(() => {
-    if (!fontsLoaded && !fontError) return;
-    getBreadcrumbs().then(crumbs => {
-      if (crumbs.length > 0) {
-        const summary = crumbs.map(c => `${c.step}${c.meta ? ' ' + JSON.stringify(c.meta) : ''}`).join('\n');
-        Alert.alert('Last Session Breadcrumbs', summary, [
-          { text: 'Clear & Dismiss', onPress: () => clearBreadcrumbs() },
-          { text: 'Keep for now', style: 'cancel' },
-        ]);
-      }
-    });
-  }, [fontsLoaded, fontError]);
-
   if (!fontsLoaded && !fontError) {
     return null;
   }
@@ -190,5 +176,4 @@ export default function RootLayout() {
     </PersistQueryClientProvider>
   );
 }
-
 

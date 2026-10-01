@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -24,11 +25,15 @@ export function useJourneyComparison(goalId: string, currentChallengeDay: number
   const [stats, setStats] = useState<JourneyStats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user && goalId) {
-      loadData();
-    }
-  }, [user, goalId]);
+  // Reload whenever the screen regains focus (not just on mount), so proof
+  // added or deleted elsewhere (e.g. the Today proof viewer) is reflected.
+  useFocusEffect(
+    useCallback(() => {
+      if (user && goalId) {
+        loadData();
+      }
+    }, [user, goalId])
+  );
 
   const loadData = async () => {
     try {
@@ -74,3 +79,4 @@ export function useJourneyComparison(goalId: string, currentChallengeDay: number
 
   return { stats, loading };
 }
+
