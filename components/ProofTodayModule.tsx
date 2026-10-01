@@ -8,11 +8,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Plus, Camera, Check } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
 import { DailyActivity } from '@/types/database';
 import { useProofPhotos } from '@/hooks/useProofPhotos';
 import ProofCaptureFlow from './ProofCaptureFlow';
 import TodayProofViewer from './TodayProofViewer';
+import { ComparisonModal } from './JourneyComparisonBanner';
 
 const LIME = '#CCFF00';
 
@@ -31,10 +31,10 @@ export default function ProofTodayModule({
   inputs,
   challengeRunId,
 }: ProofTodayModuleProps) {
-  const router = useRouter();
   const { photos, loading, refresh } = useProofPhotos(challengeDay, challengeRunId);
   const [showFlow, setShowFlow] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
+  const [showJourney, setShowJourney] = useState(false);
 
   const handleSaved = () => {
     refresh();
@@ -147,7 +147,16 @@ export default function ProofTodayModule({
         challengeDay={challengeDay}
         photos={todaysPhotos}
         onAddAnother={() => setShowFlow(true)}
-        onViewJourney={() => router.push('/(tabs)/calendar')}
+        onViewJourney={() => setShowJourney(true)}
+      />
+
+      {/* The same Journey viewer Progress opens via SEE YOUR JOURNEY. */}
+      <ComparisonModal
+        visible={showJourney}
+        onClose={() => setShowJourney(false)}
+        earliestPhoto={null}
+        latestPhoto={null}
+        goalId={goalId}
       />
     </View>
   );

@@ -37,7 +37,9 @@ const ULTRA_WIDE_LENS_PATTERN = /\bultra\s*wide\b/i;
 const DEVICE_SWITCH_FAILSAFE_MS = 1500;
 
 type LensMode = 'wide' | 'ultraWide';
-type PendingSwitch = { kind: 'flip' | 'lens'; staleKey: string | null };
+// `remaining` = device swaps still to be confirmed (one onAvailableLensesChanged
+// per native swap); consecutive lens taps coalesce into one pending switch.
+type PendingSwitch = { kind: 'flip' | 'lens'; staleKey: string | null; remaining: number };
 
 type FlashMode = 'off' | 'on' | 'auto';
 
@@ -174,7 +176,10 @@ export default function CaptureProofCamera({
     setLensesByFacing((prev) =>
       prev[facing].join('|') === key ? prev : { ...prev, [facing]: lenses }
     );
-    if (pending) finishSwitch(true);
+    if (pending) {
+      pending.remaining -= 1;
+      if (pending.remaining <= 0) finishSwitch(true);
+    }
   };
 
   const handleCameraReady = () => {
@@ -271,7 +276,7 @@ export default function CaptureProofCamera({
   // selected, so the front camera uses its default device.
   const handleFlip = () => {
     if (!cameraReady || switching || capturing) return;
-    beginSwitch({ kind: 'flip', staleKey: lensesByFacing[facing].join('|') });
+    beginSwitch({ kind: 'flip', staleKey: lensesByFacing[facing].join('|'), remaining: 1 });
     setFacing((cur) => (cur === 'back' ? 'front' : 'back'));
   };
 
@@ -280,11 +285,22 @@ export default function CaptureProofCamera({
   };
 
   // The ONE lens-change path, used by both the labels and the swipe.
+  // A tap during an unconfirmed lens swap is NOT dropped: the latest choice
+  // wins. expo-camera applies each selectedLens change in order on its serial
+  // session queue, so rapid .5x/1x taps are safe; the pending switch just
+  // waits for one more confirmation. Only a pending flip or a capture blocks.
   const selectLens = (mode: LensMode) => {
     if (!ultraWideSupported) return;
-    if (!cameraReady || switching || capturing) return;
+    if (!cameraReady || capturing) return;
     if (mode === lensMode) return;
-    beginSwitch({ kind: 'lens', staleKey: null });
+    const pending = pendingSwitchRef.current;
+    if (pending?.kind === 'flip') return;
+    if (pending?.kind === 'lens') {
+      pending.remaining += 1;
+      beginSwitch(pending); // restarts the failsafe for the new swap
+    } else {
+      beginSwitch({ kind: 'lens', staleKey: null, remaining: 1 });
+    }
     setLensMode(mode);
   };
 
@@ -298,28 +314,19 @@ export default function CaptureProofCamera({
     swipeRef.current = { enabled: ultraWideSupported, select: selectLens };
   });
 
-  // PanResponder resets gestureState.dx to 0 when the responder is granted,
-  // so the distance travelled before the swipe was claimed is kept here.
-  const swipeClaimDxRef = useRef(0);
-
+  // The swipe layer becomes the JS responder at touch START. It is a sibling
+  // of every control, so this only applies to touches on the bare preview
+  // (nothing else there handles touches). Owning the gesture from the start
+  // means no mid-gesture claim/transfer negotiation and no gestureState reset
+  // at grant: g.dx at release is the full distance from the touch origin.
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => {
-        const claim =
-          swipeRef.current.enabled &&
-          Math.abs(g.dx) > 20 &&
-          Math.abs(g.dx) > Math.abs(g.dy) * 1.5;
-        if (claim) swipeClaimDxRef.current = g.dx;
-        return claim;
-      },
+      onStartShouldSetPanResponder: () => swipeRef.current.enabled,
+      onMoveShouldSetPanResponder: () => swipeRef.current.enabled,
+      onPanResponderTerminationRequest: () => false,
       onPanResponderRelease: (_, g) => {
-        const totalDx = swipeClaimDxRef.current + g.dx;
-        swipeClaimDxRef.current = 0;
-        if (totalDx < -30) {
-          swipeRef.current.select('ultraWide');
-        } else if (totalDx > 30) {
-          swipeRef.current.select('wide');
-        }
+        if (Math.abs(g.dx) < 30 || Math.abs(g.dx) < Math.abs(g.dy)) return;
+        swipeRef.current.select(g.dx < 0 ? 'ultraWide' : 'wide');
       },
     })
   ).current;
@@ -475,16 +482,24 @@ export default function CaptureProofCamera({
           {ultraWideSupported && (
             <View style={styles.zoomSelector}>
               <TouchableOpacity
+                style={[styles.zoomOption, styles.zoomOptionLeft]}
                 onPress={() => selectLens('ultraWide')}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Ultra wide, .5x"
+                accessibilityState={{ selected: isUltraWide }}
               >
                 <Text style={[styles.zoomLabel, isUltraWide && styles.zoomLabelActive]}>
                   .5x
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
+                style={[styles.zoomOption, styles.zoomOptionRight]}
                 onPress={() => selectLens('wide')}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Wide, 1x"
+                accessibilityState={{ selected: !isUltraWide }}
               >
                 <Text style={[styles.zoomLabel, !isUltraWide && styles.zoomLabelActive]}>
                   1x
@@ -739,6 +754,28 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 100,
     marginBottom: 16,
+  },
+  // Touch targets: padding enlarges each option to ~44pt tall and ~50pt
+  // wide (covering the pill's own padding and half the gap), and equal
+  // negative margins cancel it out of layout, so the pill renders exactly
+  // as before. The pill doesn't clip, so the overhang stays tappable.
+  zoomOption: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    marginVertical: -14,
+  },
+  zoomOptionLeft: {
+    paddingLeft: 16,
+    marginLeft: -16,
+    paddingRight: 10,
+    marginRight: -10,
+  },
+  zoomOptionRight: {
+    paddingLeft: 10,
+    marginLeft: -10,
+    paddingRight: 16,
+    marginRight: -16,
   },
   zoomLabel: {
     fontSize: 13,

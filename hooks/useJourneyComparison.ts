@@ -7,6 +7,8 @@ export interface JourneyPhoto {
   challenge_day: number;
   storage_url: string;
   is_milestone: boolean;
+  daily_activity_name?: string | null;
+  note?: string | null;
 }
 
 export interface JourneyStats {

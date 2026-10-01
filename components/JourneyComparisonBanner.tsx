@@ -146,7 +146,7 @@ export function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto, 
     Promise.all([
       supabase
         .from('progress_photos')
-        .select('id, challenge_day, storage_url, is_milestone')
+        .select('id, challenge_day, storage_url, is_milestone, daily_activity_name, note')
         .eq('goal_id', goalId)
         .order('challenge_day', { ascending: true }),
       supabase
@@ -156,8 +156,10 @@ export function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto, 
     ]).then(([photosRes, evidenceRes]) => {
       const photos: JourneyPhoto[] = photosRes.data || [];
       setAllPhotos(photos);
-      if (earliestPhoto) setSelectedA(photos[0] || earliestPhoto);
-      if (latestPhoto) setSelectedB(photos[photos.length - 1] || latestPhoto);
+      // Callers may pass the bounds they already computed, or just goalId:
+      // the loaded proof for this goal is the source of truth either way.
+      setSelectedA(photos[0] ?? earliestPhoto);
+      setSelectedB(photos[photos.length - 1] ?? latestPhoto);
 
       if (evidenceRes.data && goalId) {
         const goalStartRes = supabase
@@ -246,7 +248,9 @@ export function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto, 
     return [...allPhotos].sort((a, b) => a.challenge_day - b.challenge_day);
   }, [allPhotos]);
 
-  if (!earliestPhoto || !latestPhoto) return null;
+  // Directly openable with only goalId (it loads its own proof); without a
+  // goalId it still requires the caller's precomputed bounds.
+  if (!goalId && (!earliestPhoto || !latestPhoto)) return null;
 
   return (
     <>
@@ -267,6 +271,37 @@ export function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto, 
             <View style={modalStyles.loadingContainer}>
               <ActivityIndicator size="large" color="#CCFF00" />
             </View>
+          ) : sortedPhotos.length === 1 ? (
+            /* SINGLE PROOF — the journey's first entry; never shown as Then → Now */
+            <ScrollView
+              style={modalStyles.scroll}
+              contentContainerStyle={[modalStyles.content, { paddingBottom: insets.bottom + 48 }]}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={modalStyles.sectionLabel}>DAY {sortedPhotos[0].challenge_day}</Text>
+
+              <TouchableOpacity
+                style={modalStyles.singlePhotoPanel}
+                activeOpacity={0.9}
+                onPress={() => setFullPhotoIndex(0)}
+              >
+                <Image source={{ uri: sortedPhotos[0].storage_url }} style={modalStyles.heroPhoto} resizeMode="cover" />
+              </TouchableOpacity>
+
+              <Text style={modalStyles.daysApart}>THIS IS WHERE IT STARTS.</Text>
+              <Text style={modalStyles.daysApartSub}>
+                Keep capturing the proof. Your transformation will build here over the next 77 days.
+              </Text>
+
+              <View style={modalStyles.evidenceBlock}>
+                <Text style={modalStyles.evidenceLabel}>
+                  {(sortedPhotos[0].daily_activity_name ?? 'General progress').toUpperCase()}
+                </Text>
+                {!!sortedPhotos[0].note && (
+                  <Text style={modalStyles.evidenceText}>"{sortedPhotos[0].note}"</Text>
+                )}
+              </View>
+            </ScrollView>
           ) : (
             <ScrollView
               style={modalStyles.scroll}
@@ -619,6 +654,12 @@ const modalStyles = StyleSheet.create({
   heroPhoto: {
     width: '100%',
     height: '100%',
+  },
+  singlePhotoPanel: {
+    width: '100%',
+    aspectRatio: 4 / 5,
+    borderRadius: 14,
+    overflow: 'hidden',
   },
   heroDayBadge: {
     position: 'absolute',
