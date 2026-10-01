@@ -37,6 +37,14 @@ const ULTRA_WIDE_LENS_PATTERN = /\bultra\s*wide\b/i;
 const DEVICE_SWITCH_FAILSAFE_MS = 1500;
 
 type LensMode = 'wide' | 'ultraWide';
+
+// ── TEMPORARY lens diagnostics ───────────────────────────────────────
+// Set to false (or delete the LENS_DEBUG blocks) once the lens path is
+// confirmed on device. Shows an on-screen log because console output is not
+// visible in TestFlight. The PROBE button takes a silent, discarded capture
+// and reports EXIF LensModel/FocalLength: the physical lens that actually
+// produced the frame, read straight from AVFoundation's output.
+const LENS_DEBUG = true;
 // `remaining` = device swaps still to be confirmed (one onAvailableLensesChanged
 // per native swap); consecutive lens taps coalesce into one pending switch.
 type PendingSwitch = { kind: 'flip' | 'lens'; staleKey: string | null; remaining: number };
@@ -132,6 +140,47 @@ export default function CaptureProofCamera({
   // Single source of truth for the shutter.
   const canCapture = cameraReady && !capturing && !switching;
 
+  // ── LENS_DEBUG state ──────────────────────────────────────────────
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const debugT0 = useRef(Date.now());
+  const debugEventCount = useRef(0);
+  const dlog = (msg: string) => {
+    if (!LENS_DEBUG) return;
+    const t = ((Date.now() - debugT0.current) / 1000).toFixed(2);
+    setDebugLog((prev) => [`${t}s ${msg}`, ...prev].slice(0, 12));
+  };
+  // Logs the exact value handed to <CameraView selectedLens> after each commit.
+  useEffect(() => {
+    dlog(`PROP selectedLens=${JSON.stringify(selectedLens) ?? 'undefined'} lensMode=${lensMode}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLens, lensMode]);
+
+  const probeLens = async () => {
+    const ref = cameraRef.current;
+    if (!ref || !cameraReady || capturingRef.current) {
+      dlog('PROBE skipped (not ready / capturing)');
+      return;
+    }
+    capturingRef.current = true;
+    try {
+      const photo = await ref.takePictureAsync({
+        exif: true,
+        quality: 0.1,
+        shutterSound: false,
+      });
+      const exif = (photo?.exif ?? {}) as Record<string, unknown>;
+      const lensModel = exif.LensModel ?? '?';
+      dlog(
+        `PROBE LensModel=${String(lensModel)} f=${String(exif.FocalLength ?? '?')}mm ` +
+          `35mm=${String(exif.FocalLenIn35mmFilm ?? '?')} ${photo?.width}x${photo?.height}`
+      );
+    } catch (err) {
+      dlog(`PROBE error ${String(err)}`);
+    } finally {
+      capturingRef.current = false;
+    }
+  };
+
   // ── Haptics ───────────────────────────────────────────────────────
   const hapticSelection = () => {
     if (Platform.OS === 'web') return;
@@ -168,6 +217,8 @@ export default function CaptureProofCamera({
   };
 
   const handleAvailableLensesChanged = ({ lenses }: { lenses: string[] }) => {
+    debugEventCount.current += 1;
+    dlog(`EVENT#${debugEventCount.current} facing=${facing} lenses=${JSON.stringify(lenses)}`);
     const key = lenses.join('|');
     const pending = pendingSwitchRef.current;
     // A late event describing the camera we just flipped away from.
@@ -290,6 +341,7 @@ export default function CaptureProofCamera({
   // session queue, so rapid .5x/1x taps are safe; the pending switch just
   // waits for one more confirmation. Only a pending flip or a capture blocks.
   const selectLens = (mode: LensMode) => {
+    dlog(`SELECT ${mode} (from ${lensMode}) ultraWideName=${JSON.stringify(ultraWideLensName)}`);
     if (!ultraWideSupported) return;
     if (!cameraReady || capturing) return;
     if (mode === lensMode) return;
@@ -476,6 +528,27 @@ export default function CaptureProofCamera({
           <View style={[styles.cornerGuide, styles.cornerBR]} />
         </View>
 
+        {LENS_DEBUG && (
+          <View
+            style={[styles.debugPanel, { top: insets.top + 64 }]}
+            pointerEvents="box-none"
+          >
+            <TouchableOpacity style={styles.debugProbeBtn} onPress={probeLens}>
+              <Text style={styles.debugText}>PROBE LENS</Text>
+            </TouchableOpacity>
+            <View pointerEvents="none">
+            <Text style={styles.debugText}>
+              {`lensMode=${lensMode} isUltraWide=${isUltraWide}\n` +
+                `ultraWideLensName=${JSON.stringify(ultraWideLensName)}\n` +
+                `selectedLens=${JSON.stringify(selectedLens) ?? 'undefined'}\n` +
+                `back=${JSON.stringify(lensesByFacing.back)}\n` +
+                `facing=${facing} ready=${cameraReady} switching=${switching}\n` +
+                debugLog.join('\n')}
+            </Text>
+            </View>
+          </View>
+        )}
+
         {/* Bottom controls */}
         <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 20 }]}>
           {/* Lens selector — only when a physical ultra-wide lens was detected */}
@@ -607,6 +680,28 @@ const TRANSLUCENT_DARK: ViewStyle = {
 };
 
 const styles = StyleSheet.create({
+  debugPanel: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    zIndex: 20,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 8,
+    padding: 8,
+  },
+  debugProbeBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#333333',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 6,
+  },
+  debugText: {
+    color: '#CCFF00',
+    fontSize: 9,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
   cameraContainer: {
     flex: 1,
     backgroundColor: '#000000',
