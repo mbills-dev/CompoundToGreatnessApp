@@ -130,6 +130,8 @@ export interface ProgressPhoto {
   source: 'camera' | 'library';
   note: string | null;
   challenge_run_id: string | null;
+  daily_activity_id: string | null;
+  daily_activity_name: string | null;
   created_at: string;
 }
 

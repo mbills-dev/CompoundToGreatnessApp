@@ -8,50 +8,51 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Plus, Camera, Check } from 'lucide-react-native';
-import { Goal } from '@/types/database';
+import { useRouter } from 'expo-router';
+import { DailyActivity } from '@/types/database';
 import { useProofPhotos } from '@/hooks/useProofPhotos';
 import ProofCaptureFlow from './ProofCaptureFlow';
+import TodayProofViewer from './TodayProofViewer';
 
 const LIME = '#CCFF00';
 
 interface ProofTodayModuleProps {
   challengeDay: number;
-  goals: Goal[];
+  /** The active challenge goal (persisted as progress_photos.goal_id). */
+  goalId: string;
+  /** The active Success Stack inputs. */
+  inputs: DailyActivity[];
   challengeRunId: string | null;
-  onOpenProof: () => void;
 }
 
 export default function ProofTodayModule({
   challengeDay,
-  goals,
+  goalId,
+  inputs,
   challengeRunId,
-  onOpenProof,
 }: ProofTodayModuleProps) {
+  const router = useRouter();
   const { photos, loading, refresh } = useProofPhotos(challengeDay, challengeRunId);
   const [showFlow, setShowFlow] = useState(false);
-
-  const defaultGoalId = goals.length === 1 ? goals[0].id : (goals[0]?.id ?? null);
+  const [showViewer, setShowViewer] = useState(false);
 
   const handleSaved = () => {
     refresh();
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.loadingRow}>
-          <ActivityIndicator size="small" color={LIME} />
-        </View>
-      </View>
-    );
-  }
-
   const todaysPhotos = photos.filter((p) => p.challenge_day === challengeDay);
   const hasProofToday = todaysPhotos.length > 0;
 
-  if (!hasProofToday) {
-    return (
-      <View style={styles.container}>
+  // The capture flow and viewer are mounted once, outside the loading /
+  // empty / captured branches, so a refresh after saving never unmounts the
+  // flow mid-confirmation.
+  return (
+    <View style={styles.container}>
+      {loading && photos.length === 0 ? (
+        <View style={styles.loadingRow}>
+          <ActivityIndicator size="small" color={LIME} />
+        </View>
+      ) : !hasProofToday ? (
         <TouchableOpacity
           style={styles.emptyModule}
           onPress={() => setShowFlow(true)}
@@ -71,87 +72,82 @@ export default function ProofTodayModule({
             <Text style={styles.addBtnText}>ADD</Text>
           </View>
         </TouchableOpacity>
-
-        <ProofCaptureFlow
-          visible={showFlow}
-          onClose={() => setShowFlow(false)}
-          challengeDay={challengeDay}
-          goals={goals}
-          defaultGoalId={defaultGoalId}
-          challengeRunId={challengeRunId}
-          onSaved={handleSaved}
-        />
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.capturedModule}
-        onPress={onOpenProof}
-        activeOpacity={0.8}
-      >
-        <View style={styles.capturedHeader}>
-          <View style={styles.capturedHeaderLeft}>
-            <View style={styles.capturedCheckIcon}>
-              <Check size={12} color="#000000" strokeWidth={3} />
+      ) : (
+        <TouchableOpacity
+          style={styles.capturedModule}
+          onPress={() => setShowViewer(true)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.capturedHeader}>
+            <View style={styles.capturedHeaderLeft}>
+              <View style={styles.capturedCheckIcon}>
+                <Check size={12} color="#000000" strokeWidth={3} />
+              </View>
+              <Text style={styles.capturedTitle}>PROOF CAPTURED TODAY</Text>
             </View>
-            <Text style={styles.capturedTitle}>PROOF CAPTURED TODAY</Text>
+            <Text style={styles.capturedCount}>
+              {todaysPhotos.length} {todaysPhotos.length === 1 ? 'item' : 'items'}
+            </Text>
           </View>
-          <Text style={styles.capturedCount}>
-            {todaysPhotos.length} {todaysPhotos.length === 1 ? 'item' : 'items'}
-          </Text>
-        </View>
 
-        <View style={styles.capturedRow}>
-          <View style={styles.thumbnailStack}>
-            {todaysPhotos.slice(0, 4).map((photo, i) => (
-              <View
-                key={photo.id}
-                style={[
-                  styles.thumbnail,
-                  { marginLeft: i > 0 ? -8 : 0, zIndex: 10 - i },
-                ]}
-              >
-                <Image
-                  source={{ uri: photo.storage_url }}
-                  style={styles.thumbnailImage}
-                  resizeMode="cover"
-                />
-              </View>
-            ))}
-            {todaysPhotos.length > 4 && (
-              <View style={[styles.thumbnail, { marginLeft: -8, zIndex: 5 }]}>
-                <View style={styles.thumbnailOverflow}>
-                  <Text style={styles.thumbnailOverflowText}>+{todaysPhotos.length - 4}</Text>
+          <View style={styles.capturedRow}>
+            <View style={styles.thumbnailStack}>
+              {todaysPhotos.slice(0, 4).map((photo, i) => (
+                <View
+                  key={photo.id}
+                  style={[
+                    styles.thumbnail,
+                    { marginLeft: i > 0 ? -8 : 0, zIndex: 10 - i },
+                  ]}
+                >
+                  <Image
+                    source={{ uri: photo.storage_url }}
+                    style={styles.thumbnailImage}
+                    resizeMode="cover"
+                  />
                 </View>
-              </View>
-            )}
-          </View>
+              ))}
+              {todaysPhotos.length > 4 && (
+                <View style={[styles.thumbnail, { marginLeft: -8, zIndex: 5 }]}>
+                  <View style={styles.thumbnailOverflow}>
+                    <Text style={styles.thumbnailOverflowText}>+{todaysPhotos.length - 4}</Text>
+                  </View>
+                </View>
+              )}
+            </View>
 
-          <TouchableOpacity
-            style={styles.addMoreBtn}
-            onPress={(e) => {
-              e.stopPropagation?.();
-              setShowFlow(true);
-            }}
-            activeOpacity={0.8}
-          >
-            <Plus size={16} color={LIME} strokeWidth={2.5} />
-            <Text style={styles.addMoreText}>ADD MORE</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.addMoreBtn}
+              onPress={(e) => {
+                e.stopPropagation?.();
+                setShowFlow(true);
+              }}
+              activeOpacity={0.8}
+            >
+              <Plus size={16} color={LIME} strokeWidth={2.5} />
+              <Text style={styles.addMoreText}>ADD MORE</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      )}
 
       <ProofCaptureFlow
         visible={showFlow}
         onClose={() => setShowFlow(false)}
         challengeDay={challengeDay}
-        goals={goals}
-        defaultGoalId={defaultGoalId}
+        goalId={goalId}
+        inputs={inputs}
         challengeRunId={challengeRunId}
         onSaved={handleSaved}
+      />
+
+      <TodayProofViewer
+        visible={showViewer}
+        onClose={() => setShowViewer(false)}
+        challengeDay={challengeDay}
+        photos={todaysPhotos}
+        onAddAnother={() => setShowFlow(true)}
+        onViewJourney={() => router.push('/(tabs)/calendar')}
       />
     </View>
   );

@@ -15,44 +15,45 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   Share as RNShare,
+  Pressable,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
-import { X, Check, Plus, Share2 } from 'lucide-react-native';
+import { X, Check, Plus, Share2, ChevronDown } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Goal } from '@/types/database';
+import { DailyActivity } from '@/types/database';
 import { isMilestoneDay } from '@/constants/milestones';
 import CaptureProofCamera from './CaptureProofCamera';
 
 const LIME = '#CCFF00';
 
-interface GoalOption {
-  id: string | null;
-  title: string;
-}
-
 interface ProofCaptureFlowProps {
   visible: boolean;
   onClose: () => void;
   challengeDay: number;
-  goals: Goal[];
-  defaultGoalId: string | null;
+  /** The challenge goal this proof belongs to (persisted as goal_id). */
+  goalId: string | null;
+  /** The user's active Success Stack inputs, in display order. */
+  inputs: DailyActivity[];
+  /** Preselect only when capture was launched from a specific input. */
+  defaultInputId?: string | null;
   challengeRunId: string | null;
   onSaved: () => void;
 }
 
-type Phase = 'camera' | 'goal' | 'note' | 'saving' | 'confirm';
+type Phase = 'camera' | 'note' | 'saving' | 'confirm';
 
 export default function ProofCaptureFlow({
   visible,
   onClose,
   challengeDay,
-  goals,
-  defaultGoalId,
+  goalId,
+  inputs,
+  defaultInputId = null,
   challengeRunId,
   onSaved,
 }: ProofCaptureFlowProps) {
@@ -62,25 +63,27 @@ export default function ProofCaptureFlow({
   const [phase, setPhase] = useState<Phase>('camera');
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageSource, setImageSource] = useState<'camera' | 'library'>('camera');
-  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(defaultGoalId);
+  // Never guess an input: preselect only a default that is actually in the
+  // current Success Stack, otherwise "General progress" (null).
+  const initialInputId =
+    defaultInputId && inputs.some((i) => i.id === defaultInputId) ? defaultInputId : null;
+  const [selectedInputId, setSelectedInputId] = useState<string | null>(initialInputId);
+  const [showAssignSheet, setShowAssignSheet] = useState(false);
   const [note, setNote] = useState('');
   const [savedPhotoUrl, setSavedPhotoUrl] = useState<string | null>(null);
 
-  const goalOptions: GoalOption[] = [
-    ...goals.map((g) => ({ id: g.id, title: g.title })),
-    { id: null, title: 'General progress' },
-  ];
-
-  const showGoalPicker = goals.length > 1;
+  const selectedInput = inputs.find((i) => i.id === selectedInputId) ?? null;
+  const assignmentLabel = selectedInput ? selectedInput.activity_name : 'General progress';
 
   const resetState = useCallback(() => {
     setPhase('camera');
     setImageUri(null);
     setImageSource('camera');
-    setSelectedGoalId(defaultGoalId);
+    setSelectedInputId(initialInputId);
+    setShowAssignSheet(false);
     setNote('');
     setSavedPhotoUrl(null);
-  }, [defaultGoalId]);
+  }, [initialInputId]);
 
   const handleClose = () => {
     Keyboard.dismiss();
@@ -91,24 +94,15 @@ export default function ProofCaptureFlow({
   const handleImageReady = (uri: string, source: 'camera' | 'library') => {
     setImageUri(uri);
     setImageSource(source);
-    if (showGoalPicker) {
-      setPhase('goal');
-    } else {
-      setSelectedGoalId(defaultGoalId);
-      setPhase('note');
-    }
-  };
-
-  const triggerGoalHaptic = () => {
-    if (Platform.OS !== 'web') {
-      try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
-    }
-  };
-
-  const handleGoalSelected = (goalId: string | null) => {
-    triggerGoalHaptic();
-    setSelectedGoalId(goalId);
     setPhase('note');
+  };
+
+  const handleInputSelected = (inputId: string | null) => {
+    if (inputId !== selectedInputId && Platform.OS !== 'web') {
+      Haptics.selectionAsync().catch(() => {});
+    }
+    setSelectedInputId(inputId);
+    setShowAssignSheet(false);
   };
 
   const handleSave = async () => {
@@ -141,7 +135,9 @@ export default function ProofCaptureFlow({
 
       const { error: dbError } = await supabase.from('progress_photos').insert({
         user_id: user.id,
-        goal_id: selectedGoalId,
+        goal_id: goalId,
+        daily_activity_id: selectedInput?.id ?? null,
+        daily_activity_name: selectedInput?.activity_name ?? null,
         challenge_day: challengeDay,
         storage_url: urlData.publicUrl,
         is_milestone: isMilestoneDay(challengeDay),
@@ -224,7 +220,6 @@ export default function ProofCaptureFlow({
 
   // ── Confirmation phase ───────────────────────────────────────────
   if (phase === 'confirm' && savedPhotoUrl) {
-    const selectedGoal = goals.find((g) => g.id === selectedGoalId);
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
         <View style={styles.confirmContainer}>
@@ -235,7 +230,7 @@ export default function ProofCaptureFlow({
             <Text style={styles.confirmTitle}>PROOF CAPTURED</Text>
             <Text style={styles.confirmDay}>
               DAY {challengeDay}
-              {selectedGoal ? ` · ${selectedGoal.title.toUpperCase()}` : ''}
+              {selectedInput ? ` · ${selectedInput.activity_name.toUpperCase()}` : ''}
             </Text>
 
             <View style={styles.confirmImageWrapper}>
@@ -279,63 +274,12 @@ export default function ProofCaptureFlow({
     );
   }
 
-  // ── Goal selection phase ─────────────────────────────────────────
-  if (phase === 'goal') {
-    return (
-      <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
-        <View style={styles.goalContainer}>
-          <View style={[styles.goalHeader, { paddingTop: insets.top + 16 }]}>
-            <Text style={styles.goalEyebrow}>WHAT DOES THIS PROVE?</Text>
-            <TouchableOpacity style={styles.goalCloseBtn} onPress={handleClose} activeOpacity={0.6}>
-              <X size={20} color="#FFFFFF" strokeWidth={2.5} />
-            </TouchableOpacity>
-          </View>
-
-          {imageUri && (
-            <View style={styles.goalPreviewWrapper}>
-              <RNImage source={{ uri: imageUri }} style={styles.goalPreview} resizeMode="contain" />
-            </View>
-          )}
-
-          <ScrollView
-            style={styles.goalList}
-            contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
-            keyboardShouldPersistTaps="handled"
-          >
-            <Text style={styles.goalSubtitle}>Choose the goal this evidence belongs to.</Text>
-            {goalOptions.map((option) => (
-              <TouchableOpacity
-                key={option.id ?? 'general'}
-                style={[
-                  styles.goalOption,
-                  selectedGoalId === option.id && styles.goalOptionSelected,
-                ]}
-                onPress={() => handleGoalSelected(option.id)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.goalOptionText,
-                    selectedGoalId === option.id && styles.goalOptionTextSelected,
-                  ]}
-                  numberOfLines={2}
-                >
-                  {option.title}
-                </Text>
-                {selectedGoalId === option.id && (
-                  <Check size={20} color={LIME} strokeWidth={2.5} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      </Modal>
-    );
-  }
-
   // ── Note/context phase ───────────────────────────────────────────
   if (phase === 'note') {
-    const selectedGoal = goals.find((g) => g.id === selectedGoalId);
+    const assignOptions: { id: string | null; name: string }[] = [
+      ...inputs.map((i) => ({ id: i.id, name: i.activity_name })),
+      { id: null, name: 'General progress' },
+    ];
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
         <KeyboardAvoidingView
@@ -348,7 +292,7 @@ export default function ProofCaptureFlow({
               style={styles.noteBackBtn}
               onPress={() => {
                 Keyboard.dismiss();
-                setPhase(showGoalPicker ? 'goal' : 'camera');
+                setPhase('camera');
               }}
               activeOpacity={0.6}
             >
@@ -374,10 +318,22 @@ export default function ProofCaptureFlow({
               </View>
 
               <View style={styles.noteBottom}>
-                <Text style={styles.noteGoalTag}>
-                  {selectedGoal ? selectedGoal.title : 'General progress'}
-                </Text>
-                <Text style={styles.noteDayLabel}>DAY {challengeDay}</Text>
+                <TouchableOpacity
+                  style={styles.assignCard}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setShowAssignSheet(true);
+                  }}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Assigned to ${assignmentLabel}. Change assignment.`}
+                >
+                  <Text style={styles.assignCardText} numberOfLines={1}>
+                    <Text style={styles.assignCardDay}>DAY {challengeDay} · </Text>
+                    {assignmentLabel}
+                  </Text>
+                  <ChevronDown size={18} color="rgba(255,255,255,0.5)" strokeWidth={2.5} />
+                </TouchableOpacity>
                 <Text style={styles.notePrompt}>What will you want to remember about this moment?</Text>
                 <TextInput
                   style={styles.noteInput}
@@ -391,9 +347,6 @@ export default function ProofCaptureFlow({
                   blurOnSubmit
                 />
                 <View style={styles.noteActions}>
-                  <TouchableOpacity style={styles.noteSkipBtn} onPress={handleSave} activeOpacity={0.7}>
-                    <Text style={styles.noteSkipText}>Skip</Text>
-                  </TouchableOpacity>
                   <TouchableOpacity style={styles.noteSaveBtn} onPress={handleSave} activeOpacity={0.85}>
                     <Text style={styles.noteSaveText}>SAVE PROOF</Text>
                   </TouchableOpacity>
@@ -402,6 +355,46 @@ export default function ProofCaptureFlow({
             </ScrollView>
           </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
+
+        {/* ASSIGN THIS PROOF — selecting a row applies it and closes */}
+        <Modal
+          visible={showAssignSheet}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowAssignSheet(false)}
+        >
+          <View style={styles.sheetRoot}>
+            <Pressable style={styles.sheetBackdrop} onPress={() => setShowAssignSheet(false)} />
+            <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+              <View style={styles.sheetHandle} />
+              <Text style={styles.sheetTitle}>ASSIGN THIS PROOF</Text>
+              <Text style={styles.sheetSubtitle}>What does this proof show?</Text>
+              <ScrollView style={styles.sheetList} bounces={false}>
+                {assignOptions.map((option, index) => {
+                  const selected = option.id === selectedInputId;
+                  return (
+                    <TouchableOpacity
+                      key={option.id ?? 'general'}
+                      style={[styles.sheetRow, index > 0 && styles.sheetRowDivider]}
+                      onPress={() => handleInputSelected(option.id)}
+                      activeOpacity={0.6}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                    >
+                      <Text
+                        style={[styles.sheetRowText, selected && styles.sheetRowTextSelected]}
+                        numberOfLines={2}
+                      >
+                        {option.name}
+                      </Text>
+                      {selected && <Check size={20} color={LIME} strokeWidth={2.75} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </Modal>
     );
   }
@@ -517,77 +510,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
   },
 
-  goalContainer: {
-    flex: 1,
-    backgroundColor: '#050505',
-  },
-  goalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-  },
-  goalEyebrow: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-    fontFamily: 'Inter-Black',
-  },
-  goalCloseBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  goalPreviewWrapper: {
-    width: '100%',
-    height: 200,
-    marginBottom: 8,
-    overflow: 'hidden',
-  },
-  goalPreview: {
-    width: '100%',
-    height: '100%',
-  },
-  goalList: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  goalSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.4)',
-    fontFamily: 'Inter-Regular',
-    marginBottom: 16,
-  },
-  goalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#191919',
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    borderRadius: 12,
-    marginBottom: 10,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-  },
-  goalOptionSelected: {
-    borderColor: LIME,
-  },
-  goalOptionText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.8)',
-    fontFamily: 'Inter-SemiBold',
-  },
-  goalOptionTextSelected: {
-    color: '#FFFFFF',
-  },
 
   noteContainer: {
     flex: 1,
@@ -641,21 +563,29 @@ const styles = StyleSheet.create({
   noteBottom: {
     paddingHorizontal: 24,
   },
-  noteGoalTag: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: LIME,
-    letterSpacing: 0.5,
-    fontFamily: 'Inter-Bold',
-    marginBottom: 4,
+  assignCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    backgroundColor: '#191919',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 20,
   },
-  noteDayLabel: {
-    fontSize: 11,
+  assignCardText: {
+    flex: 1,
+    fontSize: 15,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.3)',
-    letterSpacing: 1,
+    color: '#FFFFFF',
     fontFamily: 'Inter-Bold',
-    marginBottom: 16,
+  },
+  assignCardDay: {
+    color: LIME,
+    fontWeight: '900',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 0.5,
   },
   notePrompt: {
     fontSize: 13,
@@ -680,21 +610,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  noteSkipBtn: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderRadius: 14,
-    backgroundColor: '#191919',
-  },
-  noteSkipText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.5)',
-    fontFamily: 'Inter-Bold',
-  },
   noteSaveBtn: {
-    flex: 2,
+    flex: 1,
     alignItems: 'center',
     paddingVertical: 16,
     borderRadius: 14,
@@ -706,5 +623,70 @@ const styles = StyleSheet.create({
     color: '#000000',
     letterSpacing: 0.5,
     fontFamily: 'Inter-Black',
+  },
+
+  sheetRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  sheet: {
+    backgroundColor: '#111111',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 10,
+    paddingHorizontal: 24,
+    maxHeight: '75%',
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    marginBottom: 18,
+  },
+  sheetTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 1,
+    fontFamily: 'Inter-Black',
+    marginBottom: 4,
+  },
+  sheetSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.45)',
+    fontFamily: 'Inter-Regular',
+    marginBottom: 12,
+  },
+  sheetList: {
+    flexGrow: 0,
+  },
+  sheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 16,
+  },
+  sheetRowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.12)',
+  },
+  sheetRowText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.85)',
+    fontFamily: 'Inter-SemiBold',
+  },
+  sheetRowTextSelected: {
+    color: LIME,
+    fontWeight: '800',
+    fontFamily: 'Inter-Bold',
   },
 });
