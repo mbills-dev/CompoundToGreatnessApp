@@ -42,6 +42,7 @@ import ChallengeCompleteScreen from './ChallengeCompleteScreen';
 import { isDateLocked, toLocalDateString, parseLocalDate, getDayNumberFromChallengeStart, toLocalMidnight } from '@/lib/dateHelpers';
 import { archiveCurrentChallenge } from '@/lib/archiveHelpers';
 import { resetChallenge } from '@/lib/resetHelpers';
+import { getChallengeRunId } from '@/lib/challengeRun';
 import { checkAndAwardBadges } from '@/lib/badgeHelpers';
 import { useBadgeCelebration } from '@/contexts/BadgeCelebrationContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -1211,7 +1212,7 @@ export default function DailyDashboard({
               challengeDay={displayDay}
               goalId={goal.id}
               inputs={localActivities}
-              challengeRunId={`${goal.id}_${goal.total_restarts || 0}`}
+              challengeRunId={getChallengeRunId(goal)}
             />
           </View>
 
@@ -2205,3 +2206,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+

@@ -28,6 +28,7 @@ import { MILESTONE_DATA, isMilestoneDay } from '@/constants/milestones';
 import { getDateForChallengeDay } from '@/lib/dateHelpers';
 import { useJourneyComparison } from '@/hooks/useJourneyComparison';
 import { ComparisonModal } from './JourneyComparisonBanner';
+import { getChallengeRunId } from '@/lib/challengeRun';
 
 export interface TileLayout {
   x: number;
@@ -171,23 +172,27 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
           .eq('goal_id', goal.id)
           .eq('completion_date', dateStr)
           .maybeSingle(),
+        // A Challenge Day can hold several proof records; this card shows the
+        // newest one from the CURRENT run.
         supabase
           .from('progress_photos')
           .select('*')
           .eq('goal_id', goal.id)
+          .eq('challenge_run_id', getChallengeRunId(goal))
           .eq('challenge_day', day)
-          .maybeSingle(),
+          .order('created_at', { ascending: false })
+          .limit(1),
       ]);
 
       setActivities(actRes.data ?? []);
       setCompletion(compRes.data ?? null);
       setEditChecked(compRes.data?.activities_completed ?? []);
       setEvidenceContent(evRes.data?.content ?? null);
-      setPhoto(photoRes.data ?? null);
+      setPhoto(photoRes.data?.[0] ?? null);
     } finally {
       setLoading(false);
     }
-  }, [day, goal.id, dateStr]);
+  }, [day, goal.id, goal.total_restarts, dateStr]);
 
   useEffect(() => {
     if (visible && day != null) {
@@ -246,7 +251,9 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
       if (!user) throw new Error('Not authenticated');
 
       const ext = uri.split('.').pop() ?? 'jpg';
-      const path = `${user.id}/${goal.id}/day-${day}.${ext}`;
+      // Unique per proof: a fixed per-day path would overwrite another proof's
+      // image (other proofs on this day, or this day in an earlier run).
+      const path = `${user.id}/${goal.id}/day-${day}_${Date.now()}.${ext}`;
 
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: FileSystem.EncodingType.Base64,
@@ -255,7 +262,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
 
       const { error: uploadError } = await supabase.storage
         .from('progress-photos')
-        .upload(path, arrayBuffer, { upsert: true, contentType: `image/${ext}` });
+        .upload(path, arrayBuffer, { upsert: false, contentType: `image/${ext}` });
 
       if (uploadError) throw uploadError;
 
@@ -271,6 +278,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
         is_milestone: isMilestoneDay(day),
         is_shared_with_watchers: false,
         source: 'camera' as const,
+        challenge_run_id: getChallengeRunId(goal),
       };
 
       const { data, error } = await supabase
@@ -877,3 +885,4 @@ const styles = StyleSheet.create({
     color: '#000000',
   },
 });
+

@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isMilestoneDay } from '@/constants/milestones';
 import { useJourneyComparison, JourneyPhoto } from '@/hooks/useJourneyComparison';
 import { supabase } from '@/lib/supabase';
+import { fetchChallengeRunId } from '@/lib/challengeRun';
 import { EvidenceLog } from '@/types/database';
 
 interface JourneyComparisonBannerProps {
@@ -143,17 +144,20 @@ export function ComparisonModal({ visible, onClose, earliestPhoto, latestPhoto, 
   useEffect(() => {
     if (!visible || !goalId) return;
     setLoadingData(true);
-    Promise.all([
+    // Proof is scoped to the goal's CURRENT run, never to goal_id alone.
+    fetchChallengeRunId(goalId).then((challengeRunId) => Promise.all([
       supabase
         .from('progress_photos')
         .select('id, challenge_day, storage_url, is_milestone, daily_activity_name, note')
         .eq('goal_id', goalId)
-        .order('challenge_day', { ascending: true }),
+        .eq('challenge_run_id', challengeRunId ?? '')
+        .order('challenge_day', { ascending: true })
+        .order('created_at', { ascending: true }),
       supabase
         .from('evidence_logs')
         .select('completion_date, content')
         .eq('goal_id', goalId),
-    ]).then(([photosRes, evidenceRes]) => {
+    ])).then(([photosRes, evidenceRes]) => {
       const photos: JourneyPhoto[] = photosRes.data || [];
       setAllPhotos(photos);
       // Callers may pass the bounds they already computed, or just goalId:
@@ -830,3 +834,4 @@ const modalStyles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+

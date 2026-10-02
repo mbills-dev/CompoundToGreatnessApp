@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { fetchChallengeRunId } from '@/lib/challengeRun';
 
 export interface JourneyPhoto {
   id: string;
@@ -37,13 +38,21 @@ export function useJourneyComparison(goalId: string, currentChallengeDay: number
 
   const loadData = async () => {
     try {
+      // Proof is scoped to the goal's CURRENT run, never to goal_id alone.
+      const challengeRunId = await fetchChallengeRunId(goalId);
+      if (!challengeRunId) {
+        setStats(null);
+        return;
+      }
       const [photosRes, completionsRes] = await Promise.all([
         supabase
           .from('progress_photos')
           .select('id, challenge_day, storage_url, is_milestone')
           .eq('goal_id', goalId)
           .eq('user_id', user!.id)
-          .order('challenge_day', { ascending: true }),
+          .eq('challenge_run_id', challengeRunId)
+          .order('challenge_day', { ascending: true })
+          .order('created_at', { ascending: true }),
         supabase
           .from('daily_completions')
           .select('activities_completed')

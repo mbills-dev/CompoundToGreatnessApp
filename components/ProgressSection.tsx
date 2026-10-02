@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
+import { getChallengeRunId } from '@/lib/challengeRun';
 import {
   View,
   Text,
@@ -72,10 +73,12 @@ export default function ProgressSection({ goal, completions, activities }: Progr
   }, [goal.id]);
 
   // Reload on focus so proof deleted/added from Today is reflected here.
+  const challengeRunId = getChallengeRunId(goal);
+
   useFocusEffect(
     useCallback(() => {
       loadProgressPhotos();
-    }, [goal.id, user?.id])
+    }, [goal.id, user?.id, challengeRunId])
   );
 
   const loadEvidenceLogs = async () => {
@@ -97,7 +100,9 @@ export default function ProgressSection({ goal, completions, activities }: Progr
       .select('*')
       .eq('goal_id', goal.id)
       .eq('user_id', user.id)
-      .order('challenge_day', { ascending: true });
+      .eq('challenge_run_id', challengeRunId)
+      .order('challenge_day', { ascending: true })
+      .order('created_at', { ascending: true });
     setPhotos(data || []);
     setPhotosLoading(false);
   };

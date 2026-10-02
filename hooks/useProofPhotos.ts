@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProgressPhoto } from '@/types/database';
@@ -27,9 +28,13 @@ export function useProofPhotos(challengeDay?: number, challengeRunId?: string | 
     setLoading(false);
   }, [user, challengeDay, challengeRunId]);
 
-  useEffect(() => {
-    loadPhotos();
-  }, [loadPhotos]);
+  // Reload whenever the Today screen regains focus (not just on mount), so
+  // proof deleted or edited elsewhere is reflected without an app restart.
+  useFocusEffect(
+    useCallback(() => {
+      loadPhotos();
+    }, [loadPhotos])
+  );
 
   // Permanently deletes ONE proof record (and its stored image). Touches only
   // the progress_photos row: no completions, streak, day, or run state.
@@ -91,7 +96,8 @@ export function useAllProofPhotos(challengeRunId?: string | null) {
       .from('progress_photos')
       .select('*')
       .eq('user_id', user.id)
-      .order('challenge_day', { ascending: true });
+      .order('challenge_day', { ascending: true })
+      .order('created_at', { ascending: true });
     if (challengeRunId) {
       query = query.eq('challenge_run_id', challengeRunId);
     }
