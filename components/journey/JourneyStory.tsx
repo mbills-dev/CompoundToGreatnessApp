@@ -24,9 +24,23 @@ const LIME = '#CCFF00';
 const MUTED = 'rgba(255,255,255,0.55)';
 const CHALLENGE_LENGTH = 77;
 const FRAME_INSET = 12;
-const THUMB = 56;
+// Every proof sits in the same 3:4 hero frame (the camera's native portrait
+// ratio), so one proof's dimensions never change the screen's hierarchy.
+const FRAME_ASPECT = 3 / 4;
+// Proofs within this aspect range fill the frame; others are shown whole,
+// over a blurred fill of themselves. Display only — stored proof is untouched.
+const FILL_MIN_ASPECT = 0.6;
+const FILL_MAX_ASPECT = 0.9;
+const TOP_GAP = 4;
+const SEPARATION_MIN = 20;
+// Editorial thumbnail rail: portrait thumbs echo the hero frame.
+const THUMB_W = 44;
+const THUMB_H = 58;
 const THUMB_GAP = 8;
-const THUMB_CELL = THUMB + THUMB_GAP;
+const THUMB_CELL = THUMB_W + THUMB_GAP;
+const NAV_TOP = 8;
+const NAV_H = 44;
+const CONTROLS_H = THUMB_H + NAV_TOP + NAV_H;
 
 interface JourneyStoryProps {
   /** The active run's proof, already ordered challenge_day ASC, created_at ASC. */
@@ -56,11 +70,11 @@ export default function JourneyStory({ photos, loading, onTakeFirstProof }: Jour
   const pagerRef = useRef<FlatList<ProgressPhoto>>(null);
   const stripRef = useRef<FlatList<ProgressPhoto>>(null);
 
-  const [pageHeight, setPageHeight] = useState(0);
+  const [bodyHeight, setBodyHeight] = useState(0);
   const [index, setIndex] = useState(0);
   const [seeded, setSeeded] = useState(false);
-  // Landscape proofs are shown uncropped ('contain'); portrait fill the frame.
-  const [landscape, setLandscape] = useState<Record<string, boolean>>({});
+  // Measured aspect (w/h) per proof, to choose fill vs. whole-image display.
+  const [aspects, setAspects] = useState<Record<string, number>>({});
   const [fullScreenUri, setFullScreenUri] = useState<string | null>(null);
 
   const count = photos.length;
@@ -100,7 +114,8 @@ export default function JourneyStory({ photos, loading, onTakeFirstProof }: Jour
 
   const handleImageLoad = (id: string) => (e: NativeSyntheticEvent<ImageLoadEventData>) => {
     const { width: w, height: h } = e.nativeEvent.source;
-    if (w > h) setLandscape((prev) => (prev[id] ? prev : { ...prev, [id]: true }));
+    if (!w || !h) return;
+    setAspects((prev) => (prev[id] ? prev : { ...prev, [id]: w / h }));
   };
 
   if (count === 0) {
@@ -138,63 +153,94 @@ export default function JourneyStory({ photos, loading, onTakeFirstProof }: Jour
     );
   }
 
-  const renderPage = ({ item }: { item: ProgressPhoto }) => (
-    <View style={{ width, height: pageHeight, paddingHorizontal: FRAME_INSET }}>
-      <TouchableOpacity
-        style={styles.frame}
-        activeOpacity={0.95}
-        onPress={() => setFullScreenUri(item.storage_url)}
-        accessibilityRole="imagebutton"
-        accessibilityLabel={`Day ${item.challenge_day} proof. Open full screen.`}
-      >
-        <Image
-          source={{ uri: item.storage_url }}
-          style={StyleSheet.absoluteFill}
-          resizeMode={landscape[item.id] ? 'contain' : 'cover'}
-          onLoad={handleImageLoad(item.id)}
-        />
-        {/* Legibility scrims for the overlaid text — not decoration. */}
-        <LinearGradient
-          colors={['rgba(5,5,5,0.7)', 'rgba(5,5,5,0)']}
-          style={styles.topScrim}
-          pointerEvents="none"
-        />
-        <LinearGradient
-          colors={['rgba(5,5,5,0)', 'rgba(5,5,5,0.85)']}
-          style={styles.bottomScrim}
-          pointerEvents="none"
-        />
-        <View style={styles.topText} pointerEvents="none">
-          <Text style={styles.dayText}>{dayLabel(item.challenge_day)}</Text>
-          <Text style={styles.dateText}>{savedDateLabel(item.created_at)}</Text>
-        </View>
-        <View style={styles.bottomText} pointerEvents="none">
-          <Text style={styles.inputText} numberOfLines={2}>
-            {(item.daily_activity_name ?? 'General progress').toUpperCase()}
-          </Text>
-          {!!item.note && (
-            <Text style={styles.noteText} numberOfLines={3}>
-              {`\u201C${item.note}\u201D`}
-            </Text>
-          )}
-        </View>
-      </TouchableOpacity>
-    </View>
+  // One frame size for every proof on this device: full width, 3:4, reduced
+  // only if the screen is too short to keep the rail and separation visible.
+  const frameWidth = width - FRAME_INSET * 2;
+  const controlsReserve = count > 1 ? CONTROLS_H : 0;
+  const bottomReserve = insets.bottom + 8;
+  const frameHeight = Math.max(
+    0,
+    Math.min(
+      Math.round(frameWidth / FRAME_ASPECT),
+      bodyHeight - TOP_GAP - controlsReserve - bottomReserve - SEPARATION_MIN * 2
+    )
   );
+
+  const renderPage = ({ item }: { item: ProgressPhoto }) => {
+    const aspect = aspects[item.id];
+    const fills = !aspect || (aspect >= FILL_MIN_ASPECT && aspect <= FILL_MAX_ASPECT);
+    return (
+      <View style={{ width, height: frameHeight, paddingHorizontal: FRAME_INSET }}>
+        <TouchableOpacity
+          style={styles.frame}
+          activeOpacity={0.95}
+          onPress={() => setFullScreenUri(item.storage_url)}
+          accessibilityRole="imagebutton"
+          accessibilityLabel={`Day ${item.challenge_day} proof. Open full screen.`}
+        >
+          {!fills && (
+            <>
+              <Image
+                source={{ uri: item.storage_url }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+                blurRadius={28}
+              />
+              <View style={styles.blurDim} />
+            </>
+          )}
+          <Image
+            source={{ uri: item.storage_url }}
+            style={StyleSheet.absoluteFill}
+            resizeMode={fills ? 'cover' : 'contain'}
+            onLoad={handleImageLoad(item.id)}
+          />
+          {/* Legibility scrims for the day and caption — not decoration. */}
+          <LinearGradient
+            colors={['rgba(5,5,5,0.55)', 'rgba(5,5,5,0)']}
+            style={styles.topScrim}
+            pointerEvents="none"
+          />
+          <LinearGradient
+            colors={['rgba(5,5,5,0)', 'rgba(5,5,5,0.55)', 'rgba(5,5,5,0.9)']}
+            locations={[0, 0.45, 1]}
+            style={styles.bottomScrim}
+            pointerEvents="none"
+          />
+          <View style={styles.topText} pointerEvents="none">
+            <Text style={styles.dayText}>{dayLabel(item.challenge_day)}</Text>
+            <Text style={styles.dateText}>{savedDateLabel(item.created_at)}</Text>
+          </View>
+          <View style={styles.caption} pointerEvents="none">
+            <View style={styles.captionRule} />
+            <Text style={styles.inputText} numberOfLines={2}>
+              {(item.daily_activity_name ?? 'General progress').toUpperCase()}
+            </Text>
+            {!!item.note && (
+              <Text style={styles.noteText} numberOfLines={2}>
+                {`\u201C${item.note}\u201D`}
+              </Text>
+            )}
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
       <View
         style={styles.pagerArea}
-        onLayout={(e) => setPageHeight(Math.floor(e.nativeEvent.layout.height))}
+        onLayout={(e) => setBodyHeight(Math.floor(e.nativeEvent.layout.height))}
       >
-        {pageHeight > 0 && (
+        {frameHeight > 0 && (
           <FlatList
             ref={pagerRef}
             data={photos}
             keyExtractor={(p) => p.id}
             renderItem={renderPage}
-            extraData={landscape}
+            extraData={aspects}
+            style={{ flexGrow: 0, height: frameHeight, marginTop: TOP_GAP }}
             horizontal
             pagingEnabled
             scrollEnabled={count > 1}
@@ -204,63 +250,62 @@ export default function JourneyStory({ photos, loading, onTakeFirstProof }: Jour
             onMomentumScrollEnd={handleMomentumEnd}
           />
         )}
-      </View>
 
-      {count > 1 && (
-        <View style={[styles.controls, { paddingBottom: insets.bottom + 8 }]}>
-          <View style={styles.stripWrap}>
-          <FlatList
-            ref={stripRef}
-            data={photos}
-            keyExtractor={(p) => p.id}
-            extraData={current}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            getItemLayout={(_, i) => ({ length: THUMB_CELL, offset: THUMB_CELL * i, index: i })}
-            onScrollToIndexFailed={() => {}}
-            renderItem={({ item, index: i }) => (
+        {count > 1 && frameHeight > 0 && (
+          <View style={[styles.controls, { paddingBottom: bottomReserve }]}>
+            <View style={styles.stripWrap}>
+            <FlatList
+              ref={stripRef}
+              data={photos}
+              keyExtractor={(p) => p.id}
+              extraData={current}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              getItemLayout={(_, i) => ({ length: THUMB_CELL, offset: THUMB_CELL * i, index: i })}
+              onScrollToIndexFailed={() => {}}
+              renderItem={({ item, index: i }) => (
+                <TouchableOpacity
+                  style={styles.thumbCell}
+                  onPress={() => goTo(i)}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Proof ${i + 1} of ${count}, day ${item.challenge_day}`}
+                  accessibilityState={{ selected: i === current }}
+                >
+                  <View style={[styles.thumb, i === current ? styles.thumbActive : styles.thumbIdle]}>
+                    <Image source={{ uri: item.storage_url }} style={styles.thumbImage} resizeMode="cover" />
+                  </View>
+                </TouchableOpacity>
+              )}
+            />
+            </View>
+
+            <View style={styles.navRow}>
               <TouchableOpacity
-                style={styles.thumbCell}
-                onPress={() => goTo(i)}
-                activeOpacity={0.8}
+                style={[styles.navBtn, current === 0 && styles.navBtnDisabled]}
+                onPress={() => goTo(current - 1)}
+                disabled={current === 0}
                 accessibilityRole="button"
-                accessibilityLabel={`Proof ${i + 1} of ${count}, day ${item.challenge_day}`}
-                accessibilityState={{ selected: i === current }}
+                accessibilityLabel="Previous proof"
               >
-                <View style={[styles.thumb, i === current && styles.thumbActive]}>
-                  <Image source={{ uri: item.storage_url }} style={styles.thumbImage} resizeMode="cover" />
-                </View>
+                <ChevronLeft size={20} color="rgba(255,255,255,0.55)" strokeWidth={2} />
               </TouchableOpacity>
-            )}
-          />
+              <Text style={styles.position}>
+                {current + 1} / {count}
+              </Text>
+              <TouchableOpacity
+                style={[styles.navBtn, current === count - 1 && styles.navBtnDisabled]}
+                onPress={() => goTo(current + 1)}
+                disabled={current === count - 1}
+                accessibilityRole="button"
+                accessibilityLabel="Next proof"
+              >
+                <ChevronRight size={20} color="rgba(255,255,255,0.55)" strokeWidth={2} />
+              </TouchableOpacity>
+            </View>
           </View>
-
-          <View style={styles.navRow}>
-            <TouchableOpacity
-              style={[styles.navBtn, current === 0 && styles.navBtnDisabled]}
-              onPress={() => goTo(current - 1)}
-              disabled={current === 0}
-              accessibilityRole="button"
-              accessibilityLabel="Previous proof"
-            >
-              <ChevronLeft size={26} color="#FFFFFF" strokeWidth={2.5} />
-            </TouchableOpacity>
-            <Text style={styles.position}>
-              {current + 1} / {count}
-            </Text>
-            <TouchableOpacity
-              style={[styles.navBtn, current === count - 1 && styles.navBtnDisabled]}
-              onPress={() => goTo(current + 1)}
-              disabled={current === count - 1}
-              accessibilityRole="button"
-              accessibilityLabel="Next proof"
-            >
-              <ChevronRight size={26} color="#FFFFFF" strokeWidth={2.5} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-      {count === 1 && <View style={{ height: insets.bottom + 16 }} />}
+        )}
+      </View>
 
       <Modal
         visible={fullScreenUri !== null}
@@ -309,61 +354,74 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: SURFACE,
   },
+  blurDim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(5,5,5,0.45)',
+  },
   topScrim: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 120,
+    height: 110,
   },
   bottomScrim: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 180,
+    height: 200,
   },
   topText: {
     position: 'absolute',
-    top: 18,
-    left: 18,
-    right: 18,
+    top: 20,
+    left: 20,
+    right: 20,
   },
   dayText: {
-    fontSize: 30,
+    fontSize: 25,
     fontWeight: '900',
     color: '#FFFFFF',
     fontFamily: 'Inter-Black',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   dateText: {
-    marginTop: 2,
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
+    marginTop: 4,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.75)',
     fontFamily: 'Inter-Regular',
+    letterSpacing: 0.2,
   },
-  bottomText: {
+  caption: {
     position: 'absolute',
-    left: 18,
-    right: 18,
-    bottom: 18,
+    left: 20,
+    right: 20,
+    bottom: 22,
+  },
+  captionRule: {
+    width: 18,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: LIME,
+    marginBottom: 10,
   },
   inputText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
     fontFamily: 'Inter-Bold',
-    letterSpacing: 1.2,
+    letterSpacing: 1.4,
   },
   noteText: {
     marginTop: 6,
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#FFFFFF',
+    fontSize: 15,
+    lineHeight: 21,
+    color: 'rgba(255,255,255,0.88)',
     fontFamily: 'Inter-Regular',
   },
   controls: {
-    paddingTop: 14,
+    flex: 1,
+    justifyContent: 'center',
   },
   stripWrap: {
     paddingHorizontal: FRAME_INSET - THUMB_GAP / 2,
@@ -373,9 +431,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   thumb: {
-    width: THUMB,
-    height: THUMB,
-    borderRadius: 8,
+    width: THUMB_W,
+    height: THUMB_H,
+    borderRadius: 6,
     borderWidth: 2,
     borderColor: 'transparent',
     overflow: 'hidden',
@@ -383,6 +441,9 @@ const styles = StyleSheet.create({
   },
   thumbActive: {
     borderColor: LIME,
+  },
+  thumbIdle: {
+    opacity: 0.45,
   },
   thumbImage: {
     width: '100%',
@@ -392,24 +453,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 28,
-    paddingTop: 10,
+    paddingHorizontal: 40,
+    marginTop: NAV_TOP,
   },
   navBtn: {
-    width: 44,
-    height: 44,
+    width: NAV_H,
+    height: NAV_H,
     alignItems: 'center',
     justifyContent: 'center',
   },
   navBtnDisabled: {
-    opacity: 0.25,
+    opacity: 0.3,
   },
   position: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
     fontFamily: 'Inter-Bold',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
+    fontVariant: ['tabular-nums'],
   },
   emptyTitle: {
     marginTop: 20,
