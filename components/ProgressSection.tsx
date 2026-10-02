@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { getChallengeRunId } from '@/lib/challengeRun';
 import {
   View,
@@ -21,7 +21,6 @@ import { Goal, DailyCompletion, DailyActivity, EvidenceLog, ProgressPhoto } from
 import { toLocalDateString, getDayNumberFromChallengeStart, getTodayDateString } from '@/lib/dateHelpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ComparisonModal } from './JourneyComparisonBanner';
 import { isMilestoneDay } from '@/constants/milestones';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -65,7 +64,7 @@ export default function ProgressSection({ goal, completions, activities }: Progr
   const [showAllEvidence, setShowAllEvidence] = useState(false);
   const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
   const [photosLoading, setPhotosLoading] = useState(true);
-  const [comparisonModalVisible, setComparisonModalVisible] = useState(false);
+  const router = useRouter();
   const [fullPhotoUri, setFullPhotoUri] = useState<string | null>(null);
 
   useEffect(() => {
@@ -264,7 +263,7 @@ export default function ProgressSection({ goal, completions, activities }: Progr
             </View>
             <TouchableOpacity
               style={styles.journeyCta}
-              onPress={() => setComparisonModalVisible(true)}
+              onPress={() => router.push('/journey')}
               activeOpacity={0.8}
             >
               <Text style={styles.journeyCtaText}>SEE YOUR JOURNEY →</Text>
@@ -368,15 +367,6 @@ export default function ProgressSection({ goal, completions, activities }: Progr
       </View>
 
       <View style={{ height: 40 }} />
-
-      {/* Comparison Modal */}
-      <ComparisonModal
-        visible={comparisonModalVisible}
-        onClose={() => setComparisonModalVisible(false)}
-        earliestPhoto={earliestPhoto as any}
-        latestPhoto={latestPhoto as any}
-        goalId={goal.id}
-      />
 
       {/* Full photo viewer for single photos */}
       <Modal
@@ -759,4 +749,3 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
-

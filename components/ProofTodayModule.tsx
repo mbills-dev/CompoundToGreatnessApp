@@ -12,7 +12,7 @@ import { DailyActivity } from '@/types/database';
 import { useProofPhotos } from '@/hooks/useProofPhotos';
 import ProofCaptureFlow from './ProofCaptureFlow';
 import TodayProofViewer from './TodayProofViewer';
-import { ComparisonModal } from './JourneyComparisonBanner';
+import { useRouter } from 'expo-router';
 
 const LIME = '#CCFF00';
 
@@ -34,7 +34,7 @@ export default function ProofTodayModule({
   const { photos, loading, refresh, deletePhoto } = useProofPhotos(challengeDay, challengeRunId);
   const [showFlow, setShowFlow] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
-  const [showJourney, setShowJourney] = useState(false);
+  const router = useRouter();
 
   const handleSaved = () => {
     refresh();
@@ -147,17 +147,8 @@ export default function ProofTodayModule({
         challengeDay={challengeDay}
         photos={todaysPhotos}
         onAddAnother={() => setShowFlow(true)}
-        onViewJourney={() => setShowJourney(true)}
+        onViewJourney={() => router.push('/journey')}
         onDeletePhoto={deletePhoto}
-      />
-
-      {/* The same Journey viewer Progress opens via SEE YOUR JOURNEY. */}
-      <ComparisonModal
-        visible={showJourney}
-        onClose={() => setShowJourney(false)}
-        earliestPhoto={null}
-        latestPhoto={null}
-        goalId={goalId}
       />
     </View>
   );
@@ -315,4 +306,3 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
   },
 });
-

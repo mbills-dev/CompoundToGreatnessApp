@@ -27,8 +27,8 @@ import { Goal, DailyActivity, DailyCompletion, ProgressPhoto } from '@/types/dat
 import { MILESTONE_DATA, isMilestoneDay } from '@/constants/milestones';
 import { getDateForChallengeDay } from '@/lib/dateHelpers';
 import { useJourneyComparison } from '@/hooks/useJourneyComparison';
-import { ComparisonModal } from './JourneyComparisonBanner';
 import { getChallengeRunId } from '@/lib/challengeRun';
+import { useRouter } from 'expo-router';
 
 export interface TileLayout {
   x: number;
@@ -71,7 +71,7 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
   const { stats: journeyStats } = useJourneyComparison(goal.id, goal.current_challenge_day ?? 0);
   const [activities, setActivities] = useState<DailyActivity[]>([]);
   const [showFullPhoto, setShowFullPhoto] = useState(false);
-  const [showComparison, setShowComparison] = useState(false);
+  const router = useRouter();
   const [completion, setCompletion] = useState<DailyCompletion | null>(null);
   const [editChecked, setEditChecked] = useState<string[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -478,7 +478,13 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
                     </TouchableOpacity>
                   )}
                   {journeyStats && (
-                    <TouchableOpacity style={styles.journeyLink} onPress={() => setShowComparison(true)}>
+                    <TouchableOpacity
+                      style={styles.journeyLink}
+                      onPress={() => {
+                        handleClose();
+                        router.push('/journey');
+                      }}
+                    >
                       <Text style={styles.journeyLinkText}>See Your Journey →</Text>
                     </TouchableOpacity>
                   )}
@@ -515,13 +521,6 @@ export default function DayCardModal({ visible, day, goal, tileLayout, onClose, 
           <X size={18} color="rgba(255,255,255,0.55)" strokeWidth={2.5} />
         </TouchableOpacity>
       </Animated.View>
-
-      <ComparisonModal
-        visible={showComparison}
-        onClose={() => setShowComparison(false)}
-        earliestPhoto={journeyStats?.earliestPhoto ?? null}
-        latestPhoto={journeyStats?.latestPhoto ?? null}
-      />
 
       <Modal visible={showFullPhoto} transparent animationType="fade" onRequestClose={() => setShowFullPhoto(false)}>
         <TouchableOpacity
@@ -885,4 +884,3 @@ const styles = StyleSheet.create({
     color: '#000000',
   },
 });
-

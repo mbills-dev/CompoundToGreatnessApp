@@ -18,6 +18,7 @@ import { responsiveStyle } from '@/components/ResponsiveContainer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isMilestoneDay } from '@/constants/milestones';
 import { useJourneyComparison, JourneyPhoto } from '@/hooks/useJourneyComparison';
+import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { fetchChallengeRunId } from '@/lib/challengeRun';
 import { EvidenceLog } from '@/types/database';
@@ -41,7 +42,7 @@ export default function JourneyComparisonBanner({ goalId, currentChallengeDay }:
   const dayBadgeTextColor = isDark ? '#FFFFFF' : colors.text;
   const ctaTextColor = isDark ? '#1A1A1A' : '#000000';
   const { stats, loading } = useJourneyComparison(goalId, currentChallengeDay);
-  const [modalVisible, setModalVisible] = useState(false);
+  const router = useRouter();
 
   if (loading || !stats) return null;
 
@@ -103,22 +104,20 @@ export default function JourneyComparisonBanner({ goalId, currentChallengeDay }:
           </View>
         </View>
 
-        <TouchableOpacity style={styles.ctaButton} onPress={() => setModalVisible(true)} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.ctaButton} onPress={() => router.push('/journey')} activeOpacity={0.8}>
           <Text style={[styles.ctaText, { color: ctaTextColor }]}>View Full Comparison →</Text>
         </TouchableOpacity>
       </View>
 
-      <ComparisonModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        earliestPhoto={earliestPhoto}
-        latestPhoto={latestPhoto}
-        goalId={goalId}
-      />
     </>
   );
 }
 
+/**
+ * @deprecated Superseded by the canonical Journey route (app/journey.tsx).
+ * No live screen renders it; kept only until the cleanup phase removes it
+ * together with the stray Bolt copy files that still import it.
+ */
 export interface ComparisonModalProps {
   visible: boolean;
   onClose: () => void;
@@ -834,4 +833,3 @@ const modalStyles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
-

@@ -114,6 +114,7 @@ function AppContent() {
         <Stack.Screen name="watch/[code]" options={{ headerShown: false }} />
         <Stack.Screen name="archived-challenges" options={{ headerShown: false }} />
         <Stack.Screen name="archived-challenge-detail" options={{ headerShown: false }} />
+        <Stack.Screen name="journey" options={{ headerShown: false }} />
         <Stack.Screen name="reset-password" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>

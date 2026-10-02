@@ -84,24 +84,23 @@ export function useProofPhotos(challengeDay?: number, challengeRunId?: string | 
   return { photos, loading, refresh: loadPhotos, deletePhoto };
 }
 
+// The proof library for ONE challenge run. Until the run id is known it does
+// not query (and stays loading) rather than returning every run's proof.
 export function useAllProofPhotos(challengeRunId?: string | null) {
   const { user } = useAuth();
   const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadPhotos = useCallback(async () => {
-    if (!user) return;
+    if (!user || !challengeRunId) return;
     setLoading(true);
-    let query = supabase
+    const { data } = await supabase
       .from('progress_photos')
       .select('*')
       .eq('user_id', user.id)
+      .eq('challenge_run_id', challengeRunId)
       .order('challenge_day', { ascending: true })
       .order('created_at', { ascending: true });
-    if (challengeRunId) {
-      query = query.eq('challenge_run_id', challengeRunId);
-    }
-    const { data } = await query;
     setPhotos(data || []);
     setLoading(false);
   }, [user, challengeRunId]);
@@ -112,4 +111,3 @@ export function useAllProofPhotos(challengeRunId?: string | null) {
 
   return { photos, loading, refresh: loadPhotos };
 }
-
