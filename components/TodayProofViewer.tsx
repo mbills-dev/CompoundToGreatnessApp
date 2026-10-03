@@ -16,7 +16,10 @@ import {
 } from 'react-native';
 import { X, Plus, MoreHorizontal } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import ProofScrims from './proof/ProofScrims';
+import ProofCaption from './proof/ProofCaption';
+import ProofIconButton from './proof/ProofIconButton';
+import ProofFullImage from './proof/ProofFullImage';
 import { ProgressPhoto } from '@/types/database';
 
 const LIME = '#CCFF00';
@@ -183,17 +186,7 @@ export default function TodayProofViewer({
 
           {/* Legibility scrims for the overlaid text; the bottom one also fades
               the photo into the action area. */}
-          <LinearGradient
-            colors={['rgba(5,5,5,0.6)', 'rgba(5,5,5,0)']}
-            style={[styles.topScrim, { height: insets.top + 150 }]}
-            pointerEvents="none"
-          />
-          <LinearGradient
-            colors={['rgba(5,5,5,0)', 'rgba(5,5,5,0.6)', '#050505']}
-            locations={[0, 0.55, 1]}
-            style={styles.bottomScrim}
-            pointerEvents="none"
-          />
+          <ProofScrims topHeight={insets.top + 150} />
 
           <View style={[styles.header, { paddingTop: insets.top + 12 }]} pointerEvents="box-none">
             <View style={styles.headerText} pointerEvents="none">
@@ -203,46 +196,28 @@ export default function TodayProofViewer({
             </View>
             <View style={styles.headerButtons}>
               {!!onDeletePhoto && (
-                <TouchableOpacity
-                  style={styles.closeBtn}
+                <ProofIconButton
                   onPress={() => setShowOptions(true)}
                   disabled={!current || deleting}
                   activeOpacity={0.6}
-                  accessibilityRole="button"
                   accessibilityLabel="Proof options"
                 >
                   <MoreHorizontal size={20} color="#FFFFFF" strokeWidth={2.5} />
-                </TouchableOpacity>
+                </ProofIconButton>
               )}
-              <TouchableOpacity
-                style={styles.closeBtn}
-                onPress={onClose}
-                activeOpacity={0.6}
-                accessibilityRole="button"
-                accessibilityLabel="Close"
-              >
+              <ProofIconButton onPress={onClose} activeOpacity={0.6} accessibilityLabel="Close">
                 <X size={20} color="#FFFFFF" strokeWidth={2.5} />
-              </TouchableOpacity>
+              </ProofIconButton>
             </View>
           </View>
 
           {current && (
-            <View style={styles.caption} pointerEvents="none">
-              {items.length > 1 && (
-                <Text style={styles.position}>
-                  {safeIndex + 1} / {items.length}
-                </Text>
-              )}
-              <View style={styles.captionRule} />
-              <Text style={styles.assignment} numberOfLines={2}>
-                {current.daily_activity_name ?? 'General progress'}
-              </Text>
-              {!!current.note && (
-                <Text style={styles.note} numberOfLines={3}>
-                  {current.note}
-                </Text>
-              )}
-            </View>
+            <ProofCaption
+              assignment={current.daily_activity_name}
+              note={current.note}
+              index={safeIndex}
+              total={items.length}
+            />
           )}
         </View>
 
@@ -293,19 +268,11 @@ export default function TodayProofViewer({
 
         {/* The complete, uncropped original. A layer inside this modal (not a
             second Modal), like the options sheet above. */}
-        {fullImageUri && (
-          <Pressable style={styles.fullOverlay} onPress={() => setFullImageUri(null)}>
-            <Image source={{ uri: fullImageUri }} style={styles.image} resizeMode="contain" />
-            <TouchableOpacity
-              style={[styles.closeBtn, styles.fullClose, { top: insets.top + 12 }]}
-              onPress={() => setFullImageUri(null)}
-              accessibilityRole="button"
-              accessibilityLabel="Close full proof"
-            >
-              <X size={20} color="#FFFFFF" strokeWidth={2.5} />
-            </TouchableOpacity>
-          </Pressable>
-        )}
+        <ProofFullImage
+          uri={fullImageUri}
+          onClose={() => setFullImageUri(null)}
+          topInset={insets.top}
+        />
       </View>
     </Modal>
   );
@@ -355,71 +322,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
-  closeBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(5,5,5,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   canvas: {
     flex: 1,
     overflow: 'hidden',
     backgroundColor: '#191919',
   },
-  topScrim: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-  },
-  bottomScrim: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 280,
-  },
   image: {
     width: '100%',
     height: '100%',
-  },
-  position: {
-    alignSelf: 'center',
-    marginBottom: 16,
-    fontSize: 14,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.9)',
-    letterSpacing: 1,
-    fontFamily: 'Inter-Bold',
-    fontVariant: ['tabular-nums'],
-  },
-  caption: {
-    position: 'absolute',
-    left: 24,
-    right: 24,
-    bottom: 24,
-  },
-  captionRule: {
-    width: 36,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: LIME,
-    marginBottom: 12,
-  },
-  assignment: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    fontFamily: 'Inter-Bold',
-  },
-  note: {
-    marginTop: 6,
-    fontSize: 15,
-    lineHeight: 21,
-    color: 'rgba(255,255,255,0.85)',
-    fontFamily: 'Inter-Regular',
   },
   actions: {
     paddingHorizontal: 24,
@@ -495,15 +405,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'rgba(255,255,255,0.7)',
     fontFamily: 'Inter-Bold',
-  },
-  fullOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#050505',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fullClose: {
-    position: 'absolute',
-    right: 20,
   },
 });
