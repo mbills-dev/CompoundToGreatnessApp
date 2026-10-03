@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGoalBundle } from '@/hooks/useGoalBundle';
 import { useAllProofPhotos } from '@/hooks/useProofPhotos';
@@ -11,6 +11,7 @@ import { getChallengeRunId } from '@/lib/challengeRun';
 import { getDayNumberFromChallengeStart, toLocalDateString } from '@/lib/dateHelpers';
 import JourneyStory from '@/components/journey/JourneyStory';
 import ProofCaptureFlow from '@/components/ProofCaptureFlow';
+import ProofIconButton from '@/components/proof/ProofIconButton';
 
 /**
  * YOUR JOURNEY — the canonical proof viewer for the ACTIVE challenge run.
@@ -26,6 +27,9 @@ export default function JourneyScreen() {
   const challengeRunId = goal ? getChallengeRunId(goal) : null;
   const { photos, loading: photosLoading, refresh } = useAllProofPhotos(challengeRunId);
   const [showCapture, setShowCapture] = useState(false);
+  // Measured so the Story's top scrim always covers the header, whatever it
+  // contains (e.g. a future STORY | THEN → NOW selector).
+  const [headerHeight, setHeaderHeight] = useState(0);
 
   const loading = goalLoading || (!!goal && photosLoading);
   // Same day computation as Today (DailyDashboard), so first proof lands on
@@ -44,28 +48,31 @@ export default function JourneyScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={handleClose}
-          activeOpacity={0.6}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-        >
-          <ChevronLeft size={26} color="#FFFFFF" strokeWidth={2.5} />
-        </TouchableOpacity>
-        <View style={styles.headerText}>
-          <Text style={styles.title}>YOUR JOURNEY</Text>
-          <Text style={styles.subtitle}>The proof of who you're becoming.</Text>
-        </View>
-        <View style={styles.backBtn} />
-      </View>
-
       <JourneyStory
         photos={photos}
         loading={loading}
+        headerHeight={headerHeight}
         onTakeFirstProof={canCapture ? () => setShowCapture(true) : undefined}
       />
+
+      {/* Journey identity, overlaid on the photographic canvas. A future
+          STORY | THEN → NOW selector belongs below the title row, inside this
+          header; the measured height keeps the scrim under it. */}
+      <View
+        style={[styles.header, { paddingTop: insets.top + 12 }]}
+        pointerEvents="box-none"
+        onLayout={(e) => setHeaderHeight(Math.ceil(e.nativeEvent.layout.height))}
+      >
+        <View style={styles.headerRow} pointerEvents="box-none">
+          <View style={styles.headerText} pointerEvents="none">
+            <Text style={styles.title}>YOUR JOURNEY</Text>
+            <Text style={styles.subtitle}>The proof of who you're becoming.</Text>
+          </View>
+          <ProofIconButton onPress={handleClose} activeOpacity={0.6} accessibilityLabel="Close Journey">
+            <X size={20} color="#FFFFFF" strokeWidth={2.5} />
+          </ProofIconButton>
+        </View>
+      </View>
 
       {goal && (
         <ProofCaptureFlow
@@ -88,32 +95,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#050505',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingBottom: 14,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
   },
-  backBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
   },
   headerText: {
     flex: 1,
-    alignItems: 'center',
   },
   title: {
-    fontSize: 22,
+    fontSize: 28,
     fontWeight: '900',
     color: '#FFFFFF',
     fontFamily: 'Inter-Black',
     letterSpacing: 0.5,
   },
   subtitle: {
-    marginTop: 2,
+    marginTop: 4,
     fontSize: 13,
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(255,255,255,0.8)',
     fontFamily: 'Inter-Regular',
   },
 });

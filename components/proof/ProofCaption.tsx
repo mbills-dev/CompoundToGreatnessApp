@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 
 const LIME = '#CCFF00';
 
@@ -7,9 +7,16 @@ interface ProofCaptionProps {
   /** Assigned Success Stack input name; null/undefined shows "General progress". */
   assignment: string | null | undefined;
   note?: string | null;
-  /** Zero-based index of the displayed proof; `X / N` shows only when total > 1. */
-  index: number;
-  total: number;
+  /**
+   * Zero-based index of the displayed proof; `X / N` shows only when
+   * total > 1. Omit both when the screen shows its position elsewhere.
+   */
+  index?: number;
+  total?: number;
+  /** Optional content above the lime rule (e.g. Journey's DAY X / 77 + date). */
+  leading?: React.ReactNode;
+  /** Position overrides (e.g. a larger bottom offset over the safe area). */
+  style?: StyleProp<ViewStyle>;
 }
 
 /**
@@ -17,14 +24,22 @@ interface ProofCaptionProps {
  * `X / N`, lime rule, assignment, optional note. Non-interactive, so swipes
  * that start on it still reach the pager underneath.
  */
-export default function ProofCaption({ assignment, note, index, total }: ProofCaptionProps) {
+export default function ProofCaption({
+  assignment,
+  note,
+  index = 0,
+  total = 0,
+  leading,
+  style,
+}: ProofCaptionProps) {
   return (
-    <View style={styles.caption} pointerEvents="none">
+    <View style={[styles.caption, style]} pointerEvents="none">
       {total > 1 && (
         <Text style={styles.position}>
           {index + 1} / {total}
         </Text>
       )}
+      {leading}
       <View style={styles.rule} />
       <Text style={styles.assignment} numberOfLines={2}>
         {assignment ?? 'General progress'}
