@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import {
   TouchableWithoutFeedback,
   Share as RNShare,
   Pressable,
+  useWindowDimensions,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
@@ -28,6 +29,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { DailyActivity } from '@/types/database';
 import { isMilestoneDay } from '@/constants/milestones';
 import CaptureProofCamera from './CaptureProofCamera';
+import ProofScrims from './proof/ProofScrims';
+import ProofCaption from './proof/ProofCaption';
+import ProofIconButton from './proof/ProofIconButton';
+import ProofFullImage from './proof/ProofFullImage';
 
 const LIME = '#CCFF00';
 
@@ -58,7 +63,9 @@ export default function ProofCaptureFlow({
   onSaved,
 }: ProofCaptureFlowProps) {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const { user } = useAuth();
+  const noteScrollRef = useRef<ScrollView>(null);
 
   const [phase, setPhase] = useState<Phase>('camera');
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -71,6 +78,8 @@ export default function ProofCaptureFlow({
   const [showAssignSheet, setShowAssignSheet] = useState(false);
   const [note, setNote] = useState('');
   const [savedPhotoUrl, setSavedPhotoUrl] = useState<string | null>(null);
+  // The complete, uncropped original opened from a photographic canvas.
+  const [fullImageUri, setFullImageUri] = useState<string | null>(null);
 
   const selectedInput = inputs.find((i) => i.id === selectedInputId) ?? null;
   const assignmentLabel = selectedInput ? selectedInput.activity_name : 'General progress';
@@ -83,7 +92,19 @@ export default function ProofCaptureFlow({
     setShowAssignSheet(false);
     setNote('');
     setSavedPhotoUrl(null);
+    setFullImageUri(null);
   }, [initialInputId]);
+
+  // Add Context: the photo occupies roughly the top half of the usable
+  // screen, so once the keyboard has opened, scroll the editing area into
+  // view (note field + SAVE PROOF). The photo may move partly off-screen.
+  useEffect(() => {
+    if (phase !== 'note') return;
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      noteScrollRef.current?.scrollToEnd({ animated: true });
+    });
+    return () => sub.remove();
+  }, [phase]);
 
   const handleClose = () => {
     Keyboard.dismiss();
@@ -223,52 +244,62 @@ export default function ProofCaptureFlow({
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
         <View style={styles.confirmContainer}>
-          <View style={[styles.confirmContent, { paddingTop: insets.top + 40 }]}>
-            <View style={styles.confirmCheckCircle}>
-              <Check size={32} color="#000000" strokeWidth={3} />
+          {/* The saved proof as the canvas (display-only cover; tap for the
+              complete original), with the success state and its context. */}
+          <Pressable
+            style={styles.confirmCanvas}
+            onPress={() => setFullImageUri(savedPhotoUrl)}
+            accessibilityRole="imagebutton"
+            accessibilityLabel="View the full, uncropped proof"
+          >
+            <RNImage source={{ uri: savedPhotoUrl }} style={styles.canvasImage} resizeMode="cover" />
+            <ProofScrims topHeight={insets.top + 150} />
+            <View style={[styles.confirmHeader, { paddingTop: insets.top + 16 }]} pointerEvents="none">
+              <View style={styles.confirmCheckCircle}>
+                <Check size={20} color="#000000" strokeWidth={3} />
+              </View>
+              <Text style={styles.confirmTitle}>PROOF CAPTURED</Text>
             </View>
-            <Text style={styles.confirmTitle}>PROOF CAPTURED</Text>
-            <Text style={styles.confirmDay}>
-              DAY {challengeDay}
-              {selectedInput ? ` · ${selectedInput.activity_name.toUpperCase()}` : ''}
-            </Text>
+            <ProofCaption
+              assignment={selectedInput?.activity_name}
+              note={note.trim() || null}
+              leading={<Text style={styles.confirmDay}>DAY {challengeDay}</Text>}
+            />
+          </Pressable>
 
-            <View style={styles.confirmImageWrapper}>
-              <RNImage
-                source={{ uri: savedPhotoUrl }}
-                style={styles.confirmImage}
-                resizeMode="cover"
-              />
-            </View>
+          <View style={[styles.confirmActions, { paddingBottom: insets.bottom + 20 }]}>
+            <TouchableOpacity
+              style={styles.confirmShareBtn}
+              onPress={handleShareSaved}
+              activeOpacity={0.85}
+            >
+              <Share2 size={17} color="#000000" strokeWidth={2.5} />
+              <Text style={styles.confirmShareText}>SHARE MY PROGRESS</Text>
+            </TouchableOpacity>
 
-            <View style={[styles.confirmActions, { paddingBottom: insets.bottom + 20 }]}>
-              <TouchableOpacity
-                style={styles.confirmShareBtn}
-                onPress={handleShareSaved}
-                activeOpacity={0.85}
-              >
-                <Share2 size={17} color="#000000" strokeWidth={2.5} />
-                <Text style={styles.confirmShareText}>SHARE MY PROGRESS</Text>
-              </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.confirmAddAnotherBtn}
+              onPress={handleAddAnother}
+              activeOpacity={0.7}
+            >
+              <Plus size={16} color="rgba(255,255,255,0.7)" strokeWidth={2.5} />
+              <Text style={styles.confirmAddAnotherText}>ADD ANOTHER</Text>
+            </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.confirmAddAnotherBtn}
-                onPress={handleAddAnother}
-                activeOpacity={0.7}
-              >
-                <Plus size={16} color="rgba(255,255,255,0.7)" strokeWidth={2.5} />
-                <Text style={styles.confirmAddAnotherText}>ADD ANOTHER</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.confirmDoneBtn}
-                onPress={handleClose}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.confirmDoneText}>DONE</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={styles.confirmDoneBtn}
+              onPress={handleClose}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.confirmDoneText}>DONE</Text>
+            </TouchableOpacity>
           </View>
+
+          <ProofFullImage
+            uri={fullImageUri}
+            onClose={() => setFullImageUri(null)}
+            topInset={insets.top}
+          />
         </View>
       </Modal>
     );
@@ -276,6 +307,9 @@ export default function ProofCaptureFlow({
 
   // ── Note/context phase ───────────────────────────────────────────
   if (phase === 'note') {
+    // ~50% of the usable screen (plus the status-bar area it extends under).
+    const usableHeight = windowHeight - insets.top - insets.bottom;
+    const noteCanvasHeight = insets.top + Math.round(usableHeight * 0.5);
     const assignOptions: { id: string | null; name: string }[] = [
       ...inputs.map((i) => ({ id: i.id, name: i.activity_name })),
       { id: null, name: 'General progress' },
@@ -287,53 +321,43 @@ export default function ProofCaptureFlow({
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-          <View style={[styles.noteHeader, { paddingTop: insets.top + 16 }]}>
-            <TouchableOpacity
-              style={styles.noteBackBtn}
-              onPress={() => {
-                Keyboard.dismiss();
-                setPhase('camera');
-              }}
-              activeOpacity={0.6}
-            >
-              <Text style={styles.noteBackText}>Back</Text>
-            </TouchableOpacity>
-            <Text style={styles.noteHeaderTitle}>ADD CONTEXT</Text>
-            <TouchableOpacity style={styles.noteCloseBtn} onPress={handleClose} activeOpacity={0.6}>
-              <X size={20} color="#FFFFFF" strokeWidth={2.5} />
-            </TouchableOpacity>
-          </View>
-
           <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
             <ScrollView
+              ref={noteScrollRef}
               style={styles.noteScroll}
               contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <View style={styles.noteImageWrapper}>
+              {/* The captured proof as the upper canvas: edge to edge, display-only
+                  cover. Tap the photo for the complete original; tap the caption
+                  to change the assignment. */}
+              <Pressable
+                style={[styles.noteCanvas, { height: noteCanvasHeight }]}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setFullImageUri(imageUri);
+                }}
+                accessibilityRole="imagebutton"
+                accessibilityLabel="View the full, uncropped proof"
+              >
                 {imageUri && (
-                  <RNImage source={{ uri: imageUri }} style={styles.noteImage} resizeMode="contain" />
+                  <RNImage source={{ uri: imageUri }} style={styles.canvasImage} resizeMode="cover" />
                 )}
-              </View>
-
-              <View style={styles.noteBottom}>
-                <TouchableOpacity
-                  style={styles.assignCard}
+                <ProofScrims edges="bottom" />
+                <ProofCaption
+                  assignment={assignmentLabel}
+                  assignmentPrefix={`DAY ${challengeDay} · `}
+                  trailing={<ChevronDown size={20} color="rgba(255,255,255,0.7)" strokeWidth={2.5} />}
                   onPress={() => {
                     Keyboard.dismiss();
                     setShowAssignSheet(true);
                   }}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
                   accessibilityLabel={`Assigned to ${assignmentLabel}. Change assignment.`}
-                >
-                  <Text style={styles.assignCardText} numberOfLines={1}>
-                    <Text style={styles.assignCardDay}>DAY {challengeDay} · </Text>
-                    {assignmentLabel}
-                  </Text>
-                  <ChevronDown size={18} color="rgba(255,255,255,0.5)" strokeWidth={2.5} />
-                </TouchableOpacity>
+                />
+              </Pressable>
+
+              <View style={styles.noteBottom}>
                 <Text style={styles.notePrompt}>What will you want to remember about this moment?</Text>
                 <TextInput
                   style={styles.noteInput}
@@ -354,6 +378,31 @@ export default function ProofCaptureFlow({
               </View>
             </ScrollView>
           </TouchableWithoutFeedback>
+
+          {/* Header stays fixed over the canvas (as before, it doesn't scroll). */}
+          <ProofScrims edges="top" topHeight={insets.top + 110} />
+          <View style={[styles.noteHeader, { paddingTop: insets.top + 16 }]} pointerEvents="box-none">
+            <TouchableOpacity
+              style={styles.noteBackBtn}
+              onPress={() => {
+                Keyboard.dismiss();
+                setPhase('camera');
+              }}
+              activeOpacity={0.6}
+            >
+              <Text style={styles.noteBackText}>Back</Text>
+            </TouchableOpacity>
+            <Text style={styles.noteHeaderTitle} pointerEvents="none">ADD CONTEXT</Text>
+            <ProofIconButton onPress={handleClose} activeOpacity={0.6} accessibilityLabel="Close">
+              <X size={20} color="#FFFFFF" strokeWidth={2.5} />
+            </ProofIconButton>
+          </View>
+
+          <ProofFullImage
+            uri={fullImageUri}
+            onClose={() => setFullImageUri(null)}
+            topInset={insets.top}
+          />
         </KeyboardAvoidingView>
 
         {/* ASSIGN THIS PROOF — selecting a row applies it and closes */}
@@ -421,51 +470,51 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#050505',
   },
-  confirmContent: {
+  confirmCanvas: {
     flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 24,
+    overflow: 'hidden',
+    backgroundColor: '#191919',
+  },
+  canvasImage: {
+    width: '100%',
+    height: '100%',
+  },
+  confirmHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 20,
+    right: 20,
   },
   confirmCheckCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: LIME,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   confirmTitle: {
-    fontSize: 22,
+    fontSize: 28,
     fontWeight: '900',
     color: '#FFFFFF',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     fontFamily: 'Inter-Black',
-    marginBottom: 6,
   },
   confirmDay: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.4)',
-    letterSpacing: 1,
-    fontFamily: 'Inter-Bold',
-    marginBottom: 24,
-  },
-  confirmImageWrapper: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 24,
-  },
-  confirmImage: {
-    width: '100%',
-    height: '100%',
+    fontSize: 25,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-Black',
+    letterSpacing: 0.2,
+    marginBottom: 14,
   },
   confirmActions: {
     width: '100%',
     alignItems: 'center',
     gap: 12,
+    paddingTop: 12,
+    paddingHorizontal: 24,
   },
   confirmShareBtn: {
     flexDirection: 'row',
@@ -516,11 +565,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#050505',
   },
   noteHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingBottom: 8,
   },
   noteHeaderTitle: {
     fontSize: 13,
@@ -536,56 +588,20 @@ const styles = StyleSheet.create({
   noteBackText: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.85)',
     fontFamily: 'Inter-SemiBold',
-  },
-  noteCloseBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   noteScroll: {
     flex: 1,
   },
-  noteImageWrapper: {
+  noteCanvas: {
     width: '100%',
-    height: 240,
-    marginBottom: 16,
     overflow: 'hidden',
-  },
-  noteImage: {
-    width: '100%',
-    height: '100%',
+    backgroundColor: '#191919',
   },
   noteBottom: {
     paddingHorizontal: 24,
-  },
-  assignCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    backgroundColor: '#191919',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 20,
-  },
-  assignCardText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    fontFamily: 'Inter-Bold',
-  },
-  assignCardDay: {
-    color: LIME,
-    fontWeight: '900',
-    fontFamily: 'Inter-Black',
-    letterSpacing: 0.5,
+    paddingTop: 16,
   },
   notePrompt: {
     fontSize: 13,

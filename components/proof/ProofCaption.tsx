@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 
 const LIME = '#CCFF00';
 
@@ -17,12 +17,20 @@ interface ProofCaptionProps {
   leading?: React.ReactNode;
   /** Position overrides (e.g. a larger bottom offset over the safe area). */
   style?: StyleProp<ViewStyle>;
+  /** Muted text before the assignment, e.g. "DAY 1 · ". */
+  assignmentPrefix?: string;
+  /** Inline element after the assignment, e.g. a chevron for an editable caption. */
+  trailing?: React.ReactNode;
+  /** Makes the whole caption a button (editing screens). Omit for read-only. */
+  onPress?: () => void;
+  accessibilityLabel?: string;
 }
 
 /**
  * The proof caption pinned to the bottom of an immersive canvas:
- * `X / N`, lime rule, assignment, optional note. Non-interactive, so swipes
- * that start on it still reach the pager underneath.
+ * `X / N`, lime rule, assignment, optional note. Read-only by default and
+ * non-interactive, so swipes that start on it still reach the pager
+ * underneath; with `onPress` it becomes a button (editing screens).
  */
 export default function ProofCaption({
   assignment,
@@ -31,9 +39,19 @@ export default function ProofCaption({
   total = 0,
   leading,
   style,
+  assignmentPrefix,
+  trailing,
+  onPress,
+  accessibilityLabel,
 }: ProofCaptionProps) {
-  return (
-    <View style={[styles.caption, style]} pointerEvents="none">
+  const assignmentText = (
+    <Text style={[styles.assignment, trailing ? styles.assignmentInRow : null]} numberOfLines={2}>
+      {assignmentPrefix ? <Text style={styles.prefix}>{assignmentPrefix}</Text> : null}
+      {assignment ?? 'General progress'}
+    </Text>
+  );
+  const content = (
+    <>
       {total > 1 && (
         <Text style={styles.position}>
           {index + 1} / {total}
@@ -41,14 +59,38 @@ export default function ProofCaption({
       )}
       {leading}
       <View style={styles.rule} />
-      <Text style={styles.assignment} numberOfLines={2}>
-        {assignment ?? 'General progress'}
-      </Text>
+      {trailing ? (
+        <View style={styles.assignmentRow}>
+          {assignmentText}
+          {trailing}
+        </View>
+      ) : (
+        assignmentText
+      )}
       {!!note && (
         <Text style={styles.note} numberOfLines={3}>
           {note}
         </Text>
       )}
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        style={[styles.caption, style]}
+        onPress={onPress}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+      >
+        {content}
+      </TouchableOpacity>
+    );
+  }
+  return (
+    <View style={[styles.caption, style]} pointerEvents="none">
+      {content}
     </View>
   );
 }
@@ -82,6 +124,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     fontFamily: 'Inter-Bold',
+  },
+  assignmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  assignmentInRow: {
+    flexShrink: 1,
+  },
+  prefix: {
+    color: 'rgba(255,255,255,0.6)',
   },
   note: {
     marginTop: 6,

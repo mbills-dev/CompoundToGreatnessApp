@@ -4,7 +4,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 interface ProofScrimsProps {
   /** Height of the top scrim (callers include the safe-area inset). */
-  topHeight: number;
+  topHeight?: number;
+  /**
+   * Which scrims to draw (default both). Screens whose header stays fixed
+   * while the photo scrolls draw 'top' with the header and 'bottom' with
+   * the photo.
+   */
+  edges?: 'both' | 'top' | 'bottom';
 }
 
 /**
@@ -13,20 +19,24 @@ interface ProofScrimsProps {
  * the photo into the near-black area below it. Place inside the canvas, after
  * the photo and before any overlaid text.
  */
-export default function ProofScrims({ topHeight }: ProofScrimsProps) {
+export default function ProofScrims({ topHeight = 0, edges = 'both' }: ProofScrimsProps) {
   return (
     <>
-      <LinearGradient
-        colors={['rgba(5,5,5,0.6)', 'rgba(5,5,5,0)']}
-        style={[styles.top, { height: topHeight }]}
-        pointerEvents="none"
-      />
-      <LinearGradient
-        colors={['rgba(5,5,5,0)', 'rgba(5,5,5,0.6)', '#050505']}
-        locations={[0, 0.55, 1]}
-        style={styles.bottom}
-        pointerEvents="none"
-      />
+      {edges !== 'bottom' && (
+        <LinearGradient
+          colors={['rgba(5,5,5,0.6)', 'rgba(5,5,5,0)']}
+          style={[styles.top, { height: topHeight }]}
+          pointerEvents="none"
+        />
+      )}
+      {edges !== 'top' && (
+        <LinearGradient
+          colors={['rgba(5,5,5,0)', 'rgba(5,5,5,0.6)', '#050505']}
+          locations={[0, 0.55, 1]}
+          style={styles.bottom}
+          pointerEvents="none"
+        />
+      )}
     </>
   );
 }
