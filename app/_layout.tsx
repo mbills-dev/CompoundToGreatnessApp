@@ -114,7 +114,16 @@ function AppContent() {
         <Stack.Screen name="watch/[code]" options={{ headerShown: false }} />
         <Stack.Screen name="archived-challenges" options={{ headerShown: false }} />
         <Stack.Screen name="archived-challenge-detail" options={{ headerShown: false }} />
-        <Stack.Screen name="journey" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="journey"
+          options={({ route }) => ({
+            headerShown: false,
+            // From YOUR PROOF, Journey is pushed beneath the open viewer, which
+            // then slides away to reveal it; the push itself is not seen.
+            animation:
+              (route.params as { via?: string } | undefined)?.via === 'proof' ? 'none' : 'default',
+          })}
+        />
         <Stack.Screen name="reset-password" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>

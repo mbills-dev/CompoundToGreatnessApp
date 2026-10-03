@@ -31,7 +31,11 @@ interface TodayProofViewerProps {
   photos: ProgressPhoto[];
   /** Called after the viewer has fully dismissed. */
   onAddAnother: () => void;
-  /** Called after the viewer has fully dismissed. */
+  /**
+   * Called while the viewer is still visible: the parent navigates to Journey
+   * underneath it and then closes the viewer, so it slides away onto Journey
+   * (Today is never uncovered in between).
+   */
   onViewJourney: () => void;
   /** Permanently deletes one proof (resolves true only if deleted). Omit to hide the options control. */
   onDeletePhoto?: (photo: ProgressPhoto) => Promise<boolean>;
@@ -147,8 +151,12 @@ export default function TodayProofViewer({
 
 
   return (
+    // transparent → presented over-full-screen, so the screens beneath stay in
+    // the window and Journey can be pushed underneath before this closes. The
+    // container below is opaque, so it looks the same as before.
     <Modal
       visible={visible}
+      transparent
       animationType="slide"
       onRequestClose={onClose}
       onDismiss={handleDismiss}
@@ -232,7 +240,7 @@ export default function TodayProofViewer({
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.journeyBtn}
-            onPress={() => closeThen(onViewJourney)}
+            onPress={onViewJourney}
             activeOpacity={0.7}
           >
             <Text style={styles.journeyBtnText}>VIEW YOUR JOURNEY →</Text>

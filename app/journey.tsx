@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
@@ -20,7 +20,14 @@ import ProofIconButton from '@/components/proof/ProofIconButton';
  */
 export default function JourneyScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+
+  // Arriving from YOUR PROOF uses no push animation (see app/_layout.tsx);
+  // once here, back/close uses the standard transition for every entry point.
+  useEffect(() => {
+    navigation.setOptions({ animation: 'default' });
+  }, [navigation]);
   const { user } = useAuth();
   const { goal, activities, isLoading: goalLoading } = useGoalBundle(user?.id);
 

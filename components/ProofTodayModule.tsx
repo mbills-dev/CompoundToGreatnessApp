@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import { DailyActivity } from '@/types/database';
 import { useProofPhotos } from '@/hooks/useProofPhotos';
 import ProofCaptureFlow from './ProofCaptureFlow';
 import TodayProofViewer from './TodayProofViewer';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 const LIME = '#CCFF00';
 
@@ -35,6 +35,21 @@ export default function ProofTodayModule({
   const [showFlow, setShowFlow] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
   const router = useRouter();
+  // VIEW YOUR JOURNEY: Journey is pushed beneath the still-visible viewer;
+  // once that push has made Today lose focus, close the viewer so it slides
+  // away onto Journey rather than onto Today.
+  const closeViewerOnBlurRef = useRef(false);
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        if (closeViewerOnBlurRef.current) {
+          closeViewerOnBlurRef.current = false;
+          setShowViewer(false);
+        }
+      },
+      []
+    )
+  );
 
   const handleSaved = () => {
     refresh();
@@ -147,7 +162,10 @@ export default function ProofTodayModule({
         challengeDay={challengeDay}
         photos={todaysPhotos}
         onAddAnother={() => setShowFlow(true)}
-        onViewJourney={() => router.push('/journey')}
+        onViewJourney={() => {
+          closeViewerOnBlurRef.current = true;
+          router.push({ pathname: '/journey', params: { via: 'proof' } });
+        }}
         onDeletePhoto={deletePhoto}
       />
     </View>
