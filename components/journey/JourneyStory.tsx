@@ -24,15 +24,25 @@ const LIME = '#CCFF00';
 const MUTED = 'rgba(255,255,255,0.55)';
 const CHALLENGE_LENGTH = 77;
 const FRAME_INSET = 12;
-// Every proof sits in the same 3:4 hero frame (the camera's native portrait
-// ratio), so one proof's dimensions never change the screen's hierarchy.
-const FRAME_ASPECT = 3 / 4;
+// Every proof sits in the same 4:5 hero frame, so one proof's dimensions never
+// change the screen's hierarchy. (4:5 is ~6% shorter than the camera's 3:4.)
+const FRAME_ASPECT = 4 / 5;
 // Proofs within this aspect range fill the frame; others are shown whole,
 // over a blurred fill of themselves. Display only — stored proof is untouched.
 const FILL_MIN_ASPECT = 0.6;
 const FILL_MAX_ASPECT = 0.9;
-const TOP_GAP = 4;
-const SEPARATION_MIN = 20;
+// Vertical rhythm: the rail sits a fixed distance under the hero; spare height
+// is shared above the hero (where the Journey mode switch will later sit) and
+// below the navigation, weighted toward the top so the bottom stays tight.
+const MIN_TOP = 4;
+const RAIL_GAP = 28;
+const MIN_BOTTOM = 20;
+const TOP_SHARE = 3 / 4;
+// Whole-image (unusual aspect) backdrop: enlarged and heavily blurred so no
+// recognizable edge sits beside the foreground, then dimmed so it never
+// competes with the proof. Display only.
+const BACKDROP_SCALE = 1.6;
+const BACKDROP_BLUR = 60;
 // Editorial thumbnail rail: portrait thumbs echo the hero frame.
 const THUMB_W = 44;
 const THUMB_H = 58;
@@ -157,14 +167,20 @@ export default function JourneyStory({ photos, loading, onTakeFirstProof }: Jour
   // only if the screen is too short to keep the rail and separation visible.
   const frameWidth = width - FRAME_INSET * 2;
   const controlsReserve = count > 1 ? CONTROLS_H : 0;
-  const bottomReserve = insets.bottom + 8;
+  const railGap = count > 1 ? RAIL_GAP : 0;
   const frameHeight = Math.max(
     0,
     Math.min(
       Math.round(frameWidth / FRAME_ASPECT),
-      bodyHeight - TOP_GAP - controlsReserve - bottomReserve - SEPARATION_MIN * 2
+      bodyHeight - MIN_TOP - railGap - controlsReserve - insets.bottom - MIN_BOTTOM
     )
   );
+  // Height left after the hero, rail, safe area and both minimum gaps.
+  const spare = Math.max(
+    0,
+    bodyHeight - frameHeight - railGap - controlsReserve - insets.bottom - MIN_TOP - MIN_BOTTOM
+  );
+  const topGap = MIN_TOP + Math.round(spare * TOP_SHARE);
 
   const renderPage = ({ item }: { item: ProgressPhoto }) => {
     const aspect = aspects[item.id];
@@ -182,9 +198,9 @@ export default function JourneyStory({ photos, loading, onTakeFirstProof }: Jour
             <>
               <Image
                 source={{ uri: item.storage_url }}
-                style={StyleSheet.absoluteFill}
+                style={[StyleSheet.absoluteFill, { transform: [{ scale: BACKDROP_SCALE }] }]}
                 resizeMode="cover"
-                blurRadius={28}
+                blurRadius={BACKDROP_BLUR}
               />
               <View style={styles.blurDim} />
             </>
@@ -240,7 +256,7 @@ export default function JourneyStory({ photos, loading, onTakeFirstProof }: Jour
             keyExtractor={(p) => p.id}
             renderItem={renderPage}
             extraData={aspects}
-            style={{ flexGrow: 0, height: frameHeight, marginTop: TOP_GAP }}
+            style={{ flexGrow: 0, height: frameHeight, marginTop: topGap }}
             horizontal
             pagingEnabled
             scrollEnabled={count > 1}
@@ -252,7 +268,7 @@ export default function JourneyStory({ photos, loading, onTakeFirstProof }: Jour
         )}
 
         {count > 1 && frameHeight > 0 && (
-          <View style={[styles.controls, { paddingBottom: bottomReserve }]}>
+          <View style={styles.controls}>
             <View style={styles.stripWrap}>
             <FlatList
               ref={stripRef}
@@ -356,7 +372,8 @@ const styles = StyleSheet.create({
   },
   blurDim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(5,5,5,0.45)',
+    // Neutral, near-black wash: lowers brightness and perceived saturation.
+    backgroundColor: 'rgba(10,10,10,0.62)',
   },
   topScrim: {
     position: 'absolute',
@@ -420,8 +437,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
   },
   controls: {
-    flex: 1,
-    justifyContent: 'center',
+    marginTop: RAIL_GAP,
   },
   stripWrap: {
     paddingHorizontal: FRAME_INSET - THUMB_GAP / 2,
